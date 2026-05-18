@@ -1,7 +1,13 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "unsw-connect-app",
+  "name": "jematala-app",
   "compatibility_date": "2026-05-18",
+  "routes": [
+    {
+      "pattern": "jematala.takuk.me/*",
+      "zone_name": "takuk.me",
+    },
+  ],
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",

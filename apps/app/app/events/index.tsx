@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 
-const apiBaseUrl = "http://localhost:8787";
+const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
 
 async function fetchEvents(): Promise<EventSummary[]> {
   const response = await fetch(`${apiBaseUrl}/api/events`);

@@ -5,18 +5,13 @@
   "type": "module",
   "main": "src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
-    "generate": "drizzle-kit generate",
+    "reset:local": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f supabase/reset.sql",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "drizzle-orm": "latest"
-  },
   "devDependencies": {
-    "drizzle-kit": "latest",
     "typescript": "latest"
   }
 }

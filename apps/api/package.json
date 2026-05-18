@@ -6,15 +6,11 @@
     "deploy": "wrangler deploy",
     "build": "wrangler deploy --dry-run",
     "typecheck": "tsc --noEmit",
-    "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
     "@hono/zod-validator": "latest",
-    "@repo/db": "workspace:*",
     "@repo/shared": "workspace:*",
-    "drizzle-orm": "latest",
     "hono": "^4.12.19",
     "zod": "latest"
   },
