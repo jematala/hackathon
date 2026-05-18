@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "unsw-connect-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-18",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "unsw-connect-db",
+      "database_id": "7755b8c5-b719-4ca0-9a24-6d882de6876a",
+      "migrations_dir": "../../packages/db/migrations",
+    },
+  ],
+}
