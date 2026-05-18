@@ -1,0 +1,12 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "jematala-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-18",
+  "routes": [
+    {
+      "pattern": "jematala.takuk.me/api/*",
+      "zone_name": "takuk.me",
+    },
+  ],
+}
