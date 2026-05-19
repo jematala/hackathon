@@ -1,11 +1,17 @@
+import { Asset } from 'expo-asset';
 import { forwardRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 // Import Marker alongside Map from the library
-import { Map as MapLibre, Marker } from '@maplibre/maplibre-react-native';
+import {
+  Camera,
+  Map as MapLibre,
+  Marker,
+} from '@maplibre/maplibre-react-native';
 
 import { UNSW_CENTER, DEMO_POIS } from '@/constants/coordinates';
 
-const THUNDERFOREST_API_KEY = process.env.EXPO_PUBLIC_THUNDERFOREST_KEY ?? 'YOUR_API_KEY_HERE';
+const THUNDERFOREST_API_KEY =
+  process.env.EXPO_PUBLIC_THUNDERFOREST_KEY ?? 'YOUR_API_KEY_HERE';
 
 const MAP_STYLE: any = JSON.stringify({
   version: 8,
@@ -35,9 +41,6 @@ const MAP_STYLE: any = JSON.stringify({
 
 type POI = (typeof DEMO_POIS)[number];
 
-// ==========================================
-// 1. NATIVE CONVERSION: POIMarker
-// ==========================================
 interface POIMarkerProps {
   poi: POI & { coordinate?: [number, number]; lng?: number; lat?: number };
   isSelected: boolean;
@@ -52,10 +55,8 @@ function POIMarker({ poi, isSelected, onPress }: POIMarkerProps) {
     <Marker lngLat={coordinate} anchor='bottom'>
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
         <View style={poiStyles.markerContainer}>
-          {/* Top Gold Circle (cx=16, cy=5, r=4) */}
           <View style={poiStyles.topCircle} />
 
-          {/* Main Box (x=2, y=8, w=28, h=20) */}
           <View
             style={[poiStyles.mainBox, isSelected && poiStyles.mainBoxSelected]}
           >
@@ -72,9 +73,6 @@ function POIMarker({ poi, isSelected, onPress }: POIMarkerProps) {
   );
 }
 
-// ==========================================
-// 2. NATIVE CONVERSION: UserAvatarMarker
-// ==========================================
 interface UserAvatarMarkerProps {
   coordinate: [number, number];
   imageUrl: string;
@@ -95,68 +93,72 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
   );
 }
 
-// ==========================================
-// MAIN MAP VIEW COMPONENT
-// ==========================================
-export default forwardRef<{ invalidateSize: () => void }>(function Map(_props, _ref) {
-  const [selectedPOI, setSelectedPOI] = useState<POI | null>(null);
+export default forwardRef<{ invalidateSize: () => void }>(
+  function Map(_props, _ref) {
+    const [selectedPOI, setSelectedPOI] = useState<POI | null>(null);
 
-  // Mock avatar URL for demonstration
-  const userAvatarUrl =
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100';
+    const userAvatarUrl = Asset.fromModule(
+      require('@/assets/images/avatar.png'),
+    ).uri;
 
-  return (
-    <View style={styles.container}>
-      <MapLibre
-        style={styles.map}
-        mapStyle={MAP_STYLE}
-        onPress={() => setSelectedPOI(null)}
-      >
-        {DEMO_POIS.map((poi) => (
-          <POIMarker
-            key={poi.title}
-            poi={poi}
-            isSelected={selectedPOI?.title === poi.title}
-            onPress={() =>
-              setSelectedPOI((prev) => (prev?.title === poi.title ? null : poi))
-            }
+    return (
+      <View style={styles.container}>
+        <MapLibre
+          style={styles.map}
+          mapStyle={MAP_STYLE}
+          onPress={() => setSelectedPOI(null)}
+        >
+          <Camera
+            initialViewState={{
+              center: [UNSW_CENTER.lng, UNSW_CENTER.lat],
+              zoom: 18,
+            }}
           />
-        ))}
+          {DEMO_POIS.map((poi) => (
+            <POIMarker
+              key={poi.title}
+              poi={poi}
+              isSelected={selectedPOI?.title === poi.title}
+              onPress={() =>
+                setSelectedPOI((prev) =>
+                  prev?.title === poi.title ? null : poi,
+                )
+              }
+            />
+          ))}
 
-        <UserAvatarMarker
-          coordinate={[UNSW_CENTER.lng, UNSW_CENTER.lat]}
-          imageUrl={userAvatarUrl}
-        />
-      </MapLibre>
+          <UserAvatarMarker
+            coordinate={[UNSW_CENTER.lng, UNSW_CENTER.lat]}
+            imageUrl={userAvatarUrl}
+          />
+        </MapLibre>
 
-      {selectedPOI && (
-        <View style={styles.callout} pointerEvents='box-none'>
-          <View style={styles.calloutContent}>
-            <View style={styles.calloutHeader}>
-              <View style={styles.calloutTitleRow}>
-                <View style={styles.calloutDot} />
-                <Text style={styles.calloutTitle}>{selectedPOI.title}</Text>
+        {selectedPOI && (
+          <View style={styles.callout} pointerEvents='box-none'>
+            <View style={styles.calloutContent}>
+              <View style={styles.calloutHeader}>
+                <View style={styles.calloutTitleRow}>
+                  <View style={styles.calloutDot} />
+                  <Text style={styles.calloutTitle}>{selectedPOI.title}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setSelectedPOI(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.calloutDismiss}>✕</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                onPress={() => setSelectedPOI(null)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.calloutDismiss}>✕</Text>
-              </TouchableOpacity>
+              <Text style={styles.calloutDescription}>
+                {selectedPOI.description}
+              </Text>
             </View>
-            <Text style={styles.calloutDescription}>
-              {selectedPOI.description}
-            </Text>
           </View>
-        </View>
-      )}
-    </View>
-  );
-});
+        )}
+      </View>
+    );
+  },
+);
 
-// ==========================================
-// STYLESHEETS
-// ==========================================
 const poiStyles = StyleSheet.create({
   markerContainer: {
     width: 32,
