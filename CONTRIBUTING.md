@@ -9,6 +9,14 @@ mise install
 bun install
 ```
 
+### Development Plan
+
+Read **[`PLAN.md`](./PLAN.md)** before starting work. It defines the phased build order,
+team task allocations (BE1/BE2/FE1/FE2), and dependencies between features.
+
+**Check off tasks as you complete them** — update `PLAN.md` in your branch so the team
+can track what's done. Use `- [x]` for completed items.
+
 ### Useful Commands
 
 | Command | Description |
