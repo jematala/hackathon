@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
+import { fonts } from "@/app/theme";
 
 type TextFieldProps = {
   label: string;
@@ -21,6 +22,7 @@ const styles = StyleSheet.create({
     color: "#6A401A",
     fontSize: 14,
     fontWeight: "700",
+    fontFamily: fonts.family,
   },
   input: {
     backgroundColor: "#FFF5E6",
@@ -31,5 +33,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 44,
     paddingHorizontal: 12,
+    fontFamily: fonts.family,
   },
 });

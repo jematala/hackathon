@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
+import { colors, fonts } from "@/app/theme";
 
 type ButtonProps = {
   label: string;
@@ -28,6 +29,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: "center",
     paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: colors.primaryDark,
   },
   pressed: {
     opacity: 0.82,

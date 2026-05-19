@@ -2,12 +2,12 @@
 
 ## Team Structure
 
-| Person | Role | Primary Focus |
-|--------|------|---------------|
-| **BE1** | Backend Lead | DB schema, Drizzle ORM, API routes (POI, billboard, sticker, quest, user), auth middleware, deployment |
-| **BE2** | Backend | Durable Object (WebSocket), content moderation, push notifications, reporting/admin API |
-| **FE1** | Frontend Lead | Navigation/routing, auth UI, map component, POI display, app theme/styling, admin panel |
-| **FE2** | Frontend | Billboard expanded view, pixel art sticker editor, sticker/sticky note placement, quest UI, profile screen, push notification handling |
+| Person  | Role          | Primary Focus                                                                                                                          |
+| ------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **BE1** | Backend Lead  | DB schema, Drizzle ORM, API routes (POI, billboard, sticker, quest, user), auth middleware, deployment                                 |
+| **BE2** | Backend       | Durable Object (WebSocket), content moderation, push notifications, reporting/admin API                                                |
+| **FE1** | Frontend Lead | Navigation/routing, auth UI, map component, POI display, app theme/styling, admin panel                                                |
+| **FE2** | Frontend      | Billboard expanded view, pixel art sticker editor, sticker/sticky note placement, quest UI, profile screen, push notification handling |
 
 ---
 
@@ -19,6 +19,8 @@
 - [x] **BE1** — Write shared Zod schemas in `packages/shared/src/` (poi includes optional picture, user includes avatar)
 - [x] **BE1** — Delete old `events`-related code from `packages/shared/src/events.ts`
 - [x] **All 4** — Agree on sticker storage format (base64 PNG), admin role mechanism (is_admin), map provider for mobile (react-native-leaflet-view), quest system (parameterised templates), daily quest pool (~5), push timing (8–9am), billboard limits (concurrent cap + Sydney-day posting cap)
+
+- [x] **All 4** — Document commit practice: update PLAN.md before each commit (`CONTRIBUTING.md`)
 
 > **Dependency edge:** Everything else depends on the shared schemas and DB schema.
 

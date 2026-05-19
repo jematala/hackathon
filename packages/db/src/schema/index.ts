@@ -515,7 +515,7 @@ export const levelPerks = appSchema.table(
   },
   (table) => [
     uniqueIndex("level_perks_level_perk_idx").on(table.level, table.perkId),
-    check("level_perks_level_check", sql`${table.level} >= 0`),
+    check("level_perks_level_check", sql`${table.level} >= 1`),
   ],
 );
 
@@ -589,6 +589,7 @@ export const userSignatures = appSchema.table(
       .where(sql`${table.isEquipped}`),
   ],
 );
+
 
 export const reports = appSchema.table(
   "reports",

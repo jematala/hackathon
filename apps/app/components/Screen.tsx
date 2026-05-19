@@ -16,7 +16,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: 20,
+    gap: 16,
     marginHorizontal: "auto",
     maxWidth: 760,
     padding: 20,

@@ -71,6 +71,8 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(app)" />
           <Stack.Screen name="auth" />
+          <Stack.Screen name="avatar/create" />
+          <Stack.Screen name="billboard/[id]" />
         </Stack>
       </AuthGate>
       <StatusBar style="dark" />

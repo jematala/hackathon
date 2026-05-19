@@ -261,7 +261,7 @@ create table app.perk_definitions (
 
 create table app.level_perks (
   id uuid primary key default gen_random_uuid(),
-  level integer not null check (level >= 0),
+  level integer not null check (level >= 1),
   perk_id uuid not null references app.perk_definitions(id) on delete restrict,
   numeric_value integer,
   metadata jsonb,

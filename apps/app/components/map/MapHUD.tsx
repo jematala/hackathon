@@ -49,14 +49,18 @@ function TextButton({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
-export function MapHUD() {
+type MapHUDProps = {
+  onStudioPress: () => void;
+};
+
+export function MapHUD({ onStudioPress }: MapHUDProps) {
   return (
     <View style={styles.container}>
       <ProfileButton />
       <View style={styles.rightCluster}>
         <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
         <View style={{ width: 10 }} />
-        <TextButton label="Studio" onPress={() => {}} />
+        <TextButton label="Studio" onPress={onStudioPress} />
       </View>
     </View>
   );
