@@ -94,6 +94,8 @@ export default function BillboardDetailScreen() {
               setError("You've already pinned a note here.");
             } else if (err.code === "moderation_rejected") {
               setError("Your note was rejected by moderation.");
+            } else if (err.code === "moderation_unavailable") {
+              setError("Moderation isn't available right now — can't pin this note.");
             } else {
               setError(err.message);
             }
@@ -199,12 +201,6 @@ export default function BillboardDetailScreen() {
               maxChars={STICKY_MAX_CHARS}
             />
           ) : null}
-
-          {createPlacement.isPending ? (
-            <View style={styles.canvasPending} pointerEvents="none">
-              <ActivityIndicator color={colors.creamText} />
-            </View>
-          ) : null}
         </View>
       </View>
 
@@ -228,6 +224,13 @@ export default function BillboardDetailScreen() {
             ]}
           >
             <Text style={styles.placeText}>Pin it</Text>
+            {createPlacement.isPending ? (
+              <ActivityIndicator
+                color={colors.creamText}
+                size="small"
+                style={styles.placeSpinner}
+              />
+            ) : null}
           </Pressable>
         </View>
       ) : (
@@ -330,16 +333,6 @@ const styles = StyleSheet.create({
   anchorWrap: {
     position: "absolute",
   },
-  canvasPending: {
-    alignItems: "center",
-    backgroundColor: "rgba(62, 53, 40, 0.4)",
-    bottom: 0,
-    justifyContent: "center",
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
   errorBanner: {
     backgroundColor: "#F6D7CE",
     borderColor: colors.pinRedDark,
@@ -368,20 +361,26 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   placeButton: {
+    alignItems: "center",
     backgroundColor: colors.sageDark,
     borderColor: colors.sageDarker,
     borderRadius: 14,
     borderWidth: 2,
+    flexDirection: "row",
+    gap: 8,
     paddingHorizontal: 26,
     paddingVertical: 12,
   },
   placeButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.7,
   },
   placeText: {
     color: colors.creamText,
     fontSize: 18,
     letterSpacing: 0.6,
+  },
+  placeSpinner: {
+    transform: [{ scale: 0.8 }],
   },
   addButton: {
     alignItems: "center",

@@ -176,7 +176,86 @@ export type MockRequest = {
   userId: string;
 };
 
-export function dispatchMock(req: MockRequest): unknown {
+// Sticky-note bodies are sent to this URL for moderation before the mock
+// accepts the placement. Lets us exercise OpenAI moderation end-to-end
+// without spinning up a full backend. Required — if EXPO_PUBLIC_API_URL is
+// missing, the mock fails closed and the pin is blocked.
+const MODERATION_URL = process.env.EXPO_PUBLIC_API_URL
+  ? `${process.env.EXPO_PUBLIC_API_URL}/api/moderate/text`
+  : null;
+
+type ModerationVerdict =
+  | { status: "approved"; maxScore: number; topCategory: string | null }
+  | {
+      status: "rejected";
+      maxScore: number;
+      categories: ReadonlyArray<{ category: string; score: number; threshold: number }>;
+    }
+  | { status: "skipped"; reason: string };
+
+// Fail-closed: anything other than an explicit "approved" verdict blocks the
+// pin. The user-facing flow needs to enforce moderation, not paper over it
+// with warnings — so misconfig, network errors, and "skipped" all raise.
+async function moderateStickyNoteOrThrow(text: string): Promise<void> {
+  console.log("[mock] moderating sticky note:", JSON.stringify(text));
+
+  if (!MODERATION_URL) {
+    console.error("[mock] EXPO_PUBLIC_API_URL is not set — blocking pin");
+    throw new MockApiError(
+      503,
+      "moderation_unavailable",
+      "Moderation isn't configured (EXPO_PUBLIC_API_URL missing). Pin blocked.",
+    );
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(MODERATION_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+  } catch (err) {
+    console.error("[mock] moderation request failed:", err);
+    throw new MockApiError(
+      503,
+      "moderation_unavailable",
+      "Couldn't reach moderation service. Pin blocked.",
+    );
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.error("[mock] moderation API returned", res.status, detail);
+    throw new MockApiError(
+      503,
+      "moderation_unavailable",
+      `Moderation service returned ${res.status}. Pin blocked.`,
+    );
+  }
+
+  const verdict = (await res.json()) as ModerationVerdict;
+  console.log("[mock] moderation verdict:", verdict);
+
+  if (verdict.status === "approved") return;
+
+  if (verdict.status === "rejected") {
+    const summary = verdict.categories
+      .map((c) => `${c.category} (${c.score.toFixed(2)} ≥ ${c.threshold.toFixed(2)})`)
+      .join(", ");
+    throw new MockApiError(422, "moderation_rejected", `Content flagged: ${summary}`);
+  }
+
+  // status === "skipped" — moderation didn't actually run. Block, because the
+  // user's intent is that pins must pass moderation.
+  throw new MockApiError(
+    503,
+    "moderation_unavailable",
+    `Moderation skipped (${verdict.reason}). Pin blocked — set OPENAI_API_KEY and MODERATION_ENABLED=true to enable.`,
+  );
+}
+
+export async function dispatchMock(req: MockRequest): Promise<unknown> {
   ensureSeeded();
   const { method, path, body, userId } = req;
 
@@ -251,6 +330,9 @@ export function dispatchMock(req: MockRequest): unknown {
       throw new MockApiError(409, "placement_exists", "You already replied to this billboard");
     }
     const input = createPlacementInputSchema.parse(body);
+    if (input.kind === "sticky_note") {
+      await moderateStickyNoteOrThrow(input.body);
+    }
     const maxZ = [...placements.values()]
       .filter((p) => p.billboardId === billboardId)
       .reduce((m, p) => Math.max(m, p.zIndex), -1);

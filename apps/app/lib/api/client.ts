@@ -32,7 +32,7 @@ export async function apiFetch<TResponse>({
 }: FetchOptions<TResponse>): Promise<TResponse> {
   if (USE_MOCK) {
     try {
-      const raw = dispatchMock({ method, path, body, userId });
+      const raw = await dispatchMock({ method, path, body, userId });
       return schema.parse(raw);
     } catch (err) {
       if (err instanceof MockApiError) {
