@@ -12,7 +12,6 @@ import { stickersRoute } from "./routes/stickers";
 import { usersRoute } from "./routes/users";
 import { CampusRealtimeRoomDO } from "./realtime/campus-room";
 import { realtimeStub } from "./services/realtime";
-import { isSydneyReminderWindow, sendDailyQuestReminder } from "./services/push";
 import { ensureDailyRotations, expireBillboards } from "./services/rotations";
 import type { AppBindings, Env } from "./types";
 
@@ -66,8 +65,9 @@ export default {
     await ensureDailyRotations(db);
     await expireBillboards(db);
 
-    if (isSydneyReminderWindow()) {
-      await sendDailyQuestReminder(env, db);
-    }
+    // Expo push reminders are disabled until push credentials and UX are finalized.
+    // if (isSydneyReminderWindow()) {
+    //   await sendDailyQuestReminder(env, db);
+    // }
   },
 };

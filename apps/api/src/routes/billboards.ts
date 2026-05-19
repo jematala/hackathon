@@ -23,7 +23,6 @@ import {
 } from "../services/progression";
 import { broadcastRealtime } from "../services/realtime";
 import { moderateText, recordModerationLog } from "../services/moderation";
-import { sendPushToUser } from "../services/push";
 import { expireBillboards } from "../services/rotations";
 import type { AppBindings } from "../types";
 
@@ -367,15 +366,16 @@ billboardsRoute.post(
 
     if (billboard.authorId !== authUser.id) {
       await incrementQuestProgress(db, billboard.authorId, "receive_replies");
-      await sendPushToUser(c.env, db, billboard.authorId, {
-        body: `${authUser.username} replied to your billboard.`,
-        data: {
-          billboardId: id.data,
-          kind: "billboard_reply",
-          placementId,
-        },
-        title: "New reply",
-      });
+      // Expo push notifications are disabled until push credentials and UX are finalized.
+      // await sendPushToUser(c.env, db, billboard.authorId, {
+      //   body: `${authUser.username} replied to your billboard.`,
+      //   data: {
+      //     billboardId: id.data,
+      //     kind: "billboard_reply",
+      //     placementId,
+      //   },
+      //   title: "New reply",
+      // });
     }
 
     await broadcastRealtime(c.env, {
