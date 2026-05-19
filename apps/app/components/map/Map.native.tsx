@@ -13,7 +13,7 @@ const MAP_STYLE: any = JSON.stringify({
     'thunderforest-neighbourhood': {
       type: 'raster',
       tiles: [
-        `https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=${THUNDERFOREST_API_KEY}`,
+        `https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}.png?apikey=${THUNDERFOREST_API_KEY}`,
       ],
       tileSize: 256,
       maxzoom: 21,
