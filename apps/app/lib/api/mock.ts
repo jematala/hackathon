@@ -260,9 +260,7 @@ export async function dispatchMock(req: MockRequest): Promise<unknown> {
   const { method, path, body, userId } = req;
 
   if (method === "GET" && path === "/api/billboards") {
-    const list = [...billboards.values()]
-      .filter((b) => b.status === "active")
-      .map(toSummary);
+    const list = [...billboards.values()].filter((b) => b.status === "active").map(toSummary);
     return { billboards: list };
   }
 

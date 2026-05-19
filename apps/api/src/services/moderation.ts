@@ -36,28 +36,28 @@ const MODEL = "omni-moderation-latest";
 const CATEGORY_THRESHOLDS: Readonly<Record<string, number>> = {
   // Harassment — students bullying each other is a top concern
   harassment: 0.3,
-  "harassment/threatening": 0.3,   // threats: strict
-  
+  "harassment/threatening": 0.3, // threats: strict
+
   // Hate — campus climate, protected groups
   hate: 0.1,
-  "hate/threatening": 0.3,         // strict
-  
+  "hate/threatening": 0.3, // strict
+
   // Sexual — not expected in notes, but allow medical/biology/anatomy context
-  sexual: 0.1,                     // looser, since med/bio/psych notes mention sex
-  "sexual/minors": 0.1,            // near-zero tolerance, always
-  
+  sexual: 0.1, // looser, since med/bio/psych notes mention sex
+  "sexual/minors": 0.1, // near-zero tolerance, always
+
   // Violence — history, politics, law, criminology notes will mention violence
-  violence: 0.1,                   // very loose, academic context
-  "violence/graphic": 0.6,         // moderate
-  
+  violence: 0.1, // very loose, academic context
+  "violence/graphic": 0.6, // moderate
+
   // Self-harm — university mental health is serious; err on the side of intervention
   "self-harm": 0.1,
-  "self-harm/intent": 0.3,         // strict, route to support resources
-  "self-harm/instructions": 0.2,   // very strict
-  
+  "self-harm/intent": 0.3, // strict, route to support resources
+  "self-harm/instructions": 0.2, // very strict
+
   // Illicit — drugs/alcohol talk happens on campuses, but instructions are different
-  illicit: 0.1,                    // loose, students discuss legality/policy
-  "illicit/violent": 0.4,          // strict
+  illicit: 0.1, // loose, students discuss legality/policy
+  "illicit/violent": 0.4, // strict
 };
 
 const FALLBACK_THRESHOLD = 0.5;

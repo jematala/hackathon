@@ -13,7 +13,10 @@ function patchForwardRef(component: ForwardRefLike): void {
   component.render = function (...args: unknown[]) {
     const origin = original.apply(this, args);
     return cloneElement(origin as ReactElement<{ style?: unknown }>, {
-      style: [{ fontFamily: FONT_FAMILY }, (origin as ReactElement<{ style?: unknown }>).props.style],
+      style: [
+        { fontFamily: FONT_FAMILY },
+        (origin as ReactElement<{ style?: unknown }>).props.style,
+      ],
     });
   };
 }
@@ -38,8 +41,9 @@ function injectWebCss(): void {
 // Idempotent — Fast Refresh re-runs this module; guard so we don't stack
 // patches and create N levels of cloneElement wrapping.
 type PatchFlag = { applied?: boolean };
-const flag: PatchFlag = ((globalThis as unknown as { __jersey10Patched?: PatchFlag })
-  .__jersey10Patched ??= {});
+const flag: PatchFlag = ((
+  globalThis as unknown as { __jersey10Patched?: PatchFlag }
+).__jersey10Patched ??= {});
 
 if (!flag.applied) {
   patchForwardRef(Text as unknown as ForwardRefLike);

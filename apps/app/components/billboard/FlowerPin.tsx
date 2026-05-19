@@ -29,7 +29,9 @@ export function FlowerPin({ fill, accent, size = 16 }: FlowerPinProps) {
   const tilt = ((fill.charCodeAt(0) % 11) - 5) * 1.4;
 
   return (
-    <View style={[styles.host, { width: size, height: size, transform: [{ rotate: `${tilt}deg` }] }]}>
+    <View
+      style={[styles.host, { width: size, height: size, transform: [{ rotate: `${tilt}deg` }] }]}
+    >
       {Array.from({ length: petalCount }).map((_, i) => {
         const baseAngle = (i * 360) / petalCount;
         const { angleOffset, scale } = PETAL_JITTER[i % PETAL_JITTER.length] ?? {

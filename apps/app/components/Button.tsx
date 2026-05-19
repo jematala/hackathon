@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 
-import { colors } from "@/lib/theme";
+import { colors, fonts } from "@/app/theme";
 
 type ButtonVariant = "primary" | "subtle";
 
@@ -32,32 +32,32 @@ export function Button({ label, style, variant = "primary", ...props }: ButtonPr
 const styles = StyleSheet.create({
   button: {
     alignItems: "center",
-    borderRadius: 14,
+    borderRadius: 0,
+    borderWidth: 2,
     justifyContent: "center",
-    minHeight: 50,
-    paddingHorizontal: 24,
+    minHeight: 44,
+    paddingHorizontal: 16,
   },
   primary: {
-    backgroundColor: colors.sageDark,
-    borderColor: colors.sageDarker,
-    borderWidth: 2,
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
   },
   subtle: {
-    backgroundColor: colors.pageBgSoft,
-    borderColor: colors.sageDark,
-    borderWidth: 2,
+    backgroundColor: colors.card,
+    borderColor: colors.primaryDark,
   },
   pressed: {
     opacity: 0.82,
   },
   label: {
-    fontSize: 18,
-    letterSpacing: 0.6,
+    fontFamily: fonts.family,
+    fontSize: fonts.sizes.md,
+    fontWeight: "700",
   },
   labelPrimary: {
-    color: colors.creamText,
+    color: colors.white,
   },
   labelSubtle: {
-    color: colors.sageDark,
+    color: colors.primaryDark,
   },
 });

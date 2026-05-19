@@ -18,8 +18,7 @@ export function StickyNoteView({
   style,
 }: StickyNoteViewProps) {
   const paper = paperForAuthor(authorId);
-  const rotation =
-    rotationDeg ?? ((authorId.charCodeAt(0) % 7) - 3) * 1.2;
+  const rotation = rotationDeg ?? ((authorId.charCodeAt(0) % 7) - 3) * 1.2;
   return (
     <View
       style={[

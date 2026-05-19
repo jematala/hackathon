@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
 
-import { colors } from "@/lib/theme";
+import { colors, fonts } from "@/app/theme";
 
 const WEB_NO_OUTLINE = { outlineStyle: "none" } as unknown as { outlineStyle: undefined };
 
@@ -14,8 +14,8 @@ export function TextField({ label, style, ...props }: TextFieldProps) {
       <Text style={styles.label}>{label}</Text>
       <TextInput
         autoCapitalize="none"
-        placeholderTextColor={colors.inkSofter}
-        selectionColor={colors.sageDark}
+        placeholderTextColor={colors.textLight}
+        selectionColor={colors.primaryDark}
         underlineColorAndroid="transparent"
         style={[styles.input, WEB_NO_OUTLINE, style]}
         {...props}
@@ -29,20 +29,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    color: colors.sageDark,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
+    color: colors.text,
+    fontFamily: fonts.family,
+    fontSize: fonts.sizes.sm,
+    fontWeight: "700",
   },
   input: {
-    backgroundColor: colors.pageBgSoft,
-    borderColor: colors.sage,
-    borderRadius: 10,
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: 0,
     borderWidth: 2,
-    color: colors.ink,
-    fontSize: 18,
-    minHeight: 46,
-    paddingHorizontal: 14,
+    color: colors.text,
+    fontFamily: fonts.family,
+    fontSize: fonts.sizes.md,
+    minHeight: 44,
+    paddingHorizontal: 12,
   },
 });

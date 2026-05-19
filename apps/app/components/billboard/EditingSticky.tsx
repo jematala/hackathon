@@ -1,10 +1,13 @@
 import { forwardRef, useImperativeHandle, useState } from "react";
-import { StyleSheet, TextInput, View, type NativeSyntheticEvent, type TextInputContentSizeChangeEventData } from "react-native";
+import {
+  StyleSheet,
+  TextInput,
+  View,
+  type NativeSyntheticEvent,
+  type TextInputContentSizeChangeEventData,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 
 import { colors, paperForAuthor, pinForAuthor } from "@/lib/theme";
 
@@ -41,9 +44,7 @@ export const EditingSticky = forwardRef<EditingStickyHandle, EditingStickyProps>
     const pin = pinForAuthor(authorId);
 
     const [inputHeight, setInputHeight] = useState(LINE_HEIGHT);
-    const onContentSizeChange = (
-      e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
-    ) => {
+    const onContentSizeChange = (e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
       const next = e.nativeEvent.contentSize.height;
       if (Number.isFinite(next) && next > 0) {
         setInputHeight(Math.min(MAX_INPUT_HEIGHT, Math.max(LINE_HEIGHT, next)));
@@ -79,16 +80,8 @@ export const EditingSticky = forwardRef<EditingStickyHandle, EditingStickyProps>
       })
       .onUpdate((e) => {
         "worklet";
-        tx.value = clampWorklet(
-          startTx.value + e.translationX,
-          0,
-          canvasWidth - STICKY_EDIT_SIZE,
-        );
-        ty.value = clampWorklet(
-          startTy.value + e.translationY,
-          0,
-          canvasHeight - STICKY_EDIT_SIZE,
-        );
+        tx.value = clampWorklet(startTx.value + e.translationX, 0, canvasWidth - STICKY_EDIT_SIZE);
+        ty.value = clampWorklet(startTy.value + e.translationY, 0, canvasHeight - STICKY_EDIT_SIZE);
       });
 
     const animatedStyle = useAnimatedStyle(() => ({
@@ -107,12 +100,7 @@ export const EditingSticky = forwardRef<EditingStickyHandle, EditingStickyProps>
             animatedStyle,
           ]}
         >
-          <View
-            style={[
-              styles.sticky,
-              { backgroundColor: paper.fill, borderColor: paper.edge },
-            ]}
-          >
+          <View style={[styles.sticky, { backgroundColor: paper.fill, borderColor: paper.edge }]}>
             <TextInput
               value={body}
               onChangeText={(t) => onChangeBody(t.slice(0, maxChars))}

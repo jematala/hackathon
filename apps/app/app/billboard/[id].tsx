@@ -11,10 +11,7 @@ import {
 } from "react-native";
 
 import { AnchorNote } from "@/components/billboard/AnchorNote";
-import {
-  EditingSticky,
-  type EditingStickyHandle,
-} from "@/components/billboard/EditingSticky";
+import { EditingSticky, type EditingStickyHandle } from "@/components/billboard/EditingSticky";
 import { Placement } from "@/components/billboard/Placement";
 import { UsernamePill } from "@/components/billboard/UsernamePill";
 import { Screen } from "@/components/Screen";
@@ -33,20 +30,6 @@ const STICKY_MAX_CHARS = 280;
 export default function BillboardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const goBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace("/");
-  };
-  const renderBackButton = () => (
-    <Pressable
-      onPress={goBack}
-      style={styles.backButton}
-      hitSlop={8}
-      accessibilityLabel="Go back"
-    >
-      <ChevronLeft color={colors.sageDark} size={22} />
-    </Pressable>
-  );
   const { user } = useDevUser();
   const billboard = useBillboard(id);
   const createPlacement = useCreatePlacement(id ?? "");
@@ -63,6 +46,17 @@ export default function BillboardDetailScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const isEditing = editing !== null;
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/");
+  };
+
+  const renderBackButton = () => (
+    <Pressable onPress={goBack} style={styles.backButton} hitSlop={8} accessibilityLabel="Go back">
+      <ChevronLeft color={colors.sageDark} size={22} />
+    </Pressable>
+  );
 
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -106,7 +100,7 @@ export default function BillboardDetailScreen() {
             } else if (err.code === "moderation_rejected") {
               setError("Your note was rejected by moderation.");
             } else if (err.code === "moderation_unavailable") {
-              setError("Moderation isn't available right now — can't pin this note.");
+              setError("Moderation isn't available right now - can't pin this note.");
             } else {
               setError(err.message);
             }
@@ -124,9 +118,7 @@ export default function BillboardDetailScreen() {
   if (billboard.isLoading) {
     return (
       <Screen>
-        <Stack.Screen
-          options={{ title: "Whiteboard", headerLeft: renderBackButton }}
-        />
+        <Stack.Screen options={{ title: "Whiteboard", headerLeft: renderBackButton }} />
         <View style={styles.loading}>
           <ActivityIndicator color={colors.sageDark} />
         </View>
@@ -137,14 +129,11 @@ export default function BillboardDetailScreen() {
   if (billboard.isError || !billboard.data) {
     return (
       <Screen>
-        <Stack.Screen
-          options={{ title: "Whiteboard", headerLeft: renderBackButton }}
-        />
+        <Stack.Screen options={{ title: "Whiteboard", headerLeft: renderBackButton }} />
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Whiteboard not found</Text>
           <Text style={styles.emptyBody}>
-            {(billboard.error as Error | undefined)?.message ??
-              "It may have expired."}
+            {(billboard.error as Error | undefined)?.message ?? "It may have expired."}
           </Text>
         </View>
       </Screen>
@@ -155,14 +144,12 @@ export default function BillboardDetailScreen() {
 
   return (
     <Screen>
-      <Stack.Screen
-        options={{ title: "Whiteboard", headerLeft: renderBackButton }}
-      />
+      <Stack.Screen options={{ title: "Whiteboard", headerLeft: renderBackButton }} />
 
       <View style={styles.metaRow}>
         <UsernamePill username={b.authorUsername} tone="sage" />
         <Text style={styles.meta}>
-          {expiresInLabel(b.expiresAt)} · {b.placementCount}{" "}
+          {expiresInLabel(b.expiresAt)} - {b.placementCount}{" "}
           {b.placementCount === 1 ? "reply" : "replies"}
         </Text>
       </View>
@@ -230,11 +217,7 @@ export default function BillboardDetailScreen() {
 
       {isEditing ? (
         <View style={styles.actionBar}>
-          <Pressable
-            onPress={cancelEdit}
-            style={styles.cancelButton}
-            hitSlop={8}
-          >
+          <Pressable onPress={cancelEdit} style={styles.cancelButton} hitSlop={8}>
             <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
           <Pressable

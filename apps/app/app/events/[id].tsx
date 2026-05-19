@@ -1,42 +1,36 @@
 import { useLocalSearchParams } from "expo-router";
-import { StyleSheet, Text } from "react-native";
-
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
+import { ThemedText } from "@/components/ThemedText";
+import { StyleSheet, Text } from "react-native";
 import { colors, fonts } from "@/app/theme";
 
-export default function ProfileScreen() {
-  const { userId } = useLocalSearchParams<{ userId: string }>();
+export default function EventDetailsScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
 
   return (
     <Screen>
-      <Text style={styles.title}>Profile</Text>
+      <ThemedText type="title">Event details</ThemedText>
       <Card>
-        <Text style={styles.label}>User route</Text>
-        <Text style={styles.value}>{userId}</Text>
+        <Text style={styles.label}>Route parameter</Text>
+        <Text style={styles.value}>{id}</Text>
       </Card>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    color: colors.text,
-    fontFamily: fonts.family,
-    fontSize: 28,
-    fontWeight: "700",
-  },
   label: {
     color: colors.textSecondary,
-    fontFamily: fonts.family,
     fontSize: 13,
     fontWeight: "700",
     textTransform: "uppercase",
+    fontFamily: fonts.family,
   },
   value: {
     color: colors.text,
-    fontFamily: fonts.family,
     fontSize: 18,
     fontWeight: "700",
+    fontFamily: fonts.family,
   },
 });
