@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   customType,
   date,
   doublePrecision,
@@ -30,7 +31,6 @@ export const savedStickerKindEnum = appSchema.enum("saved_sticker_kind", [
   "sticker",
   "sticky_note",
 ]);
-export const questKindEnum = appSchema.enum("quest_kind", ["level", "daily"]);
 export const questTriggerTypeEnum = appSchema.enum("quest_trigger_type", [
   "visit_pois",
   "leave_billboards",
@@ -79,22 +79,30 @@ const updatedAt = timestamp("updated_at", { withTimezone: true }).notNull().defa
 const deletedAt = timestamp("deleted_at", { withTimezone: true });
 const currentDate = sql`current_date`;
 
-export const users = appSchema.table("users", {
-  id: text("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  displayName: text("display_name").notNull(),
-  avatarBase64: text("avatar_base64"),
-  isAdmin: boolean("is_admin").notNull().default(false),
-  level: integer("level").notNull().default(1),
-  xp: integer("xp").notNull().default(0),
-  dailyStreak: integer("daily_streak").notNull().default(0),
-  streakUpdatedOn: date("streak_updated_on"),
-  lastDailyClaimedOn: date("last_daily_claimed_on"),
-  bannedAt: timestamp("banned_at", { withTimezone: true }),
-  deletedAt,
-  createdAt,
-  updatedAt,
-});
+export const users = appSchema.table(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    username: text("username").notNull().unique(),
+    displayName: text("display_name").notNull(),
+    avatarBase64: text("avatar_base64"),
+    isAdmin: boolean("is_admin").notNull().default(false),
+    level: integer("level").notNull().default(1),
+    xp: integer("xp").notNull().default(0),
+    dailyStreak: integer("daily_streak").notNull().default(0),
+    streakUpdatedOn: date("streak_updated_on"),
+    lastDailyClaimedOn: date("last_daily_claimed_on"),
+    bannedAt: timestamp("banned_at", { withTimezone: true }),
+    deletedAt,
+    createdAt,
+    updatedAt,
+  },
+  (table) => [
+    check("users_level_check", sql`${table.level} >= 1`),
+    check("users_xp_check", sql`${table.xp} >= 0`),
+    check("users_daily_streak_check", sql`${table.dailyStreak} >= 0`),
+  ],
+);
 
 export const pushTokens = appSchema.table(
   "push_tokens",
@@ -111,17 +119,21 @@ export const pushTokens = appSchema.table(
   (table) => [index("push_tokens_user_idx").on(table.userId)],
 );
 
-export const campuses = appSchema.table("campuses", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  timezone: text("timezone").notNull(),
-  centerLat: doublePrecision("center_lat").notNull(),
-  centerLng: doublePrecision("center_lng").notNull(),
-  radiusMeters: integer("radius_meters").notNull(),
-  bounds: jsonb("bounds").$type<JsonObject>().notNull(),
-  mapProvider: text("map_provider").notNull().default("openstreetmap"),
-  createdAt,
-});
+export const campuses = appSchema.table(
+  "campuses",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    timezone: text("timezone").notNull(),
+    centerLat: doublePrecision("center_lat").notNull(),
+    centerLng: doublePrecision("center_lng").notNull(),
+    radiusMeters: integer("radius_meters").notNull(),
+    bounds: jsonb("bounds").$type<JsonObject>().notNull(),
+    mapProvider: text("map_provider").notNull().default("openstreetmap"),
+    createdAt,
+  },
+  (table) => [check("campuses_radius_meters_check", sql`${table.radiusMeters} > 0`)],
+);
 
 export const pois = appSchema.table(
   "pois",
@@ -148,6 +160,7 @@ export const pois = appSchema.table(
     index("pois_active_campus_idx")
       .on(table.campusId, table.isActive)
       .where(sql`${table.deletedAt} is null`),
+    check("pois_radius_meters_check", sql`${table.radiusMeters} > 0`),
   ],
 );
 
@@ -232,7 +245,11 @@ export const stickerAssets = appSchema.table(
     createdAt,
     deletedAt,
   },
-  (table) => [index("sticker_assets_owner_idx").on(table.ownerId)],
+  (table) => [
+    index("sticker_assets_owner_idx").on(table.ownerId),
+    check("sticker_assets_width_check", sql`${table.width} > 0`),
+    check("sticker_assets_height_check", sql`${table.height} > 0`),
+  ],
 );
 
 export const billboardPlacements = appSchema.table(
@@ -263,6 +280,23 @@ export const billboardPlacements = appSchema.table(
   (table) => [
     uniqueIndex("billboard_placements_one_per_user_idx").on(table.billboardId, table.authorId),
     index("billboard_placements_billboard_idx").on(table.billboardId, table.zIndex),
+    check("billboard_placements_x_check", sql`${table.x} >= 0 and ${table.x} <= 1`),
+    check("billboard_placements_y_check", sql`${table.y} >= 0 and ${table.y} <= 1`),
+    check(
+      "billboard_placements_kind_payload_check",
+      sql`
+        (
+          ${table.kind} = 'sticker'
+          and ${table.stickerAssetId} is not null
+          and ${table.body} is null
+        )
+        or (
+          ${table.kind} = 'sticky_note'
+          and ${table.stickerAssetId} is null
+          and ${table.body} is not null
+        )
+      `,
+    ),
   ],
 );
 
@@ -286,22 +320,65 @@ export const savedStickers = appSchema.table(
     index("saved_stickers_user_idx")
       .on(table.userId)
       .where(sql`${table.deletedAt} is null`),
+    check(
+      "saved_stickers_kind_payload_check",
+      sql`
+        (
+          ${table.kind} = 'sticker'
+          and ${table.stickerAssetId} is not null
+          and ${table.body} is null
+        )
+        or (
+          ${table.kind} = 'sticky_note'
+          and ${table.stickerAssetId} is null
+          and ${table.body} is not null
+        )
+      `,
+    ),
   ],
 );
 
-export const questTemplates = appSchema.table("quest_templates", {
-  id: text("id").primaryKey(),
-  key: text("key").notNull().unique(),
-  kind: questKindEnum("kind").notNull(),
-  triggerType: questTriggerTypeEnum("trigger_type").notNull(),
-  titleTemplate: text("title_template").notNull(),
-  descriptionTemplate: text("description_template").notNull(),
-  minTarget: integer("min_target").notNull(),
-  maxTarget: integer("max_target").notNull(),
-  xpReward: integer("xp_reward").notNull(),
-  active: boolean("active").notNull().default(true),
-  createdAt,
-});
+export const questTemplates = appSchema.table(
+  "quest_templates",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    triggerType: questTriggerTypeEnum("trigger_type").notNull(),
+    titleTemplate: text("title_template").notNull(),
+    descriptionTemplate: text("description_template").notNull(),
+    minTarget: integer("min_target").notNull(),
+    maxTarget: integer("max_target").notNull(),
+    xpReward: integer("xp_reward").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt,
+  },
+  (table) => [
+    check("quest_templates_min_target_check", sql`${table.minTarget} > 0`),
+    check("quest_templates_max_target_check", sql`${table.maxTarget} >= ${table.minTarget}`),
+    check("quest_templates_xp_reward_check", sql`${table.xpReward} >= 0`),
+  ],
+);
+
+export const dailyQuestTemplates = appSchema.table(
+  "daily_quest_templates",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    triggerType: questTriggerTypeEnum("trigger_type").notNull(),
+    titleTemplate: text("title_template").notNull(),
+    descriptionTemplate: text("description_template").notNull(),
+    minTarget: integer("min_target").notNull(),
+    maxTarget: integer("max_target").notNull(),
+    xpReward: integer("xp_reward").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt,
+  },
+  (table) => [
+    check("daily_quest_templates_min_target_check", sql`${table.minTarget} > 0`),
+    check("daily_quest_templates_max_target_check", sql`${table.maxTarget} >= ${table.minTarget}`),
+    check("daily_quest_templates_xp_reward_check", sql`${table.xpReward} >= 0`),
+  ],
+);
 
 export const levelQuestSets = appSchema.table(
   "level_quest_sets",
@@ -316,19 +393,31 @@ export const levelQuestSets = appSchema.table(
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt,
   },
-  (table) => [uniqueIndex("level_quest_sets_level_sort_idx").on(table.level, table.sortOrder)],
+  (table) => [
+    uniqueIndex("level_quest_sets_level_sort_idx").on(table.level, table.sortOrder),
+    check("level_quest_sets_level_check", sql`${table.level} >= 1`),
+    check("level_quest_sets_target_count_check", sql`${table.targetCount} > 0`),
+    check("level_quest_sets_xp_reward_check", sql`${table.xpReward} >= 0`),
+  ],
 );
 
-export const dailyQuestPool = appSchema.table("daily_quest_pool", {
-  id: text("id").primaryKey(),
-  templateId: text("template_id")
-    .notNull()
-    .references(() => questTemplates.id, { onDelete: "restrict" }),
-  targetCount: integer("target_count").notNull(),
-  xpReward: integer("xp_reward").notNull(),
-  active: boolean("active").notNull().default(true),
-  createdAt,
-});
+export const dailyQuestPool = appSchema.table(
+  "daily_quest_pool",
+  {
+    id: text("id").primaryKey(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => dailyQuestTemplates.id, { onDelete: "restrict" }),
+    targetCount: integer("target_count").notNull(),
+    xpReward: integer("xp_reward").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt,
+  },
+  (table) => [
+    check("daily_quest_pool_target_count_check", sql`${table.targetCount} > 0`),
+    check("daily_quest_pool_xp_reward_check", sql`${table.xpReward} >= 0`),
+  ],
+);
 
 export const dailyQuestAssignments = appSchema.table(
   "daily_quest_assignments",
@@ -369,6 +458,12 @@ export const userQuestProgress = appSchema.table(
   (table) => [
     uniqueIndex("user_quest_progress_unique_idx").on(table.userId, table.source, table.sourceId),
     index("user_quest_progress_user_idx").on(table.userId),
+    check("user_quest_progress_progress_count_check", sql`${table.progressCount} >= 0`),
+    check("user_quest_progress_target_count_check", sql`${table.targetCount} > 0`),
+    check(
+      "user_quest_progress_claimed_xp_check",
+      sql`${table.claimedXp} is null or ${table.claimedXp} >= 0`,
+    ),
   ],
 );
 
@@ -392,7 +487,10 @@ export const levelPerks = appSchema.table(
     metadata: jsonb("metadata").$type<JsonObject>(),
     createdAt,
   },
-  (table) => [uniqueIndex("level_perks_level_perk_idx").on(table.level, table.perkId)],
+  (table) => [
+    uniqueIndex("level_perks_level_perk_idx").on(table.level, table.perkId),
+    check("level_perks_level_check", sql`${table.level} >= 1`),
+  ],
 );
 
 export const userPerkUnlocks = appSchema.table(
@@ -407,17 +505,24 @@ export const userPerkUnlocks = appSchema.table(
     sourceLevel: integer("source_level").notNull(),
     unlockedAt: timestamp("unlocked_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.userId, table.perkId] })],
+  (table) => [
+    primaryKey({ columns: [table.userId, table.perkId] }),
+    check("user_perk_unlocks_source_level_check", sql`${table.sourceLevel} >= 1`),
+  ],
 );
 
-export const streakRewardDefinitions = appSchema.table("streak_reward_definitions", {
-  id: text("id").primaryKey(),
-  streakDays: integer("streak_days").notNull().unique(),
-  name: text("name").notNull(),
-  reward: jsonb("reward").$type<JsonObject>().notNull(),
-  active: boolean("active").notNull().default(true),
-  createdAt,
-});
+export const streakRewardDefinitions = appSchema.table(
+  "streak_reward_definitions",
+  {
+    id: text("id").primaryKey(),
+    streakDays: integer("streak_days").notNull().unique(),
+    name: text("name").notNull(),
+    reward: jsonb("reward").$type<JsonObject>().notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt,
+  },
+  (table) => [check("streak_reward_definitions_streak_days_check", sql`${table.streakDays} > 0`)],
+);
 
 export const reports = appSchema.table(
   "reports",

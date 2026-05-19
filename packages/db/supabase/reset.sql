@@ -6,7 +6,6 @@ create extension if not exists postgis with schema extensions;
 create type app.content_status as enum ('pending', 'active', 'hidden', 'removed', 'rejected');
 create type app.placement_kind as enum ('sticker', 'sticky_note');
 create type app.saved_sticker_kind as enum ('sticker', 'sticky_note');
-create type app.quest_kind as enum ('level', 'daily');
 create type app.quest_trigger_type as enum (
   'visit_pois',
   'leave_billboards',
@@ -53,7 +52,7 @@ create table app.campuses (
   timezone text not null,
   center_lat double precision not null,
   center_lng double precision not null,
-  radius_meters integer not null,
+  radius_meters integer not null check (radius_meters > 0),
   bounds jsonb not null,
   map_provider text not null default 'openstreetmap',
   created_at timestamptz not null default now()
@@ -139,6 +138,18 @@ create table app.billboard_placements (
   deleted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  check (
+    (
+      kind = 'sticker'
+      and sticker_asset_id is not null
+      and body is null
+    )
+    or (
+      kind = 'sticky_note'
+      and sticker_asset_id is null
+      and body is not null
+    )
+  ),
   unique (billboard_id, author_id)
 );
 
@@ -150,13 +161,37 @@ create table app.saved_stickers (
   body text,
   label text,
   created_at timestamptz not null default now(),
-  deleted_at timestamptz
+  deleted_at timestamptz,
+  check (
+    (
+      kind = 'sticker'
+      and sticker_asset_id is not null
+      and body is null
+    )
+    or (
+      kind = 'sticky_note'
+      and sticker_asset_id is null
+      and body is not null
+    )
+  )
 );
 
 create table app.quest_templates (
   id text primary key,
   key text not null unique,
-  kind app.quest_kind not null,
+  trigger_type app.quest_trigger_type not null,
+  title_template text not null,
+  description_template text not null,
+  min_target integer not null check (min_target > 0),
+  max_target integer not null check (max_target >= min_target),
+  xp_reward integer not null check (xp_reward >= 0),
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table app.daily_quest_templates (
+  id text primary key,
+  key text not null unique,
   trigger_type app.quest_trigger_type not null,
   title_template text not null,
   description_template text not null,
@@ -180,7 +215,7 @@ create table app.level_quest_sets (
 
 create table app.daily_quest_pool (
   id text primary key,
-  template_id text not null references app.quest_templates(id) on delete restrict,
+  template_id text not null references app.daily_quest_templates(id) on delete restrict,
   target_count integer not null check (target_count > 0),
   xp_reward integer not null check (xp_reward >= 0),
   active boolean not null default true,
@@ -206,7 +241,7 @@ create table app.user_quest_progress (
   completed_at timestamptz,
   claimable_at timestamptz,
   claimed_at timestamptz,
-  claimed_xp integer,
+  claimed_xp integer check (claimed_xp is null or claimed_xp >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, source, source_id)
@@ -322,14 +357,21 @@ insert into app.poi_daily_activations (campus_id, poi_id, active_on)
 select 'unsw-kensington', id, current_date
 from app.pois;
 
-insert into app.quest_templates (id, key, kind, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
+insert into app.quest_templates (id, key, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
 values
-  ('qt-visit-pois', 'visit_pois', 'level', 'visit_pois', 'Visit {target} new POIs', 'Discover {target} campus landmarks you have not visited before.', 1, 5, 50),
-  ('qt-leave-billboards', 'leave_billboards', 'level', 'leave_billboards', 'Leave {target} billboards', 'Post {target} notes around campus.', 1, 5, 50),
-  ('qt-place-stickers', 'place_stickers', 'level', 'place_stickers', 'Place {target} stickers', 'Reply to billboards with {target} sticker placements.', 1, 6, 50),
-  ('qt-receive-replies', 'receive_replies', 'level', 'receive_replies', 'Receive {target} replies', 'Have other students reply to your billboards {target} times.', 1, 5, 75),
-  ('qt-save-stickers', 'save_stickers', 'level', 'save_stickers', 'Save {target} stickers', 'Save {target} stickers or sticky notes to your collection.', 1, 4, 40),
-  ('qt-daily-explorer', 'daily_explorer', 'daily', 'visit_pois', 'Daily wander', 'Visit {target} active POIs today.', 1, 3, 30);
+  ('qt-visit-pois', 'visit_pois', 'visit_pois', 'Visit {target} new POIs', 'Discover {target} campus landmarks you have not visited before.', 1, 5, 50),
+  ('qt-leave-billboards', 'leave_billboards', 'leave_billboards', 'Leave {target} billboards', 'Post {target} notes around campus.', 1, 5, 50),
+  ('qt-place-stickers', 'place_stickers', 'place_stickers', 'Place {target} stickers', 'Reply to billboards with {target} sticker placements.', 1, 6, 50),
+  ('qt-receive-replies', 'receive_replies', 'receive_replies', 'Receive {target} replies', 'Have other students reply to your billboards {target} times.', 1, 5, 75),
+  ('qt-save-stickers', 'save_stickers', 'save_stickers', 'Save {target} stickers', 'Save {target} stickers or sticky notes to your collection.', 1, 4, 40);
+
+insert into app.daily_quest_templates (id, key, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
+values
+  ('dqt-daily-explorer', 'daily_explorer', 'visit_pois', 'Daily wander', 'Visit {target} active POIs today.', 1, 3, 30),
+  ('dqt-daily-note', 'daily_note', 'leave_billboards', 'Campus bulletin', 'Leave {target} billboard today.', 1, 2, 25),
+  ('dqt-daily-sticker', 'daily_sticker', 'place_stickers', 'Sticker hello', 'Place {target} stickers on billboards today.', 1, 3, 30),
+  ('dqt-daily-save', 'daily_save', 'save_stickers', 'Pocket a favourite', 'Save {target} sticker or sticky note today.', 1, 2, 25),
+  ('dqt-daily-replies', 'daily_replies', 'receive_replies', 'Start a conversation', 'Receive {target} replies on your billboards today.', 1, 2, 35);
 
 insert into app.level_quest_sets (id, level, template_id, target_count, xp_reward, sort_order)
 values
@@ -341,11 +383,11 @@ values
 
 insert into app.daily_quest_pool (id, template_id, target_count, xp_reward)
 values
-  ('dq-visit-one', 'qt-daily-explorer', 1, 25),
-  ('dq-visit-two', 'qt-daily-explorer', 2, 35),
-  ('dq-note-one', 'qt-leave-billboards', 1, 25),
-  ('dq-sticker-two', 'qt-place-stickers', 2, 30),
-  ('dq-save-one', 'qt-save-stickers', 1, 25);
+  ('dq-visit-one', 'dqt-daily-explorer', 1, 25),
+  ('dq-visit-two', 'dqt-daily-explorer', 2, 35),
+  ('dq-note-one', 'dqt-daily-note', 1, 25),
+  ('dq-sticker-two', 'dqt-daily-sticker', 2, 30),
+  ('dq-save-one', 'dqt-daily-save', 1, 25);
 
 insert into app.daily_quest_assignments (id, campus_id, active_on, daily_quest_pool_id)
 values ('dqa-unsw-today', 'unsw-kensington', current_date, 'dq-visit-one');

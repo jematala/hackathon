@@ -2,7 +2,7 @@
 
 ## Scope From PLAN.md
 
-- Work on Phase 0 from [`PLAN.md`](PLAN.md): domain model, DB schema, Drizzle schema, shared Zod schemas, and removal of the old `events` scaffold.
+- Work on Phase 0 from [`PLAN.md`](../../PLAN.md): domain model, DB schema, Drizzle schema, shared Zod schemas, and removal of the old `events` scaffold.
 - Phase 0 should not implement auth middleware, DB driver wiring, Hono route handlers, Durable Objects, moderation calls, push notifications, or admin dashboards yet.
 - It should still define the API contracts expected by Phase 1b and later so FE/BE can build against stable schemas.
 - No backward compatibility is needed; replace event terminology with the real product domain.
@@ -25,17 +25,17 @@
 
 Update or create these files:
 
-- [`packages/db/supabase/reset.sql`](packages/db/supabase/reset.sql): full reset SQL for the real tables, seed UNSW campus plus a few demo POIs/quests, and remove event tables.
-- [`packages/db/src/schema/`](packages/db/src/schema/): Drizzle schema matching the SQL tables.
-- [`packages/shared/src/poi.ts`](packages/shared/src/poi.ts): POI schemas and route contracts.
-- [`packages/shared/src/billboard.ts`](packages/shared/src/billboard.ts): billboard and placement schemas.
-- [`packages/shared/src/sticker.ts`](packages/shared/src/sticker.ts): sticker/sticky-note asset and collection schemas.
-- [`packages/shared/src/quest.ts`](packages/shared/src/quest.ts): quest, progress, claim, and progression schemas.
-- [`packages/shared/src/perk.ts`](packages/shared/src/perk.ts): perk definitions, level unlocks, and unlocked perk response schemas.
-- [`packages/shared/src/user.ts`](packages/shared/src/user.ts): profile, current user, progress summary, and settings schemas.
-- [`packages/shared/src/report.ts`](packages/shared/src/report.ts): report/admin moderation action schemas.
-- [`packages/shared/src/index.ts`](packages/shared/src/index.ts): export the new domain modules.
-- [`packages/shared/src/events.ts`](packages/shared/src/events.ts): delete or empty/remove exports, depending on import cleanup.
+- [`packages/db/supabase/reset.sql`](../../packages/db/supabase/reset.sql): full reset SQL for the real tables, seed UNSW campus plus a few demo POIs/quests, and remove event tables.
+- [`packages/db/src/schema/`](../../packages/db/src/schema/): Drizzle schema matching the SQL tables.
+- [`packages/shared/src/poi.ts`](../../packages/shared/src/poi.ts): POI schemas and route contracts.
+- [`packages/shared/src/billboard.ts`](../../packages/shared/src/billboard.ts): billboard and placement schemas.
+- [`packages/shared/src/sticker.ts`](../../packages/shared/src/sticker.ts): sticker/sticky-note asset and collection schemas.
+- [`packages/shared/src/quest.ts`](../../packages/shared/src/quest.ts): quest, progress, claim, and progression schemas.
+- [`packages/shared/src/perk.ts`](../../packages/shared/src/perk.ts): perk definitions, level unlocks, and unlocked perk response schemas.
+- [`packages/shared/src/user.ts`](../../packages/shared/src/user.ts): profile, current user, progress summary, and settings schemas.
+- [`packages/shared/src/report.ts`](../../packages/shared/src/report.ts): report/admin moderation action schemas.
+- [`packages/shared/src/index.ts`](../../packages/shared/src/index.ts): export the new domain modules.
+- [`packages/shared/src/events.ts`](../../packages/shared/src/events.ts): delete or empty/remove exports, depending on import cleanup.
 
 ## Expected API Routes To Design Contracts For
 
@@ -111,9 +111,10 @@ Stickers and collection:
 
 Quests and perks:
 
-- `app.quest_templates`: parameterised quest template catalog. Columns should include `key`, `kind` (`level` or `daily`), `trigger_type`, `title_template`, `description_template`, `min_target`, `max_target`, `xp_reward`, and `active`.
+- `app.quest_templates`: parameterised level quest template catalog. Columns should include `key`, `trigger_type`, `title_template`, `description_template`, `min_target`, `max_target`, `xp_reward`, and `active`.
 - `app.level_quest_sets`: generated or seeded level/tier quest instances with `level`, `template_id`, `target_count`, `xp_reward`, and ordering.
-- `app.daily_quest_pool`: curated daily quest candidates from `quest_templates`, with target counts and XP tuned for daily play.
+- `app.daily_quest_templates`: parameterised daily quest template catalog, separate from level quests even when it uses the same trigger types.
+- `app.daily_quest_pool`: curated daily quest candidates from `daily_quest_templates`, with target counts and XP tuned for daily play.
 - `app.daily_quest_assignments`: date/campus selected daily quest(s), so every user sees the same daily rotation.
 - `app.user_quest_progress`: user id, quest source/type, quest instance id, progress count, completed_at, claimable_at, claimed_at, claimed XP.
 - `app.perk_definitions`: catalog of perks such as note capacity increase, sticker slot increase, note signature, note border flair, palette expansion.
@@ -147,18 +148,19 @@ Recommended naming examples:
 - `poiSummarySchema`, `poiDetailSchema`, `listPoisResponseSchema`, `visitPoiInputSchema`, `visitPoiResponseSchema`.
 - `billboardSummarySchema`, `billboardDetailSchema`, `createBillboardInputSchema`, `createPlacementInputSchema`.
 - `stickerAssetSchema`, `savedStickerSchema`, `createStickerInputSchema`.
-- `questTemplateSchema`, `questSchema`, `questProgressSchema`, `listQuestsResponseSchema`, `claimQuestResponseSchema`.
+- `questTemplateSchema`, `dailyQuestTemplateSchema`, `levelQuestSchema`, `dailyQuestSchema`, `questProgressSchema`, `listQuestsResponseSchema`, `claimQuestResponseSchema`.
 - `perkSchema`, `levelPerkSchema`, `unlockedPerkSchema`, `listUserPerksResponseSchema`.
 - `userProfileSchema`, `currentUserSchema`, `userProgressSchema`, `updateCurrentUserInputSchema`, `updateAvatarInputSchema`.
 - `createReportInputSchema`, `reportSchema`, `adminReportActionInputSchema`.
 
 ## Quest And Perk Model Detail
 
-Model quests as templates plus generated instances:
+Model level quests and daily quests with separate templates plus generated/assigned instances:
 
-- Templates define the objective family: visit new POIs, leave billboards, place stickers, receive replies, save stickers.
-- Level quest sets bind templates to a level/tier with concrete target values, so level 1 can ask for small counts while later levels can increase difficulty.
-- Daily quest pool rows are curated separately and assigned by date/campus.
+- Level quest templates define long-term objective families: visit new POIs, leave billboards, place stickers, receive replies, save stickers.
+- Daily quest templates define short daily objectives separately, even when they share trigger types with level quests.
+- Level quest sets bind level templates to a level/tier with concrete target values, so level 1 can ask for small counts while later levels can increase difficulty.
+- Daily quest pool rows are curated from daily templates and assigned by date/campus.
 - User progress points at the concrete level quest or daily assignment, not only the template, so claims are stable even if templates change later.
 
 Model perks as data, not hardcoded conditionals:
@@ -183,8 +185,8 @@ Model expiry and caps from the PRD explicitly:
 
 ## Implementation Order For Phase 0
 
-1. Rewrite [`packages/db/supabase/reset.sql`](packages/db/supabase/reset.sql) with the real `app` tables and seed data.
-2. Add matching Drizzle schema files under [`packages/db/src/schema/`](packages/db/src/schema/).
+1. Rewrite [`packages/db/supabase/reset.sql`](../../packages/db/supabase/reset.sql) with the real `app` tables and seed data.
+2. Add matching Drizzle schema files under [`packages/db/src/schema/`](../../packages/db/src/schema/).
 3. Replace shared event schemas with the domain modules and route contracts above.
 4. Seed the PRD level perks and the initial quest template/daily pool rows.
 5. Run typecheck/format after implementation approval.
