@@ -6,7 +6,7 @@ import { Screen } from "@/components/Screen";
 import { useDevUser } from "@/lib/devUser";
 import { colors } from "@/lib/theme";
 
-const DEMO_BILLBOARD_ID = "bb-seed-1";
+const DEMO_BILLBOARD_ID = "00000000-0000-4000-8000-000000000b01";
 
 export default function HomeScreen() {
   const { user, users, setUserId } = useDevUser();

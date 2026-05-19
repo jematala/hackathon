@@ -27,6 +27,7 @@ export const levelPerkSchema = z.object({
 });
 
 export const unlockedPerkSchema = z.object({
+  levelPerkId: idSchema,
   perk: perkSchema,
   sourceLevel: z.number().int().positive(),
   unlockedAt: isoDateTimeSchema,

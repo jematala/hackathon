@@ -13,6 +13,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 export type JsonObject = Record<string, unknown>;
@@ -43,6 +44,11 @@ export const reportTargetTypeEnum = appSchema.enum("report_target_type", [
   "billboard",
   "placement",
   "user",
+]);
+export const contentModerationTargetTypeEnum = appSchema.enum("content_moderation_target_type", [
+  "billboard",
+  "placement",
+  "sticker_asset",
 ]);
 export const reportReasonEnum = appSchema.enum("report_reason", [
   "spam",
@@ -77,12 +83,17 @@ const geographyPoint = customType<{ data: string; driverData: string }>({
 const createdAt = timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const updatedAt = timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
 const deletedAt = timestamp("deleted_at", { withTimezone: true });
-const currentDate = sql`current_date`;
+const currentSydneyDate = sql`(timezone('Australia/Sydney', now()))::date`;
+const uuidPrimaryKey = (name = "id") =>
+  uuid(name)
+    .primaryKey()
+    .default(sql`gen_random_uuid()`);
 
 export const users = appSchema.table(
   "users",
   {
-    id: text("id").primaryKey(),
+    id: uuidPrimaryKey(),
+    clerkUserId: text("clerk_user_id").notNull().unique(),
     username: text("username").notNull().unique(),
     displayName: text("display_name").notNull(),
     avatarBase64: text("avatar_base64"),
@@ -107,8 +118,8 @@ export const users = appSchema.table(
 export const pushTokens = appSchema.table(
   "push_tokens",
   {
-    id: text("id").primaryKey(),
-    userId: text("user_id")
+    id: uuidPrimaryKey(),
+    userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     token: text("token").notNull().unique(),
@@ -122,7 +133,7 @@ export const pushTokens = appSchema.table(
 export const campuses = appSchema.table(
   "campuses",
   {
-    id: text("id").primaryKey(),
+    id: uuidPrimaryKey(),
     name: text("name").notNull(),
     timezone: text("timezone").notNull(),
     centerLat: doublePrecision("center_lat").notNull(),
@@ -138,8 +149,8 @@ export const campuses = appSchema.table(
 export const pois = appSchema.table(
   "pois",
   {
-    id: text("id").primaryKey(),
-    campusId: text("campus_id")
+    id: uuidPrimaryKey(),
+    campusId: uuid("campus_id")
       .notNull()
       .references(() => campuses.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
@@ -150,7 +161,7 @@ export const pois = appSchema.table(
     lng: doublePrecision("lng").notNull(),
     radiusMeters: integer("radius_meters").notNull().default(30),
     isActive: boolean("is_active").notNull().default(true),
-    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt,
     updatedAt,
     deletedAt,
@@ -167,10 +178,10 @@ export const pois = appSchema.table(
 export const poiDailyActivations = appSchema.table(
   "poi_daily_activations",
   {
-    campusId: text("campus_id")
+    campusId: uuid("campus_id")
       .notNull()
       .references(() => campuses.id, { onDelete: "cascade" }),
-    poiId: text("poi_id")
+    poiId: uuid("poi_id")
       .notNull()
       .references(() => pois.id, { onDelete: "cascade" }),
     activeOn: date("active_on").notNull(),
@@ -182,14 +193,14 @@ export const poiDailyActivations = appSchema.table(
 export const poiVisits = appSchema.table(
   "poi_visits",
   {
-    userId: text("user_id")
+    userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    poiId: text("poi_id")
+    poiId: uuid("poi_id")
       .notNull()
       .references(() => pois.id, { onDelete: "cascade" }),
     visitedAt: timestamp("visited_at", { withTimezone: true }).notNull().defaultNow(),
-    visitedOn: date("visited_on").notNull().default(currentDate),
+    visitedOn: date("visited_on").notNull().default(currentSydneyDate),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.poiId] }),
@@ -200,11 +211,11 @@ export const poiVisits = appSchema.table(
 export const billboards = appSchema.table(
   "billboards",
   {
-    id: text("id").primaryKey(),
-    campusId: text("campus_id")
+    id: uuidPrimaryKey(),
+    campusId: uuid("campus_id")
       .notNull()
       .references(() => campuses.id, { onDelete: "cascade" }),
-    authorId: text("author_id")
+    authorId: uuid("author_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
@@ -213,8 +224,12 @@ export const billboards = appSchema.table(
     lng: doublePrecision("lng").notNull(),
     status: contentStatusEnum("status").notNull().default("pending"),
     moderationSummary: jsonb("moderation_summary").$type<JsonObject>(),
-    createdOn: date("created_on").notNull().default(currentDate),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    emptyExpiresAt: timestamp("empty_expires_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now() + interval '24 hours'`),
+    expiresAt: timestamp("expires_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now() + interval '5 days'`),
     hiddenAt: timestamp("hidden_at", { withTimezone: true }),
     deletedAt,
     createdAt,
@@ -225,15 +240,26 @@ export const billboards = appSchema.table(
     index("billboards_active_idx")
       .on(table.campusId, table.status, table.expiresAt)
       .where(sql`${table.deletedAt} is null`),
-    index("billboards_author_day_idx").on(table.authorId, table.createdOn),
+    index("billboards_author_day_idx").on(
+      table.authorId,
+      sql`((timezone('Australia/Sydney', ${table.createdAt}))::date)`,
+    ),
+    check(
+      "billboards_expires_at_check",
+      sql`${table.expiresAt} > ${table.createdAt} and ${table.expiresAt} <= ${table.createdAt} + interval '5 days'`,
+    ),
+    check(
+      "billboards_empty_expires_at_check",
+      sql`${table.emptyExpiresAt} > ${table.createdAt} and ${table.emptyExpiresAt} <= ${table.createdAt} + interval '24 hours'`,
+    ),
   ],
 );
 
 export const stickerAssets = appSchema.table(
   "sticker_assets",
   {
-    id: text("id").primaryKey(),
-    ownerId: text("owner_id")
+    id: uuidPrimaryKey(),
+    ownerId: uuid("owner_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     pngBase64: text("png_base64").notNull(),
@@ -255,19 +281,19 @@ export const stickerAssets = appSchema.table(
 export const billboardPlacements = appSchema.table(
   "billboard_placements",
   {
-    id: text("id").primaryKey(),
-    billboardId: text("billboard_id")
+    id: uuidPrimaryKey(),
+    billboardId: uuid("billboard_id")
       .notNull()
       .references(() => billboards.id, { onDelete: "cascade" }),
-    authorId: text("author_id")
+    authorId: uuid("author_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     kind: placementKindEnum("kind").notNull(),
     x: doublePrecision("x").notNull(),
     y: doublePrecision("y").notNull(),
     zIndex: integer("z_index").notNull().default(0),
-    stickerAssetId: text("sticker_asset_id").references(() => stickerAssets.id, {
-      onDelete: "set null",
+    stickerAssetId: uuid("sticker_asset_id").references(() => stickerAssets.id, {
+      onDelete: "restrict",
     }),
     body: text("body"),
     status: contentStatusEnum("status").notNull().default("pending"),
@@ -303,12 +329,12 @@ export const billboardPlacements = appSchema.table(
 export const savedStickers = appSchema.table(
   "saved_stickers",
   {
-    id: text("id").primaryKey(),
-    userId: text("user_id")
+    id: uuidPrimaryKey(),
+    userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     kind: savedStickerKindEnum("kind").notNull(),
-    stickerAssetId: text("sticker_asset_id").references(() => stickerAssets.id, {
+    stickerAssetId: uuid("sticker_asset_id").references(() => stickerAssets.id, {
       onDelete: "cascade",
     }),
     body: text("body"),
@@ -341,7 +367,7 @@ export const savedStickers = appSchema.table(
 export const questTemplates = appSchema.table(
   "quest_templates",
   {
-    id: text("id").primaryKey(),
+    id: uuidPrimaryKey(),
     key: text("key").notNull().unique(),
     triggerType: questTriggerTypeEnum("trigger_type").notNull(),
     titleTemplate: text("title_template").notNull(),
@@ -362,7 +388,7 @@ export const questTemplates = appSchema.table(
 export const dailyQuestTemplates = appSchema.table(
   "daily_quest_templates",
   {
-    id: text("id").primaryKey(),
+    id: uuidPrimaryKey(),
     key: text("key").notNull().unique(),
     triggerType: questTriggerTypeEnum("trigger_type").notNull(),
     titleTemplate: text("title_template").notNull(),
@@ -383,9 +409,9 @@ export const dailyQuestTemplates = appSchema.table(
 export const levelQuestSets = appSchema.table(
   "level_quest_sets",
   {
-    id: text("id").primaryKey(),
+    id: uuidPrimaryKey(),
     level: integer("level").notNull(),
-    templateId: text("template_id")
+    templateId: uuid("template_id")
       .notNull()
       .references(() => questTemplates.id, { onDelete: "restrict" }),
     targetCount: integer("target_count").notNull(),
@@ -404,8 +430,8 @@ export const levelQuestSets = appSchema.table(
 export const dailyQuestPool = appSchema.table(
   "daily_quest_pool",
   {
-    id: text("id").primaryKey(),
-    templateId: text("template_id")
+    id: uuidPrimaryKey(),
+    templateId: uuid("template_id")
       .notNull()
       .references(() => dailyQuestTemplates.id, { onDelete: "restrict" }),
     targetCount: integer("target_count").notNull(),
@@ -422,12 +448,12 @@ export const dailyQuestPool = appSchema.table(
 export const dailyQuestAssignments = appSchema.table(
   "daily_quest_assignments",
   {
-    id: text("id").primaryKey(),
-    campusId: text("campus_id")
+    id: uuidPrimaryKey(),
+    campusId: uuid("campus_id")
       .notNull()
       .references(() => campuses.id, { onDelete: "cascade" }),
     activeOn: date("active_on").notNull(),
-    dailyQuestPoolId: text("daily_quest_pool_id")
+    dailyQuestPoolId: uuid("daily_quest_pool_id")
       .notNull()
       .references(() => dailyQuestPool.id, { onDelete: "restrict" }),
     createdAt,
@@ -440,12 +466,12 @@ export const dailyQuestAssignments = appSchema.table(
 export const userQuestProgress = appSchema.table(
   "user_quest_progress",
   {
-    id: text("id").primaryKey(),
-    userId: text("user_id")
+    id: uuidPrimaryKey(),
+    userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     source: questSourceEnum("source").notNull(),
-    sourceId: text("source_id").notNull(),
+    sourceId: uuid("source_id").notNull(),
     progressCount: integer("progress_count").notNull().default(0),
     targetCount: integer("target_count").notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -468,7 +494,7 @@ export const userQuestProgress = appSchema.table(
 );
 
 export const perkDefinitions = appSchema.table("perk_definitions", {
-  id: text("id").primaryKey(),
+  id: uuidPrimaryKey(),
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
   description: text("description").notNull(),
@@ -478,9 +504,9 @@ export const perkDefinitions = appSchema.table("perk_definitions", {
 export const levelPerks = appSchema.table(
   "level_perks",
   {
-    id: text("id").primaryKey(),
+    id: uuidPrimaryKey(),
     level: integer("level").notNull(),
-    perkId: text("perk_id")
+    perkId: uuid("perk_id")
       .notNull()
       .references(() => perkDefinitions.id, { onDelete: "restrict" }),
     numericValue: integer("numeric_value"),
@@ -496,17 +522,17 @@ export const levelPerks = appSchema.table(
 export const userPerkUnlocks = appSchema.table(
   "user_perk_unlocks",
   {
-    userId: text("user_id")
+    userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    perkId: text("perk_id")
+    levelPerkId: uuid("level_perk_id")
       .notNull()
-      .references(() => perkDefinitions.id, { onDelete: "restrict" }),
+      .references(() => levelPerks.id, { onDelete: "restrict" }),
     sourceLevel: integer("source_level").notNull(),
     unlockedAt: timestamp("unlocked_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    primaryKey({ columns: [table.userId, table.perkId] }),
+    primaryKey({ columns: [table.userId, table.levelPerkId] }),
     check("user_perk_unlocks_source_level_check", sql`${table.sourceLevel} >= 1`),
   ],
 );
@@ -514,25 +540,31 @@ export const userPerkUnlocks = appSchema.table(
 export const streakRewardDefinitions = appSchema.table(
   "streak_reward_definitions",
   {
-    id: text("id").primaryKey(),
+    id: uuidPrimaryKey(),
     streakDays: integer("streak_days").notNull().unique(),
     name: text("name").notNull(),
     reward: jsonb("reward").$type<JsonObject>().notNull(),
     active: boolean("active").notNull().default(true),
     createdAt,
   },
-  (table) => [check("streak_reward_definitions_streak_days_check", sql`${table.streakDays} > 0`)],
+  (table) => [
+    check("streak_reward_definitions_streak_days_check", sql`${table.streakDays} > 0`),
+    check(
+      "streak_reward_definitions_reward_object_check",
+      sql`jsonb_typeof(${table.reward}) = 'object'`,
+    ),
+  ],
 );
 
 export const reports = appSchema.table(
   "reports",
   {
-    id: text("id").primaryKey(),
-    reporterId: text("reporter_id")
+    id: uuidPrimaryKey(),
+    reporterId: uuid("reporter_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     targetType: reportTargetTypeEnum("target_type").notNull(),
-    targetId: text("target_id").notNull(),
+    targetId: uuid("target_id").notNull(),
     reason: reportReasonEnum("reason").notNull(),
     details: text("details"),
     status: reportStatusEnum("status").notNull().default("open"),
@@ -551,22 +583,22 @@ export const reports = appSchema.table(
 );
 
 export const moderationActions = appSchema.table("moderation_actions", {
-  id: text("id").primaryKey(),
-  reportId: text("report_id").references(() => reports.id, { onDelete: "set null" }),
-  adminId: text("admin_id")
+  id: uuidPrimaryKey(),
+  reportId: uuid("report_id").references(() => reports.id, { onDelete: "set null" }),
+  adminId: uuid("admin_id")
     .notNull()
     .references(() => users.id, { onDelete: "restrict" }),
   action: moderationActionTypeEnum("action").notNull(),
   targetType: reportTargetTypeEnum("target_type").notNull(),
-  targetId: text("target_id").notNull(),
+  targetId: uuid("target_id").notNull(),
   notes: text("notes"),
   createdAt,
 });
 
 export const contentModerationLogs = appSchema.table("content_moderation_logs", {
-  id: text("id").primaryKey(),
-  targetType: reportTargetTypeEnum("target_type").notNull(),
-  targetId: text("target_id").notNull(),
+  id: uuidPrimaryKey(),
+  targetType: contentModerationTargetTypeEnum("target_type").notNull(),
+  targetId: uuid("target_id").notNull(),
   provider: text("provider").notNull().default("openai"),
   flagged: boolean("flagged").notNull(),
   categories: jsonb("categories").$type<JsonObject>(),

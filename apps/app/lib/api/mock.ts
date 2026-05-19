@@ -19,16 +19,30 @@ type MockBillboard = {
   lat: number;
   lng: number;
   status: ContentStatus;
+  emptyExpiresAt: string;
   expiresAt: string;
   createdAt: string;
 };
 
+const DEMO_USER_ID = "00000000-0000-4000-8000-000000000002";
+const DEMO_ADMIN_ID = "00000000-0000-4000-8000-000000000001";
+const DEMO_CAMPUS_ID = "00000000-0000-4000-8000-000000000100";
+const SEED_AIKO_ID = "00000000-0000-4000-8000-000000000010";
+const SEED_TESS_ID = "00000000-0000-4000-8000-000000000011";
+const SEED_JULES_ID = "00000000-0000-4000-8000-000000000012";
+const SEED_BILLBOARD_ID = "00000000-0000-4000-8000-000000000b01";
+const SEED_PLACEMENT_IDS = [
+  "00000000-0000-4000-8000-000000000c01",
+  "00000000-0000-4000-8000-000000000c02",
+  "00000000-0000-4000-8000-000000000c03",
+] as const;
+
 const seededUsers: Record<string, { username: string }> = {
-  "demo-user": { username: "bluewren" },
-  "demo-admin": { username: "admin" },
-  "seed-aiko": { username: "aiko" },
-  "seed-tess": { username: "tess" },
-  "seed-jules": { username: "jules" },
+  [DEMO_USER_ID]: { username: "bluewren" },
+  [DEMO_ADMIN_ID]: { username: "admin" },
+  [SEED_AIKO_ID]: { username: "aiko" },
+  [SEED_TESS_ID]: { username: "tess" },
+  [SEED_JULES_ID]: { username: "jules" },
 };
 
 const billboards = new Map<string, MockBillboard>();
@@ -36,12 +50,22 @@ const placements = new Map<string, BillboardPlacement>();
 const stickerAssets = new Map<string, StickerAsset>();
 const savedStickers = new Map<string, SavedSticker>();
 
-let counter = 100;
-const nextId = (prefix: string): string => `${prefix}-${++counter}`;
+// Use crypto.randomUUID for created rows so they pass the UUID idSchema. Fall
+// back to a deterministic counter only if randomUUID is unavailable.
+let fallbackCounter = 0xc100;
+const nextId = (): string => {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  const hex = (fallbackCounter++).toString(16).padStart(12, "0");
+  return `00000000-0000-4000-8000-${hex}`;
+};
 const nowIso = (): string => new Date().toISOString();
 const hoursFromNowIso = (hours: number): string =>
   new Date(Date.now() + hours * 3600_000).toISOString();
 const usernameFor = (userId: string): string => seededUsers[userId]?.username ?? userId;
+const BILLBOARD_LIFETIME_HOURS = 24 * 5;
+const BILLBOARD_EMPTY_LIFETIME_HOURS = 24;
 
 const SAVED_STICKER_CAPACITY = 10;
 const MAX_CONCURRENT_BILLBOARDS = 3;
@@ -50,23 +74,23 @@ let seeded = false;
 function ensureSeeded(): void {
   if (seeded) return;
   seeded = true;
-  const billboardId = "bb-seed-1";
-  billboards.set(billboardId, {
-    id: billboardId,
-    campusId: "unsw-kensington",
-    authorId: "demo-admin",
+  billboards.set(SEED_BILLBOARD_ID, {
+    id: SEED_BILLBOARD_ID,
+    campusId: DEMO_CAMPUS_ID,
+    authorId: DEMO_ADMIN_ID,
     body: "Welcome to Campus Connect — pin a sticky note or sticker on this whiteboard.",
     lat: -33.9173,
     lng: 151.2313,
     status: "active",
-    expiresAt: hoursFromNowIso(20),
+    emptyExpiresAt: hoursFromNowIso(BILLBOARD_EMPTY_LIFETIME_HOURS),
+    expiresAt: hoursFromNowIso(BILLBOARD_LIFETIME_HOURS),
     createdAt: nowIso(),
   });
   const seedPlacements: Array<Omit<BillboardPlacement, "authorUsername">> = [
     {
-      id: "pl-seed-1",
-      billboardId,
-      authorId: "seed-aiko",
+      id: SEED_PLACEMENT_IDS[0],
+      billboardId: SEED_BILLBOARD_ID,
+      authorId: SEED_AIKO_ID,
       kind: "sticky_note",
       x: 0.25,
       y: 0.35,
@@ -77,9 +101,9 @@ function ensureSeeded(): void {
       createdAt: nowIso(),
     },
     {
-      id: "pl-seed-2",
-      billboardId,
-      authorId: "seed-tess",
+      id: SEED_PLACEMENT_IDS[1],
+      billboardId: SEED_BILLBOARD_ID,
+      authorId: SEED_TESS_ID,
       kind: "sticky_note",
       x: 0.7,
       y: 0.55,
@@ -90,9 +114,9 @@ function ensureSeeded(): void {
       createdAt: nowIso(),
     },
     {
-      id: "pl-seed-3",
-      billboardId,
-      authorId: "seed-jules",
+      id: SEED_PLACEMENT_IDS[2],
+      billboardId: SEED_BILLBOARD_ID,
+      authorId: SEED_JULES_ID,
       kind: "sticky_note",
       x: 0.5,
       y: 0.78,
@@ -122,6 +146,7 @@ function toSummary(b: MockBillboard): BillboardSummary {
     lng: b.lng,
     status: b.status,
     placementCount,
+    emptyExpiresAt: b.emptyExpiresAt,
     expiresAt: b.expiresAt,
     createdAt: b.createdAt,
   };
@@ -179,7 +204,7 @@ export function dispatchMock(req: MockRequest): unknown {
     if (activeCount >= MAX_CONCURRENT_BILLBOARDS) {
       throw new MockApiError(409, "billboard_limit_reached", "Active billboard limit reached");
     }
-    const id = nextId("bb");
+    const id = nextId();
     const created: MockBillboard = {
       id,
       campusId: input.campusId,
@@ -188,11 +213,16 @@ export function dispatchMock(req: MockRequest): unknown {
       lat: input.lat,
       lng: input.lng,
       status: "active",
-      expiresAt: hoursFromNowIso(20),
+      emptyExpiresAt: hoursFromNowIso(BILLBOARD_EMPTY_LIFETIME_HOURS),
+      expiresAt: hoursFromNowIso(BILLBOARD_LIFETIME_HOURS),
       createdAt: nowIso(),
     };
     billboards.set(id, created);
-    return { billboard: toSummary(created), questProgress: [] };
+    return {
+      billboard: toSummary(created),
+      replacedBillboardId: null,
+      questProgress: [],
+    };
   }
 
   if (
@@ -224,7 +254,7 @@ export function dispatchMock(req: MockRequest): unknown {
     const maxZ = [...placements.values()]
       .filter((p) => p.billboardId === billboardId)
       .reduce((m, p) => Math.max(m, p.zIndex), -1);
-    const id = nextId("pl");
+    const id = nextId();
     let placement: BillboardPlacement;
     if (input.kind === "sticker") {
       const asset = stickerAssets.get(input.stickerAssetId);
@@ -265,7 +295,7 @@ export function dispatchMock(req: MockRequest): unknown {
 
   if (method === "POST" && path === "/api/users/me/stickers") {
     const input = createStickerInputSchema.parse(body);
-    const id = nextId("sa");
+    const id = nextId();
     const asset: StickerAsset = {
       id,
       ownerId: userId,
@@ -291,7 +321,7 @@ export function dispatchMock(req: MockRequest): unknown {
     if (count >= SAVED_STICKER_CAPACITY) {
       throw new MockApiError(409, "capacity_reached", "Saved sticker capacity reached");
     }
-    const id = nextId("ss");
+    const id = nextId();
     let saved: SavedSticker;
     if (input.kind === "sticker") {
       const asset = stickerAssets.get(input.stickerAssetId);
@@ -370,7 +400,7 @@ export function dispatchMock(req: MockRequest): unknown {
         displayName: usernameFor(userId),
         avatarBase64: null,
         level: 1,
-        isAdmin: userId === "demo-admin",
+        isAdmin: userId === DEMO_ADMIN_ID,
         xp: 0,
         dailyStreak: 0,
         streakUpdatedOn: null,

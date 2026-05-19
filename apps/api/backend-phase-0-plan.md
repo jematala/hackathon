@@ -12,13 +12,19 @@
 
 - Sticker storage: base64 PNG blob produced by FE and stored by BE.
 - POI picture storage: optional compressed 128x128 base64 PNG stored inline in the POI row.
-- User avatar storage: 64x64 pixel art base64 PNG stored in `app.users.avatar`.
+- User avatar storage: 64x64 pixel art base64 PNG stored in `app.users.avatar_base64`.
 - Admin role: `is_admin boolean` on `app.users`.
+- Primary keys: internal UUIDv4 values for all primary keys; Clerk user IDs are unique external auth identifiers stored on `app.users.clerk_user_id`.
+- UUIDv4 generation: `reset.sql` and Drizzle table defaults call `gen_random_uuid()`, which is available on Supabase PostgreSQL 17.6.
 - Map provider: `react-native-leaflet-view` with OSM tiles; backend still exposes lat/lng and campus bounds/provider config.
 - Drizzle migrations: Drizzle Kit with `drizzle-kit push` for hackathon speed.
-- POI rotation, empty-billboard expiry, daily quests, and POI/day setup are scheduled/admin-driven later-phase behavior, but Phase 0 needs schema support.
+- POI rotation, empty-billboard expiry, daily quests, and POI/day setup are scheduled later-phase behavior, but Phase 0 needs schema support and seed data.
 - Quest system: parameterised templates such as `visit_pois`, `leave_billboards`, `place_stickers`, `receive_replies`, and `save_stickers`, with generated per-level values.
-- Daily quests: fixed curated pool of about 5 templates that rotate.
+- Daily quests: fixed curated seeded pool of about 5 templates; a scheduled job randomly assigns one per Sydney calendar day.
+- POIs: seeded/admin-created table; a scheduled job randomly activates the daily POI set from that table.
+- Billboard limits: enforce a concurrent active cap and a separate Sydney calendar-day posting cap. If a user posts at the concurrent cap, soft-delete their oldest active billboard before publishing the new one.
+- Billboard daily limits: seeded as concurrent + 1 and capped at 10/day, so the per-day cap prevents unlimited churn while still allowing replacement.
+- Billboard expiry: billboards with no placements soft-delete after 24 hours, and every billboard soft-deletes after a hard maximum lifetime of 5 days.
 - Quests are explicitly claimed: progress can become complete/claimable, and rewards are applied by a claim route.
 
 ## Phase 0 Deliverables
@@ -52,7 +58,7 @@ Billboards:
 
 - `GET /api/billboards`: list active billboards for a campus or viewport.
 - `GET /api/billboards/:id`: billboard detail with placements ordered by z index.
-- `POST /api/billboards`: create billboard at current lat/lng with text body.
+- `POST /api/billboards`: create billboard at current lat/lng with text body; response includes `replacedBillboardId` when the user's oldest active billboard was soft-deleted to make room.
 - `DELETE /api/billboards/:id`: owner/admin soft-delete.
 
 Stickers and placements:
@@ -64,7 +70,7 @@ Stickers and placements:
 Quests and progress:
 
 - `GET /api/quests`: current user's generated level quests and daily quest with progress.
-- `POST /api/quests/:id/claim`: explicit reward claim. This replaces the older `complete` route wording from `PLAN.md`.
+- `POST /api/quests/:id/claim`: explicit reward claim where `:id` is the user's quest progress row id. The route must fail if the quest is incomplete, not claimable, already claimed, or not owned by the current user.
 - `GET /api/users/me/progress`: level, XP, streak, capacities, and stats.
 - `GET /api/users/me/perks`: unlocked perks and next-level perks, or include this in `/api/users/me/progress`.
 
@@ -81,7 +87,7 @@ Reports/admin:
 - `POST /api/reports`: report a billboard or placement.
 - `GET /api/admin/reports`: admin report queue.
 - `POST /api/admin/reports/:id/action`: hide/remove/warn/ban action.
-- Admin setup routes expected later by `PLAN.md`: create/update POIs and daily quests.
+- Admin setup routes expected later by `PLAN.md`: create/update POIs. Daily quest templates/pool are seeded for MVP.
 
 ## Phase 0 SQL And Drizzle Model
 
@@ -89,19 +95,19 @@ Use `app` schema and PostGIS. The SQL reset and Drizzle schema should define the
 
 Identity:
 
-- `app.users`: Clerk id primary key, username, display name, `avatar`, `is_admin`, level, XP, streak fields, banned/deleted flags, timestamps.
+- `app.users`: UUIDv4 `id` primary key, unique `clerk_user_id`, username, display name, `avatar_base64`, `is_admin`, level, XP, streak fields, banned/deleted flags, timestamps. Do not reuse Clerk IDs as primary keys; map Clerk JWT `sub` to this row via `clerk_user_id`.
 - `app.push_tokens`: optional Phase 0 table if quick; useful for Phase 3 push.
 
 Campus and POIs:
 
 - `app.campuses`: id, name, timezone, map center, radius/bounds.
 - `app.pois`: campus id, title, description, optional `picture_base64`, location point, radius meters defaulting to 30m, active/admin fields.
-- `app.poi_daily_activations` or `app.poi_rotations`: which POIs are active for a date/campus.
+- `app.poi_daily_activations` or `app.poi_rotations`: which seeded/admin-created POIs are randomly active for a Sydney date/campus.
 - `app.poi_visits`: user id, POI id, visited date/time, unique first-visit constraint.
 
 Billboards and placements:
 
-- `app.billboards`: campus id, author id, text body, location point, status, moderation fields, expires/deleted timestamps. Track enough timestamps to enforce both the concurrent-note capacity and the PRD max of 10 billboards per calendar day.
+- `app.billboards`: campus id, author id, text body, location point, status, moderation fields, `empty_expires_at`, hard `expires_at`, and deleted timestamps. Track enough timestamps to enforce the concurrent cap, the Sydney calendar-day posting cap, empty-billboard 24-hour expiry, and the 5-day maximum lifetime.
 - `app.billboard_placements`: billboard id, author id, kind `sticker | sticky_note`, x/y, z index, sticker asset ref or text body, status, moderation fields. Unique `(billboard_id, author_id)`.
 
 Stickers and collection:
@@ -117,16 +123,16 @@ Quests and perks:
 - `app.daily_quest_pool`: curated daily quest candidates from `daily_quest_templates`, with target counts and XP tuned for daily play.
 - `app.daily_quest_assignments`: date/campus selected daily quest(s), so every user sees the same daily rotation.
 - `app.user_quest_progress`: user id, quest source/type, quest instance id, progress count, completed_at, claimable_at, claimed_at, claimed XP.
-- `app.perk_definitions`: catalog of perks such as note capacity increase, sticker slot increase, note signature, note border flair, palette expansion.
-- `app.level_perks`: maps each level to one or more perk definitions plus any numeric value, e.g. `max_concurrent_billboards = 4`.
+- `app.perk_definitions`: catalog of perks such as concurrent billboard capacity, daily posting capacity, sticker slot increase, note signature, note border flair, palette expansion.
+- `app.level_perks`: maps each level to one or more perk definitions plus any numeric value, e.g. `max_concurrent_billboards = 3` and `daily_billboard_limit = 4`.
 - `app.user_perk_unlocks`: records perks unlocked when a user reaches a level, useful for profile display, analytics, and future manual grants.
-- `app.streak_reward_definitions`: optional catalog for daily streak bonus rewards such as cosmetics or XP multipliers. This can stay lightly modeled in Phase 0 but keeps the PRD streak reward path open.
+- `app.streak_reward_definitions`: optional catalog for daily streak bonus rewards such as cosmetics or XP multipliers. Store the reward as JSONB, validate it with the shared streak reward payload schema, and keep a DB check that the stored value is a JSON object.
 
 Safety/admin:
 
 - `app.reports`: reporter, target type/id, reason, status, admin notes.
 - `app.moderation_actions`: admin action log for report outcomes.
-- `app.content_moderation_logs`: OpenAI moderation response summary, target type/id.
+- `app.content_moderation_logs`: OpenAI moderation response summary, target type/id, including sticker assets because saved stickers can outlive placements.
 
 Indexes/constraints:
 
@@ -165,16 +171,17 @@ Model level quests and daily quests with separate templates plus generated/assig
 
 Model perks as data, not hardcoded conditionals:
 
-- `perk_definitions` names the capability, e.g. `max_concurrent_billboards`, `sticker_slots`, `note_signature`, `note_border_flair`, `palette_expansion`.
+- `perk_definitions` names the capability, e.g. `max_concurrent_billboards`, `daily_billboard_limit`, `sticker_slots`, `note_signature`, `note_border_flair`, `palette_expansion`.
 - `level_perks` expresses the PRD table from levels 1-10.
 - `user_perk_unlocks` is written when level-up happens after quest claims. The app can render unlocked perks from this table and next perks from `level_perks`.
-- Derived capacities such as max concurrent notes, daily note limit, and sticker slots should be returned in `userProgressSchema` so the frontend does not recalculate perk math.
+- Derived capacities such as concurrent note limit, daily note limit, and sticker slots should be returned in `userProgressSchema` so the frontend does not recalculate perk math.
 
 Model expiry and caps from the PRD explicitly:
 
-- Billboard expiry is calendar-day based. At the scheduled midnight job, only billboards with no placements are soft-deleted.
-- If an empty billboard expires, the billboard row is soft-deleted; if future rules delete non-empty billboards, placements should be hidden with the parent.
-- Note limits include both concurrent active billboards from level perks and the PRD's max of 10 billboards per calendar day.
+- Billboards with no placements soft-delete after 24 hours.
+- All billboards also have a hard 5-day maximum lifetime and are soft-deleted with their placements after that point.
+- Note limits include a concurrent active cap and a separate Sydney calendar-day posting cap. Posting at the concurrent cap soft-deletes the user's oldest active billboard first. Daily posting limits are seeded as concurrent + 1 and capped at 10/day.
+- Keep `hidden_at` separate from `deleted_at`: `hidden_at` is a moderation visibility action, while `deleted_at` is lifecycle, owner, or expiry removal from active product surfaces.
 
 ## Later Phase Notes
 

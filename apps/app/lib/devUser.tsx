@@ -7,8 +7,16 @@ export type DevUser = {
 };
 
 const DEV_USERS: ReadonlyArray<DevUser> = [
-  { id: "demo-user", username: "bluewren", displayName: "Blue Wren" },
-  { id: "demo-admin", username: "admin", displayName: "Demo Admin" },
+  {
+    id: "00000000-0000-4000-8000-000000000002",
+    username: "bluewren",
+    displayName: "Blue Wren",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000001",
+    username: "admin",
+    displayName: "Demo Admin",
+  },
 ];
 
 type DevUserContextValue = {
