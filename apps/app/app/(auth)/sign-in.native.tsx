@@ -9,7 +9,7 @@ export default function SignInScreen() {
 
   useEffect(() => {
     if (isSignedIn) {
-      router.replace("/(tabs)/map");
+      router.replace("/(tabs)/map" as any);
     }
   }, [isSignedIn]);
 

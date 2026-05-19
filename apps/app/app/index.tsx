@@ -44,7 +44,7 @@ export default function HomeScreen() {
   }
 
   if (!isSignedIn) {
-    return <Redirect href="/sign-in" />;
+    return <Redirect href={"/sign-in" as any} />;
   }
 
   return (
@@ -62,19 +62,19 @@ export default function HomeScreen() {
       </Card>
 
       <View style={styles.links}>
-        <Link href="/(tabs)/map" style={styles.link}>
+        <Link href={"/(tabs)/map" as any} style={styles.link}>
           Open map
         </Link>
 
-        <Link href="/events" style={styles.link}>
+        <Link href={"/events" as any} style={styles.link}>
           Browse events
         </Link>
 
-        <Link href="/events/demo-event" style={styles.link}>
+        <Link href={"/events/demo-event" as any} style={styles.link}>
           Open dynamic event
         </Link>
 
-        <Link href="/profile/demo-user" style={styles.link}>
+        <Link href={"/profile/demo-user" as any} style={styles.link}>
           Open profile
         </Link>
       </View>
