@@ -11,7 +11,10 @@ import {
 } from "react-native";
 
 import { AnchorNote } from "@/components/billboard/AnchorNote";
-import { EditingSticky, type EditingStickyHandle } from "@/components/billboard/EditingSticky";
+import {
+  EditingSticky,
+  type EditingStickyHandle,
+} from "@/components/billboard/EditingSticky";
 import { Placement } from "@/components/billboard/Placement";
 import { UsernamePill } from "@/components/billboard/UsernamePill";
 import { Screen } from "@/components/Screen";
@@ -35,7 +38,12 @@ export default function BillboardDetailScreen() {
     else router.replace("/");
   };
   const renderBackButton = () => (
-    <Pressable onPress={goBack} style={styles.backButton} hitSlop={8} accessibilityLabel="Go back">
+    <Pressable
+      onPress={goBack}
+      style={styles.backButton}
+      hitSlop={8}
+      accessibilityLabel="Go back"
+    >
       <ChevronLeft color={colors.sageDark} size={22} />
     </Pressable>
   );
@@ -44,7 +52,10 @@ export default function BillboardDetailScreen() {
   const createPlacement = useCreatePlacement(id ?? "");
   const editingRef = useRef<EditingStickyHandle>(null);
 
-  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({
+  const [canvasSize, setCanvasSize] = useState<{
+    width: number;
+    height: number;
+  }>({
     width: 0,
     height: 0,
   });
@@ -113,7 +124,9 @@ export default function BillboardDetailScreen() {
   if (billboard.isLoading) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: "Whiteboard", headerLeft: renderBackButton }} />
+        <Stack.Screen
+          options={{ title: "Whiteboard", headerLeft: renderBackButton }}
+        />
         <View style={styles.loading}>
           <ActivityIndicator color={colors.sageDark} />
         </View>
@@ -124,11 +137,14 @@ export default function BillboardDetailScreen() {
   if (billboard.isError || !billboard.data) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: "Whiteboard", headerLeft: renderBackButton }} />
+        <Stack.Screen
+          options={{ title: "Whiteboard", headerLeft: renderBackButton }}
+        />
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Whiteboard not found</Text>
           <Text style={styles.emptyBody}>
-            {(billboard.error as Error | undefined)?.message ?? "It may have expired."}
+            {(billboard.error as Error | undefined)?.message ??
+              "It may have expired."}
           </Text>
         </View>
       </Screen>
@@ -139,7 +155,9 @@ export default function BillboardDetailScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: "Whiteboard", headerLeft: renderBackButton }} />
+      <Stack.Screen
+        options={{ title: "Whiteboard", headerLeft: renderBackButton }}
+      />
 
       <View style={styles.metaRow}>
         <UsernamePill username={b.authorUsername} tone="sage" />
@@ -212,7 +230,11 @@ export default function BillboardDetailScreen() {
 
       {isEditing ? (
         <View style={styles.actionBar}>
-          <Pressable onPress={cancelEdit} style={styles.cancelButton} hitSlop={8}>
+          <Pressable
+            onPress={cancelEdit}
+            style={styles.cancelButton}
+            hitSlop={8}
+          >
             <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
           <Pressable
@@ -235,7 +257,7 @@ export default function BillboardDetailScreen() {
         </View>
       ) : (
         <Pressable onPress={startEdit} style={styles.addButton}>
-          <Text style={styles.addButtonText}>+  Add a note</Text>
+          <Text style={styles.addButtonText}>+ Add a note</Text>
         </Pressable>
       )}
     </Screen>
@@ -291,7 +313,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 3,
     boxShadow:
-      "inset 0 8px 18px rgba(0, 0, 0, 0.4), inset 0 -4px 10px rgba(0, 0, 0, 0.22), inset 6px 0 12px rgba(0, 0, 0, 0.22), inset -6px 0 12px rgba(0, 0, 0, 0.22)",
+      "inset 0 2px 3px rgba(0, 0, 0, 0.4), inset 0 -4px 10px rgba(0, 0, 0, 0.22), inset 6px 0 12px rgba(0, 0, 0, 0.22), inset -6px 0 12px rgba(0, 0, 0, 0.22)",
     padding: 10,
     position: "relative",
   },
