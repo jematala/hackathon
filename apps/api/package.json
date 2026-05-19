@@ -11,9 +11,13 @@
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
+    "@clerk/backend": "^3.4.11",
     "@hono/zod-validator": "latest",
+    "@repo/db": "workspace:*",
     "@repo/shared": "workspace:*",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.12.19",
+    "postgres": "^3.4.9",
     "zod": "latest"
   },
   "devDependencies": {

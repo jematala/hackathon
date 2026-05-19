@@ -18,10 +18,10 @@
 - UUIDv4 generation: `reset.sql` and Drizzle table defaults call `gen_random_uuid()`, which is available on Supabase PostgreSQL 17.6.
 - Map provider: `react-native-leaflet-view` with OSM tiles; backend still exposes lat/lng and campus bounds/provider config.
 - Drizzle migrations: Drizzle Kit with `drizzle-kit push` for hackathon speed.
-- POI rotation, empty-billboard expiry, daily quests, and POI/day setup are scheduled later-phase behavior, but Phase 0 needs schema support and seed data.
+- POI rotation, empty-billboard expiry, daily quests, and POI/day setup are derived at request time where possible, but Phase 0 needs schema support and seed data.
 - Quest system: parameterised templates such as `visit_pois`, `leave_billboards`, `place_stickers`, `receive_replies`, and `save_stickers`, with generated per-level values.
-- Daily quests: fixed curated seeded pool of about 5 templates; a scheduled job randomly assigns one per Sydney calendar day.
-- POIs: seeded/admin-created table; a scheduled job randomly activates the daily POI set from that table.
+- Daily quests: fixed curated seeded pool of about 5 templates; one is deterministically selected per Sydney calendar day.
+- POIs: seeded/admin-created table; the daily POI set is deterministically selected from that table.
 - Billboard limits: enforce a concurrent active cap and a separate Sydney calendar-day posting cap. If a user posts at the concurrent cap, soft-delete their oldest active billboard before publishing the new one.
 - Billboard daily limits: seeded as concurrent + 1 and capped at 10/day, so the per-day cap prevents unlimited churn while still allowing replacement.
 - Billboard expiry: billboards with no placements soft-delete after 24 hours, and every billboard soft-deletes after a hard maximum lifetime of 5 days.
@@ -102,13 +102,12 @@ Campus and POIs:
 
 - `app.campuses`: id, name, timezone, map center, radius/bounds.
 - `app.pois`: campus id, title, description, optional `picture_base64`, location point, radius meters defaulting to 30m, active/admin fields.
-- `app.poi_daily_activations` or `app.poi_rotations`: which seeded/admin-created POIs are randomly active for a Sydney date/campus.
 - `app.poi_visits`: user id, POI id, visited date/time, unique first-visit constraint.
 
 Billboards and placements:
 
 - `app.billboards`: campus id, author id, text body, location point, status, moderation fields, `empty_expires_at`, hard `expires_at`, and deleted timestamps. Track enough timestamps to enforce the concurrent cap, the Sydney calendar-day posting cap, empty-billboard 24-hour expiry, and the 5-day maximum lifetime.
-- `app.billboard_placements`: billboard id, author id, kind `sticker | sticky_note`, x/y, z index, sticker asset ref or text body, status, moderation fields. Unique `(billboard_id, author_id)`.
+- `app.billboard_placements`: billboard id, author id, kind `sticker | sticky_note`, x/y, z index, sticker asset ref or text body, status, moderation fields. Unique active `(billboard_id, author_id)`.
 
 Stickers and collection:
 
@@ -121,8 +120,7 @@ Quests and perks:
 - `app.level_quest_sets`: generated or seeded level/tier quest instances with `level`, `template_id`, `target_count`, `xp_reward`, and ordering.
 - `app.daily_quest_templates`: parameterised daily quest template catalog, separate from level quests even when it uses the same trigger types.
 - `app.daily_quest_pool`: curated daily quest candidates from `daily_quest_templates`, with target counts and XP tuned for daily play.
-- `app.daily_quest_assignments`: date/campus selected daily quest(s), so every user sees the same daily rotation.
-- `app.user_quest_progress`: user id, quest source/type, quest instance id, progress count, completed_at, claimable_at, claimed_at, claimed XP.
+- `app.user_quest_progress`: user id, quest source/type, quest instance id, optional active date for daily quests, progress count, completed_at, claimable_at, claimed_at, claimed XP.
 - `app.perk_definitions`: catalog of perks such as concurrent billboard capacity, daily posting capacity, sticker slot increase, note signature, note border flair, palette expansion.
 - `app.level_perks`: maps each level to one or more perk definitions plus any numeric value, e.g. `max_concurrent_billboards = 3` and `daily_billboard_limit = 4`.
 - `app.user_perk_unlocks`: records perks unlocked when a user reaches a level, useful for profile display, analytics, and future manual grants.

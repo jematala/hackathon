@@ -89,11 +89,14 @@ The deploy workflow runs on pushes to `main` and via `workflow_dispatch`. Config
 
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
-- `SUPABASE_PROJECT_ID`
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
+- `SUPABASE_POOLER_DATABASE_URL`
+- `CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `OPENAI_API_KEY`
 
-The Cloudflare API token needs permission to deploy Workers and write Worker secrets. The deploy workflow syncs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` into the API Worker before deploying.
+The Cloudflare API token needs permission to deploy Workers, apply Durable Object migrations, and write Worker secrets. The API Worker deploy reads `apps/api/wrangler.jsonc`, so the `CAMPUS_REALTIME_ROOM` Durable Object binding and migration are applied by the deploy run. Secrets are synced immediately after the API Worker exists.
 
 The frontend build uses `EXPO_PUBLIC_API_URL` to point static web output at the deployed API route. The temporary deployment uses `https://jematala.takuk.me`, with API traffic routed under `/api/*`.
 

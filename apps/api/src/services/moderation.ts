@@ -1,13 +1,10 @@
-import type { Env } from "../index";
+import { sql } from "drizzle-orm";
 
-export type ModerationVerdict =
-  | { status: "approved"; maxScore: number; topCategory: string | null }
-  | {
-      status: "rejected";
-      maxScore: number;
-      categories: ReadonlyArray<{ category: string; score: number; threshold: number }>;
-    }
-  | { status: "skipped"; reason: "disabled" | "no_key" };
+import type { getDb } from "../db";
+import type { Env } from "../types";
+
+type Database = ReturnType<typeof getDb>;
+type ModerationTargetType = "billboard" | "placement" | "sticker_asset";
 
 type OpenAIModerationResponse = {
   results: Array<{
@@ -17,7 +14,30 @@ type OpenAIModerationResponse = {
   }>;
 };
 
-const ENDPOINT = "https://api.openai.com/v1/moderations";
+/**
+ * Combined moderation result. Two callers:
+ *   - /api/moderate/text endpoint returns this directly to the mobile client,
+ *     which discriminates on `status` (approved/rejected/skipped) plus the
+ *     `rejectedCategories` detail to show users what tripped the filter.
+ *   - billboards/stickers routes read `flagged` and persist the raw OpenAI
+ *     payload via {@link recordModerationLog}.
+ */
+export type ModerationResult = {
+  status: "approved" | "rejected" | "skipped";
+  flagged: boolean;
+  // Threshold detail (set when status is "approved" or "rejected").
+  maxScore: number;
+  topCategory: string | null;
+  rejectedCategories: ReadonlyArray<{ category: string; score: number; threshold: number }>;
+  // Set when status is "skipped".
+  skippedReason: "disabled" | "no_key" | null;
+  // Raw OpenAI payload, kept for DB logging.
+  categories: Record<string, unknown> | null;
+  scores: Record<string, unknown> | null;
+  rawResponse: Record<string, unknown> | null;
+};
+
+const OPENAI_MODERATIONS_URL = "https://api.openai.com/v1/moderations";
 const MODEL = "omni-moderation-latest";
 
 /**
@@ -34,30 +54,24 @@ const MODEL = "omni-moderation-latest";
  * FALLBACK_THRESHOLD.
  */
 const CATEGORY_THRESHOLDS: Readonly<Record<string, number>> = {
-  // Harassment — students bullying each other is a top concern
   harassment: 0.3,
-  "harassment/threatening": 0.3, // threats: strict
+  "harassment/threatening": 0.3,
 
-  // Hate — campus climate, protected groups
   hate: 0.1,
-  "hate/threatening": 0.3, // strict
+  "hate/threatening": 0.3,
 
-  // Sexual — not expected in notes, but allow medical/biology/anatomy context
-  sexual: 0.1, // looser, since med/bio/psych notes mention sex
-  "sexual/minors": 0.1, // near-zero tolerance, always
+  sexual: 0.1,
+  "sexual/minors": 0.1,
 
-  // Violence — history, politics, law, criminology notes will mention violence
-  violence: 0.1, // very loose, academic context
-  "violence/graphic": 0.6, // moderate
+  violence: 0.1,
+  "violence/graphic": 0.6,
 
-  // Self-harm — university mental health is serious; err on the side of intervention
   "self-harm": 0.1,
-  "self-harm/intent": 0.3, // strict, route to support resources
-  "self-harm/instructions": 0.2, // very strict
+  "self-harm/intent": 0.3,
+  "self-harm/instructions": 0.2,
 
-  // Illicit — drugs/alcohol talk happens on campuses, but instructions are different
-  illicit: 0.1, // loose, students discuss legality/policy
-  "illicit/violent": 0.4, // strict
+  illicit: 0.1,
+  "illicit/violent": 0.4,
 };
 
 const FALLBACK_THRESHOLD = 0.5;
@@ -66,18 +80,18 @@ function thresholdFor(category: string): number {
   return CATEGORY_THRESHOLDS[category] ?? FALLBACK_THRESHOLD;
 }
 
+function asPngDataUrl(value: string) {
+  return value.startsWith("data:image/png;base64,") ? value : `data:image/png;base64,${value}`;
+}
+
 function logVerdict(
-  text: string,
+  previewLabel: string,
   scores: Record<string, number>,
-  verdict: ModerationVerdict,
+  result: ModerationResult,
 ): void {
-  // Truncate the logged text — moderation calls are usually short, but a long
-  // multi-paragraph input would flood the console.
-  const preview = text.length > 200 ? `${text.slice(0, 200)}…` : text;
   const sortedScores = Object.entries(scores).sort((a, c) => c[1] - a[1]);
 
-  console.log(`\n[moderation] input: ${JSON.stringify(preview)}`);
-  // Compact, aligned per-category readout. Marker "x" = exceeded threshold.
+  console.log(`\n[moderation] input: ${previewLabel}`);
   for (const [category, score] of sortedScores) {
     const t = thresholdFor(category);
     const exceeded = score >= t ? "x" : " ";
@@ -85,62 +99,72 @@ function logVerdict(
       `[moderation]   ${exceeded} ${category.padEnd(26)} score=${score.toFixed(4)}  threshold=${t.toFixed(2)}`,
     );
   }
-  if (verdict.status === "rejected") {
-    const offenders = verdict.categories
+  if (result.status === "rejected") {
+    const offenders = result.rejectedCategories
       .map((c) => `${c.category}(${c.score.toFixed(3)})`)
       .join(", ");
     console.log(`[moderation] verdict: REJECTED — ${offenders}\n`);
-  } else if (verdict.status === "approved") {
-    const top = verdict.topCategory ?? "n/a";
+  } else if (result.status === "approved") {
+    const top = result.topCategory ?? "n/a";
     console.log(
-      `[moderation] verdict: approved — closest category was ${top} at ${verdict.maxScore.toFixed(4)}\n`,
+      `[moderation] verdict: approved — closest category was ${top} at ${result.maxScore.toFixed(4)}\n`,
     );
   }
 }
 
+function skipped(reason: "disabled" | "no_key"): ModerationResult {
+  return {
+    status: "skipped",
+    flagged: false,
+    maxScore: 0,
+    topCategory: null,
+    rejectedCategories: [],
+    skippedReason: reason,
+    categories: null,
+    scores: null,
+    rawResponse: null,
+  };
+}
+
 /**
- * Run text through OpenAI's Moderation API. A category is rejected when its
- * score meets or exceeds the threshold defined in CATEGORY_THRESHOLDS above.
- * Returns "approved" if no category exceeds its threshold, "rejected" with
- * the offending categories otherwise, or "skipped" when moderation is
- * disabled / unconfigured.
- *
- * Throws on network/HTTP failure — callers decide fail-open vs fail-closed.
+ * Low-level OpenAI moderation call. Applies the per-category thresholds in
+ * {@link CATEGORY_THRESHOLDS} to decide approved vs rejected. Throws on
+ * network/HTTP failure — callers decide fail-open vs fail-closed.
  */
-export async function moderateText(env: Env, text: string): Promise<ModerationVerdict> {
+async function moderate(env: Env, input: unknown, previewLabel: string): Promise<ModerationResult> {
   if (env.MODERATION_ENABLED === "false") {
-    return { status: "skipped", reason: "disabled" };
+    return skipped("disabled");
   }
   if (!env.OPENAI_API_KEY) {
-    return { status: "skipped", reason: "no_key" };
+    return skipped("no_key");
   }
 
-  const res = await fetch(ENDPOINT, {
+  const response = await fetch(OPENAI_MODERATIONS_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.OPENAI_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ model: MODEL, input: text }),
+    body: JSON.stringify({ model: MODEL, input }),
   });
 
-  if (!res.ok) {
-    throw new Error(`OpenAI moderation failed: ${res.status} ${await res.text()}`);
+  if (!response.ok) {
+    throw new Error(`OpenAI moderation failed: ${response.status} ${await response.text()}`);
   }
 
-  const json = (await res.json()) as OpenAIModerationResponse;
-  const result = json.results[0];
-  if (!result) {
+  const raw = (await response.json()) as OpenAIModerationResponse & Record<string, unknown>;
+  const first = raw.results?.[0];
+  if (!first) {
     throw new Error("OpenAI moderation returned no results");
   }
 
-  const scored = Object.entries(result.category_scores) as Array<[string, number]>;
-  const sorted = scored.slice().sort((a, c) => c[1] - a[1]);
+  const scoreEntries = Object.entries(first.category_scores) as Array<[string, number]>;
+  const sorted = scoreEntries.slice().sort((a, c) => c[1] - a[1]);
   const top = sorted[0];
   const maxScore = top?.[1] ?? 0;
   const topCategory = top?.[0] ?? null;
 
-  const offending = sorted
+  const rejectedCategories = sorted
     .filter(([category, score]) => score >= thresholdFor(category))
     .map(([category, score]) => ({
       category,
@@ -148,12 +172,69 @@ export async function moderateText(env: Env, text: string): Promise<ModerationVe
       threshold: thresholdFor(category),
     }));
 
-  const verdict: ModerationVerdict =
-    offending.length === 0
-      ? { status: "approved", maxScore, topCategory }
-      : { status: "rejected", maxScore, categories: offending };
+  const isRejected = rejectedCategories.length > 0;
 
-  logVerdict(text, result.category_scores, verdict);
+  const result: ModerationResult = {
+    status: isRejected ? "rejected" : "approved",
+    flagged: isRejected,
+    maxScore,
+    topCategory,
+    rejectedCategories,
+    skippedReason: null,
+    categories: first.categories as Record<string, unknown>,
+    scores: first.category_scores as Record<string, unknown>,
+    rawResponse: raw,
+  };
 
-  return verdict;
+  logVerdict(previewLabel, first.category_scores, result);
+
+  return result;
+}
+
+export async function moderateText(env: Env, text: string): Promise<ModerationResult> {
+  // Truncate the logged text — moderation calls are usually short, but a long
+  // multi-paragraph input would flood the console.
+  const preview = text.length > 200 ? `${text.slice(0, 200)}…` : text;
+  return moderate(env, text, JSON.stringify(preview));
+}
+
+export async function moderatePng(env: Env, pngBase64: string): Promise<ModerationResult> {
+  return moderate(
+    env,
+    [
+      {
+        type: "image_url",
+        image_url: {
+          url: asPngDataUrl(pngBase64),
+        },
+      },
+    ],
+    "<png image>",
+  );
+}
+
+export async function recordModerationLog(
+  db: Database,
+  targetType: ModerationTargetType,
+  targetId: string,
+  result: ModerationResult,
+) {
+  await db.execute(sql`
+    insert into app.content_moderation_logs (
+      target_type,
+      target_id,
+      flagged,
+      categories,
+      scores,
+      raw_response
+    )
+    values (
+      ${targetType},
+      ${targetId},
+      ${result.flagged},
+      ${result.categories ? JSON.stringify(result.categories) : null}::jsonb,
+      ${result.scores ? JSON.stringify(result.scores) : null}::jsonb,
+      ${result.rawResponse ? JSON.stringify(result.rawResponse) : null}::jsonb
+    )
+  `);
 }
