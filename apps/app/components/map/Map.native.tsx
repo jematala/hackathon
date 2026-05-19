@@ -5,7 +5,7 @@ import { Map as MapLibre, Marker } from '@maplibre/maplibre-react-native';
 
 import { UNSW_CENTER, DEMO_POIS } from '@/constants/coordinates';
 
-const THUNDERFOREST_API_KEY = 'YOUR_API_KEY_HERE';
+const THUNDERFOREST_API_KEY = process.env.EXPO_PUBLIC_THUNDERFOREST_KEY ?? 'YOUR_API_KEY_HERE';
 
 const MAP_STYLE: any = JSON.stringify({
   version: 8,
