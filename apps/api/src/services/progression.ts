@@ -121,21 +121,53 @@ export async function getUserCapacities(db: Database, userId: string) {
       select level
       from app.users
       where id = ${userId}
+    ),
+    level_caps as (
+      select
+        perk_definitions.key,
+        max(level_perks.numeric_value) as cap
+      from app.level_perks
+      join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+      cross join user_level
+      where
+        level_perks.level >= 1
+        and level_perks.level <= user_level.level
+      group by perk_definitions.key
+    ),
+    streak_deltas as (
+      select
+        perk_definitions.key,
+        coalesce(sum(level_perks.numeric_value), 0) as delta
+      from app.level_perks
+      join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+      join app.user_perk_unlocks
+        on user_perk_unlocks.level_perk_id = level_perks.id
+        and user_perk_unlocks.user_id = ${userId}
+      where level_perks.level = 0
+      group by perk_definitions.key
     )
     select
-      max(level_perks.numeric_value) filter (
-        where perk_definitions.key = 'max_concurrent_billboards'
+      coalesce(
+        (select cap from level_caps where key = 'max_concurrent_billboards'),
+        0
+      ) + coalesce(
+        (select delta from streak_deltas where key = 'max_concurrent_billboards'),
+        0
       ) as "maxConcurrentBillboards",
-      max(level_perks.numeric_value) filter (
-        where perk_definitions.key = 'daily_billboard_limit'
+      coalesce(
+        (select cap from level_caps where key = 'daily_billboard_limit'),
+        0
+      ) + coalesce(
+        (select delta from streak_deltas where key = 'daily_billboard_limit'),
+        0
       ) as "dailyBillboardLimit",
-      max(level_perks.numeric_value) filter (
-        where perk_definitions.key = 'sticker_slots'
+      coalesce(
+        (select cap from level_caps where key = 'sticker_slots'),
+        0
+      ) + coalesce(
+        (select delta from streak_deltas where key = 'sticker_slots'),
+        0
       ) as "stickerSlots"
-    from app.level_perks
-    join app.perk_definitions on perk_definitions.id = level_perks.perk_id
-    cross join user_level
-    where level_perks.level <= user_level.level
   `);
 
   const capacities = rows[0];
@@ -211,4 +243,58 @@ export function applyQuestTemplate(template: string, targetCount: number) {
 
 export function rowDateTime(value: unknown) {
   return isoDateTime(value as Date | string);
+}
+
+type StreakRewardJson = {
+  rewards: Array<
+    { type: "signature"; signatureKey: string } | { type: "capacity_billboard"; amount: number }
+  >;
+};
+
+export async function applyStreakMilestoneUnlocks(
+  db: Database,
+  userId: string,
+  currentStreak: number,
+) {
+  const rewardRows = await db.execute<{ streakDays: number; reward: StreakRewardJson }>(sql`
+    select streak_days as "streakDays", reward
+    from app.streak_reward_definitions
+    where active and streak_days = ${currentStreak}
+  `);
+
+  for (const row of rewardRows) {
+    for (const reward of row.reward.rewards) {
+      if (reward.type === "signature") {
+        await db.execute(sql`
+          insert into app.user_signatures (user_id, signature_id, is_equipped)
+          select ${userId}, signatures.id, false
+          from app.signatures
+          where signatures.key = ${reward.signatureKey}
+          on conflict (user_id, signature_id) do nothing
+        `);
+      } else if (reward.type === "capacity_billboard") {
+        // Streak-derived capacity perks are stored at level=0 in app.level_perks
+        // with metadata.source='streak'. The unique (level, perk_id) means there's
+        // exactly one canonical streak-billboard row in the table; each user who
+        // crosses day-14 links to it via user_perk_unlocks.
+        await db.execute(sql`
+          insert into app.level_perks (level, perk_id, numeric_value, metadata)
+          select 0, id, ${reward.amount},
+            jsonb_build_object('source', 'streak', 'streakDay', ${row.streakDays})
+          from app.perk_definitions
+          where key = 'max_concurrent_billboards'
+          on conflict (level, perk_id) do nothing
+        `);
+        await db.execute(sql`
+          insert into app.user_perk_unlocks (user_id, level_perk_id, source_level)
+          select ${userId}, level_perks.id, 0
+          from app.level_perks
+          join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+          where level_perks.level = 0
+            and perk_definitions.key = 'max_concurrent_billboards'
+          on conflict (user_id, level_perk_id) do nothing
+        `);
+      }
+    }
+  }
 }

@@ -1,5 +1,4 @@
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
 
 export const DEV_BEARER_TOKEN = "dev";
 
@@ -37,7 +36,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     const message =
       (data && typeof data === "object" && data !== null && "message" in data
         ? String((data as { message: unknown }).message)
-        : undefined) ?? response.statusText ?? `Request failed (${response.status})`;
+        : undefined) ??
+      response.statusText ??
+      `Request failed (${response.status})`;
     throw new ApiError(response.status, data, message);
   }
 
@@ -50,4 +51,26 @@ function safeJsonParse(text: string): unknown {
   } catch {
     return text;
   }
+}
+
+import type {
+  EquipSignatureInput,
+  EquipSignatureResponse,
+  ListMySignaturesResponse,
+  ListSignaturesResponse,
+} from "@repo/shared";
+
+export function fetchSignatureCatalog() {
+  return apiFetch<ListSignaturesResponse>("/api/signatures");
+}
+
+export function fetchMySignatures() {
+  return apiFetch<ListMySignaturesResponse>("/api/users/me/signatures");
+}
+
+export function equipSignature(input: EquipSignatureInput) {
+  return apiFetch<EquipSignatureResponse>("/api/users/me/signature", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }

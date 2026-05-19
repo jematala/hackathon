@@ -1,104 +1,73 @@
-import type { ClaimQuestResponse, ListQuestsResponse, QuestProgress } from "@repo/shared";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ClaimQuestResponse, QuestProgress } from "@repo/shared";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/Card";
 import { LevelUpOverlay, type LevelUpPerk } from "@/components/LevelUpOverlay";
+import { NextLevelPreview } from "@/components/NextLevelPreview";
+import { NextMilestonePreview } from "@/components/NextMilestonePreview";
 import { QuestCard } from "@/components/QuestCard";
 import { Screen } from "@/components/Screen";
-import { apiFetch } from "@/lib/api";
-
-type PerksResponse = {
-  unlocked: Array<{
-    levelPerkId: string;
-    perk: { id: string; name: string; description: string };
-  }>;
-  next: Array<{
-    id: string;
-    perk: { id: string; name: string; description: string };
-  }>;
-};
+import { buildMockClaimResponse, mockPerksResponse, mockQuestsResponse } from "@/lib/mockQuests";
 
 export default function QuestsScreen() {
-  const queryClient = useQueryClient();
+  const router = useRouter();
   const [levelUp, setLevelUp] = useState<ClaimQuestResponse | null>(null);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [claimedIds, setClaimedIds] = useState<Set<string>>(new Set());
 
-  const questsQuery = useQuery({
-    queryKey: ["quests"],
-    queryFn: () => apiFetch<ListQuestsResponse>("/api/quests"),
-  });
+  const questsData = useMemo(() => {
+    const apply = (q: QuestProgress): QuestProgress =>
+      claimedIds.has(q.id)
+        ? { ...q, claimedAt: new Date().toISOString(), claimedXp: q.quest.xpReward }
+        : q;
 
-  const perksQuery = useQuery({
-    queryKey: ["perks"],
-    queryFn: () => apiFetch<PerksResponse>("/api/users/me/perks"),
-  });
+    return {
+      ...mockQuestsResponse,
+      dailyQuest: mockQuestsResponse.dailyQuest ? apply(mockQuestsResponse.dailyQuest) : null,
+      levelQuests: mockQuestsResponse.levelQuests.map(apply),
+    };
+  }, [claimedIds]);
 
-  const claimMutation = useMutation({
-    mutationFn: (questId: string) =>
-      apiFetch<ClaimQuestResponse>(`/api/quests/${questId}/claim`, {
-        body: "{}",
-        method: "POST",
-      }),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["quests"] });
-      queryClient.invalidateQueries({ queryKey: ["perks"] });
-      if (data.levelAfter > data.levelBefore) {
-        setLevelUp(data);
+  const perksData = mockPerksResponse;
+
+  const handleClaim = (questId: string) => {
+    setClaimingId(questId);
+    setTimeout(() => {
+      const response = buildMockClaimResponse(questId, claimedIds);
+      setClaimedIds((prev) => {
+        const next = new Set(prev);
+        next.add(questId);
+        return next;
+      });
+      setClaimingId(null);
+      if (response.levelAfter > response.levelBefore) {
+        setLevelUp(response);
       }
-    },
-  });
+    }, 400);
+  };
 
   const levelUpPerks = useMemo<LevelUpPerk[]>(() => {
-    if (!levelUp || !perksQuery.data) return [];
+    if (!levelUp) return [];
     const ids = new Set(levelUp.unlockedPerkIds);
-    return perksQuery.data.unlocked
+    return perksData.unlocked
       .filter((entry) => ids.has(entry.levelPerkId))
       .map((entry) => ({
         id: entry.levelPerkId,
         name: entry.perk.name,
         description: entry.perk.description,
       }));
-  }, [levelUp, perksQuery.data]);
+  }, [levelUp, perksData]);
 
-  if (questsQuery.isPending) {
-    return (
-      <Screen>
-        <View style={styles.center}>
-          <ActivityIndicator color="#5b7559" size="large" />
-        </View>
-      </Screen>
-    );
-  }
-
-  if (questsQuery.isError || !questsQuery.data) {
-    return (
-      <Screen>
-        <View style={styles.center}>
-          <Text style={styles.errorTitle}>Couldn’t load quests</Text>
-          <Text style={styles.errorMessage}>
-            {questsQuery.error instanceof Error
-              ? questsQuery.error.message
-              : "Something went wrong."}
-          </Text>
-          <Pressable
-            onPress={() => questsQuery.refetch()}
-            style={({ pressed }) => [styles.retryButton, { opacity: pressed ? 0.85 : 1 }]}
-          >
-            <Text style={styles.retryLabel}>Retry</Text>
-          </Pressable>
-        </View>
-      </Screen>
-    );
-  }
-
-  const { dailyQuest, levelQuests, level, streak } = questsQuery.data;
-  const claimingId = claimMutation.isPending ? claimMutation.variables : null;
-  const handleClaim = (id: string) => claimMutation.mutate(id);
+  const { dailyQuest, levelQuests, level, streak } = questsData;
 
   return (
     <Screen>
       <View style={styles.header}>
+        <Pressable onPress={() => router.push("/map" as any)} style={styles.backButton}>
+          <Text style={styles.backArrow}>{"<"}</Text>
+        </Pressable>
         <Text style={styles.headerTitle}>Quests</Text>
         <View style={styles.streakPill}>
           <Text style={styles.streakValue}>{streak}</Text>
@@ -108,11 +77,14 @@ export default function QuestsScreen() {
 
       <Section title="Daily Quest">
         {dailyQuest ? (
-          <QuestCard
-            isClaiming={claimingId === dailyQuest.id}
-            onClaim={handleClaim}
-            progress={dailyQuest as QuestProgress}
-          />
+          <>
+            <QuestCard
+              isClaiming={claimingId === dailyQuest.id}
+              onClaim={handleClaim}
+              progress={dailyQuest as QuestProgress}
+            />
+            <NextMilestonePreview currentStreak={streak} />
+          </>
         ) : (
           <Card>
             <Text style={styles.emptyText}>No daily quest today. Check back tomorrow!</Text>
@@ -137,17 +109,8 @@ export default function QuestsScreen() {
             </Text>
           </Card>
         )}
+        <NextLevelPreview currentLevel={level} />
       </Section>
-
-      {claimMutation.isError ? (
-        <Card>
-          <Text style={styles.errorMessage}>
-            {claimMutation.error instanceof Error
-              ? `Couldn’t claim quest: ${claimMutation.error.message}`
-              : "Couldn’t claim quest."}
-          </Text>
-        </Card>
-      ) : null}
 
       <LevelUpOverlay
         levelAfter={levelUp?.levelAfter ?? level}
@@ -175,10 +138,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
+  backButton: {
+    paddingRight: 8,
+  },
+  backArrow: {
+    color: "#6A401A",
+    fontFamily: "Jersey10",
+    fontSize: 40,
+  },
   headerTitle: {
     color: "#6A401A",
     fontFamily: "Jersey10",
     fontSize: 40,
+    flex: 1,
   },
   streakPill: {
     alignItems: "center",
@@ -216,33 +188,5 @@ const styles = StyleSheet.create({
     color: "#71730E",
     fontFamily: "Jersey10",
     fontSize: 18,
-  },
-  center: {
-    alignItems: "center",
-    gap: 12,
-    justifyContent: "center",
-    paddingVertical: 60,
-  },
-  errorTitle: {
-    color: "#6A401A",
-    fontFamily: "Jersey10",
-    fontSize: 26,
-  },
-  errorMessage: {
-    color: "#71730E",
-    fontFamily: "Jersey10",
-    fontSize: 18,
-    textAlign: "center",
-  },
-  retryButton: {
-    backgroundColor: "#5b7559",
-    borderRadius: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 6,
-  },
-  retryLabel: {
-    color: "#ffedd6",
-    fontFamily: "Jersey10",
-    fontSize: 22,
   },
 });

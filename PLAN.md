@@ -40,7 +40,7 @@
 - [ ] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
 - [x] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
 - [x] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
-- [ ] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
+- [ ] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, ~~`QuestCard`~~, `POIMarker`
 - [ ] **FE2** — Build map overlay components: POI popup, billboard marker callout
 
 ---
@@ -73,9 +73,9 @@
 - [x] **BE1** — User profile API: `GET /api/users/:id`, `PATCH /api/users/me`
 - [x] **BE2** — Durable Object: WebSocket handler, Postgres connection, broadcast on mutations
 - [x] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
-- [ ] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars
+- [x] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars
 - [ ] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited)
-- [ ] **FE1** — Level-up celebration animation/overlay
+- [x] **FE1** — Level-up celebration animation/overlay
 - [ ] **FE2** — WebSocket connection in app: connect to DO, listen for updates, refresh displayed data
 - [ ] **FE2** — Saved stickers/sticky notes collection screen: browse, select, reuse
 

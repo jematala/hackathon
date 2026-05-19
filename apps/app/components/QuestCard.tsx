@@ -11,9 +11,11 @@ type QuestCardProps = {
 };
 
 export function QuestCard({ progress, onClaim, isClaiming }: QuestCardProps) {
-  const { quest, claimedAt, claimableAt, progressCount, targetCount, claimedXp } = progress;
+  const { quest, claimedAt, claimableAt, progressCount, targetCount } = progress;
   const claimed = Boolean(claimedAt);
   const claimable = Boolean(claimableAt) && !claimed;
+  const isDaily = quest.source === "daily_quest";
+  const claimedLabel = isDaily ? "Claimed · streak +1" : "Claimed";
 
   return (
     <Card>
@@ -21,16 +23,14 @@ export function QuestCard({ progress, onClaim, isClaiming }: QuestCardProps) {
         <Text style={styles.title} numberOfLines={2}>
           {quest.title}
         </Text>
-        <Text style={styles.xp}>+{quest.xpReward} XP</Text>
+        {isDaily && <Text style={styles.streakReward}>+1 streak</Text>}
       </View>
       <Text style={styles.description}>{quest.description}</Text>
       <ProgressBar value={progressCount} max={targetCount} />
       <View style={styles.actionRow}>
         {claimed ? (
           <View style={styles.claimedPill}>
-            <Text style={styles.claimedLabel}>
-              Claimed{claimedXp != null ? ` · +${claimedXp} XP` : ""}
-            </Text>
+            <Text style={styles.claimedLabel}>{claimedLabel}</Text>
           </View>
         ) : claimable ? (
           <Pressable
@@ -45,9 +45,7 @@ export function QuestCard({ progress, onClaim, isClaiming }: QuestCardProps) {
           >
             <Text style={styles.claimLabel}>{isClaiming ? "Claiming…" : "Claim"}</Text>
           </Pressable>
-        ) : (
-          <Text style={styles.pendingHint}>Keep exploring to make progress.</Text>
-        )}
+        ) : null}
       </View>
     </Card>
   );
@@ -63,13 +61,13 @@ const styles = StyleSheet.create({
     color: "#6A401A",
     flex: 1,
     fontFamily: "Jersey10",
-    fontSize: 24,
+    fontSize: 20,
     marginRight: 12,
   },
-  xp: {
-    color: "#4A90D9",
+  streakReward: {
+    color: "#D94A29",
     fontFamily: "Jersey10",
-    fontSize: 22,
+    fontSize: 16,
   },
   description: {
     color: "#71730E",
@@ -92,7 +90,7 @@ const styles = StyleSheet.create({
   claimLabel: {
     color: "#ffedd6",
     fontFamily: "Jersey10",
-    fontSize: 22,
+    fontSize: 18,
   },
   claimedPill: {
     backgroundColor: "#E9D8B5",
@@ -104,11 +102,6 @@ const styles = StyleSheet.create({
   },
   claimedLabel: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
-    fontSize: 18,
-  },
-  pendingHint: {
-    color: "#8B7340",
     fontFamily: "Jersey10",
     fontSize: 16,
   },
