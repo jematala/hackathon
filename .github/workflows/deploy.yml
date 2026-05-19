@@ -71,7 +71,7 @@ jobs:
         working-directory: apps/app
         env:
           EXPO_PUBLIC_API_URL: https://jematala.takuk.me
-          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: test
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
         run: bun expo export -p web
 
       - name: Deploy frontend Worker
