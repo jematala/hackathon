@@ -9,6 +9,8 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <Stack>
+        <Stack.Screen name="(auth)/sign-in" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)/sign-up" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ title: "UNSW Connect" }} />
         <Stack.Screen name="events/index" options={{ title: "Events" }} />
         <Stack.Screen name="events/[id]" options={{ title: "Event" }} />
