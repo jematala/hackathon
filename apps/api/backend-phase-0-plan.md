@@ -126,7 +126,7 @@ Quests and perks:
 - `app.perk_definitions`: catalog of perks such as concurrent billboard capacity, daily posting capacity, sticker slot increase, note signature, note border flair, palette expansion.
 - `app.level_perks`: maps each level to one or more perk definitions plus any numeric value, e.g. `max_concurrent_billboards = 3` and `daily_billboard_limit = 4`.
 - `app.user_perk_unlocks`: records perks unlocked when a user reaches a level, useful for profile display, analytics, and future manual grants.
-- `app.streak_reward_definitions`: optional catalog for daily streak bonus rewards such as cosmetics or XP multipliers. This can stay lightly modeled in Phase 0 but keeps the PRD streak reward path open.
+- `app.streak_reward_definitions`: optional catalog for daily streak bonus rewards such as cosmetics or XP multipliers. Store the reward as JSONB, validate it with the shared streak reward payload schema, and keep a DB check that the stored value is a JSON object.
 
 Safety/admin:
 

@@ -281,7 +281,7 @@ create table app.streak_reward_definitions (
   id uuid primary key default gen_random_uuid(),
   streak_days integer not null unique check (streak_days > 0),
   name text not null,
-  reward jsonb not null,
+  reward jsonb not null check (jsonb_typeof(reward) = 'object'),
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -439,5 +439,5 @@ values
 
 insert into app.streak_reward_definitions (id, streak_days, name, reward)
 values
-  ('00000000-0000-4000-8000-000000000a01', 3, 'Three day trail', '{"xpMultiplier":1.1}'::jsonb),
-  ('00000000-0000-4000-8000-000000000a02', 7, 'Weekly wanderer', '{"cosmetic":"leaf_badge"}'::jsonb);
+  ('00000000-0000-4000-8000-000000000a01', 3, 'Three day trail', '{"rewards":[{"type":"xp_multiplier","multiplier":1.1}]}'::jsonb),
+  ('00000000-0000-4000-8000-000000000a02', 7, 'Weekly wanderer', '{"rewards":[{"type":"cosmetic","cosmeticKey":"leaf_badge"}]}'::jsonb);

@@ -547,7 +547,13 @@ export const streakRewardDefinitions = appSchema.table(
     active: boolean("active").notNull().default(true),
     createdAt,
   },
-  (table) => [check("streak_reward_definitions_streak_days_check", sql`${table.streakDays} > 0`)],
+  (table) => [
+    check("streak_reward_definitions_streak_days_check", sql`${table.streakDays} > 0`),
+    check(
+      "streak_reward_definitions_reward_object_check",
+      sql`jsonb_typeof(${table.reward}) = 'object'`,
+    ),
+  ],
 );
 
 export const reports = appSchema.table(
