@@ -1,10 +1,7 @@
 import { useCallback, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { DottingRef } from "dotting";
+import { Platform, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { fonts } from "@/app/theme";
-import { PixelCanvas } from "@/components/PixelCanvas";
-
-const STICKER_SIZE = 64;
+import { PixelCanvas, type PixelCanvasRef, type StickerExport } from "@/components/PixelCanvas";
 
 const COLORS = [
   { label: "Dark", value: "#111827" },
@@ -21,70 +18,33 @@ type CreateStickerPanelProps = {
   onClose?: () => void;
 };
 
-type StickerUploadPayload = {
-  base64: string;
-  dataUrl: string;
-  filename: string;
-  mimeType: "image/png";
-};
-
-function prepareStickerUpload(ref: DottingRef): StickerUploadPayload | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const [layer] = ref.getLayersAsArray();
-  if (!layer) {
-    return null;
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = STICKER_SIZE;
-  canvas.height = STICKER_SIZE;
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return null;
-  }
-
-  for (const row of layer.data) {
-    for (const pixel of row) {
-      if (!pixel.color || pixel.color === "transparent") {
-        continue;
-      }
-
-      context.fillStyle = pixel.color;
-      context.fillRect(pixel.columnIndex, pixel.rowIndex, 1, 1);
-    }
-  }
-
-  const dataUrl = canvas.toDataURL("image/png");
-
-  return {
-    base64: dataUrl.replace(/^data:image\/png;base64,/, ""),
-    dataUrl,
-    filename: "sticker.png",
-    mimeType: "image/png",
-  };
-}
-
 export function CreateStickerPanel({ onClose }: CreateStickerPanelProps) {
-  const ref = useRef<DottingRef>(null);
-  const preparedStickerRef = useRef<StickerUploadPayload | null>(null);
+  const ref = useRef<PixelCanvasRef>(null);
+  const preparedStickerRef = useRef<StickerExport | null>(null);
   const [brushColor, setBrushColor] = useState("#111827");
   const [submitStatus, setSubmitStatus] = useState<string | null>(null);
 
-  const handleDownload = useCallback(() => {
-    ref.current?.downloadImage({ type: "png" });
+  const handleDownload = useCallback(async () => {
+    const payload = await ref.current?.exportAsBase64();
+    if (!payload) return;
+
+    if (Platform.OS === "web") {
+      const link = document.createElement("a");
+      link.href = payload.dataUrl;
+      link.download = payload.filename;
+      link.click();
+    } else {
+      await Share.share({ url: payload.dataUrl });
+    }
   }, []);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!ref.current) {
       setSubmitStatus("Sticker is not ready yet.");
       return;
     }
 
-    const payload = prepareStickerUpload(ref.current);
+    const payload = await ref.current.exportAsBase64();
     preparedStickerRef.current = payload;
     setSubmitStatus(payload ? `Ready to send ${payload.filename}` : "Could not prepare sticker.");
   }, []);
@@ -159,8 +119,8 @@ const styles = StyleSheet.create({
     borderColor: "#5f4a2d",
     borderRadius: 8,
     borderWidth: 3,
-    gap: 14,
-    padding: 16,
+    gap: 8,
+    padding: 12,
     shadowColor: "#2a1f15",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
@@ -188,7 +148,6 @@ const styles = StyleSheet.create({
     color: "#2d2418",
     fontFamily: fonts.family,
     fontSize: 26,
-    fontWeight: "800",
   },
   subtitle: {
     color: "#69563f",
@@ -210,7 +169,6 @@ const styles = StyleSheet.create({
     color: "#2d2418",
     fontFamily: fonts.family,
     fontSize: 20,
-    fontWeight: "800",
     lineHeight: 22,
   },
   canvasCard: {
@@ -232,7 +190,6 @@ const styles = StyleSheet.create({
     color: "#3d3224",
     fontFamily: fonts.family,
     fontSize: 13,
-    fontWeight: "700",
     textTransform: "uppercase",
   },
   currentColour: {
@@ -277,8 +234,8 @@ const styles = StyleSheet.create({
     borderColor: "#5f4a2d",
     borderRadius: 8,
     borderWidth: 2,
-    flex: 1,
     justifyContent: "center",
+    flex: 1,
     minHeight: 44,
     paddingHorizontal: 16,
   },
@@ -292,7 +249,6 @@ const styles = StyleSheet.create({
     color: "#2d2418",
     fontFamily: fonts.family,
     fontSize: 15,
-    fontWeight: "800",
   },
   actionLabelPrimary: {
     color: "#2d2418",
@@ -304,7 +260,6 @@ const styles = StyleSheet.create({
     color: "#3d3224",
     fontFamily: fonts.family,
     fontSize: 13,
-    fontWeight: "700",
     textAlign: "center",
   },
 });
