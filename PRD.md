@@ -14,19 +14,19 @@ Mobile app where students discover geofenced Points of Interest (POIs) around UN
 
 ## 2. Tech Stack
 
-| Layer | Choice |
-|---|---|---|
-| Mobile framework | Expo (React Native) with native geofencing |
-| API runtime (non-real-time) | Hono on Cloudflare Workers |
-| Real-time runtime | Cloudflare Durable Objects (WebSockets, broadcasting) |
-| Database | PostgreSQL + PostGIS on Supabase (no RLS) |
-| ORM | Drizzle |
-| Auth | Clerk (social login only — Google, Apple) |
-| Maps | Leaflet + OSM (provider TBD) |
-| Content moderation | OpenAI Moderation API |
-| Real-time transport | WebSockets via Durable Objects |
-| Push notifications | Expo Push Notifications |
-| Monorepo | Bun workspaces (`apps/app`, `apps/api`, `packages/db`, `packages/shared`) |
+| Layer                       | Choice                                                                    |
+| --------------------------- | ------------------------------------------------------------------------- |
+| Mobile framework            | Expo (React Native) with native geofencing                                |
+| API runtime (non-real-time) | Hono on Cloudflare Workers                                                |
+| Real-time runtime           | Cloudflare Durable Objects (WebSockets, broadcasting)                     |
+| Database                    | PostgreSQL + PostGIS on Supabase (no RLS)                                 |
+| ORM                         | Drizzle                                                                   |
+| Auth                        | Clerk (social login only — Google, Apple)                                 |
+| Maps                        | Leaflet + OSM (provider TBD)                                              |
+| Content moderation          | OpenAI Moderation API                                                     |
+| Real-time transport         | WebSockets via Durable Objects                                            |
+| Push notifications          | Expo Push Notifications                                                   |
+| Monorepo                    | Bun workspaces (`apps/app`, `apps/api`, `packages/db`, `packages/shared`) |
 
 ---
 
@@ -34,13 +34,13 @@ Mobile app where students discover geofenced Points of Interest (POIs) around UN
 
 Cloudflare Workers are the entry point for all HTTP requests. Routing depends on the type of request:
 
-| Request type | Handler | Example |
-|---|---|---|
-| Non-real-time GET | CF Worker (Hono) → Postgres | Fetch user profile, list saved stickers |
-| Non-real-time POST | CF Worker (Hono) → Postgres | Update user display name, settings |
-| Real-time GET | Durable Object → Postgres (via WebSocket) | Query notes, POIs, and map data |
-| Real-time POST | Durable Object → Postgres + broadcast | Post a note, place a sticker |
-| WebSocket connect | Durable Object (persistent connection) | Live map updates, push notifications |
+| Request type       | Handler                                   | Example                                 |
+| ------------------ | ----------------------------------------- | --------------------------------------- |
+| Non-real-time GET  | CF Worker (Hono) → Postgres               | Fetch user profile, list saved stickers |
+| Non-real-time POST | CF Worker (Hono) → Postgres               | Update user display name, settings      |
+| Real-time GET      | Durable Object → Postgres (via WebSocket) | Query notes, POIs, and map data         |
+| Real-time POST     | Durable Object → Postgres + broadcast     | Post a note, place a sticker            |
+| WebSocket connect  | Durable Object (persistent connection)    | Live map updates, push notifications    |
 
 Durable Objects manage persistent WebSocket connections for real-time features — querying notes and map data, broadcasting changes, and sending notifications. Mutations required for real-time functionality (e.g. posting notes, placing stickers) also run inside the Durable Object so the result can be broadcast immediately.
 
@@ -113,6 +113,7 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 A **quest** is a specific objective. Completing it awards XP. **Quests are the only way to earn XP** — visiting POIs, leaving notes, and receiving replies only matter for XP insofar as they complete quest objectives.
 
 Main quest examples:
+
 - Visit your first POI
 - Leave your first billboard
 - Receive your first sticker reply
@@ -131,18 +132,18 @@ Main quest examples:
 
 ### 6.3 Perks by level
 
-| Level | Perk |
-|---|---|
-| 1 (base) | 3 concurrent notes, 10 sticker slots |
-| 2 | +1 concurrent note (4 total) |
-| 3 | +2 sticker slots (12 total) |
-| 4 | Cosmetic: signature on notes/stickers |
-| 5 | +1 concurrent note (5 total) |
-| 6 | Note border flair |
-| 7 | +2 sticker slots (14 total) |
-| 8 | +1 concurrent note (6 total) |
-| 9 | Unique sticker colour palette expansion |
-| 10 | Maxed: 10 concurrent notes, 20 sticker slots, all flairs |
+| Level    | Perk                                                     |
+| -------- | -------------------------------------------------------- |
+| 1 (base) | 3 concurrent notes, 10 sticker slots                     |
+| 2        | +1 concurrent note (4 total)                             |
+| 3        | +2 sticker slots (12 total)                              |
+| 4        | Cosmetic: signature on notes/stickers                    |
+| 5        | +1 concurrent note (5 total)                             |
+| 6        | Note border flair                                        |
+| 7        | +2 sticker slots (14 total)                              |
+| 8        | +1 concurrent note (6 total)                             |
+| 9        | Unique sticker colour palette expansion                  |
+| 10       | Maxed: 10 concurrent notes, 20 sticker slots, all flairs |
 
 ---
 
@@ -165,15 +166,18 @@ Main quest examples:
 ## 9. Admin & Safety
 
 ### 9.1 Reporting system
+
 - Users can report any note or sticker
 - Reports go to an admin panel
 
 ### 9.2 Admin panel
+
 - View reported content with context
 - Take action: hide, remove, warn user, ban user
 - Soft-delete model: hidden content is retained in DB
 
 ### 9.3 Analytics dashboard
+
 - Active users (DAU/WAU/MAU)
 - Popular POIs (visit counts)
 - Note/sticker volume over time
@@ -185,7 +189,7 @@ Main quest examples:
 
 ### 10.1 Visual Style
 
-- **Art direction:** pixel art focus, inspired by *Pikmin Bloom* and *Webfishing*
+- **Art direction:** pixel art focus, inspired by _Pikmin Bloom_ and _Webfishing_
 - **Typography:** Jersey 10 font throughout the entire app
 - **Colour palette:**
   - **Map/UI base:** earthy tones — warm greens, browns, tans
