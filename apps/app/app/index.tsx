@@ -8,6 +8,8 @@ import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 
+const demoCampusId = "00000000-0000-4000-8000-000000000100";
+
 export default function HomeScreen() {
   const [title, setTitle] = useState("Main Library");
   const [lat, setLat] = useState("-33.9173");
@@ -16,7 +18,7 @@ export default function HomeScreen() {
 
   const validateDraft = () => {
     const result = createPoiInputSchema.safeParse({
-      campusId: "unsw-kensington",
+      campusId: demoCampusId,
       title,
       lat: Number(lat),
       lng: Number(lng),
