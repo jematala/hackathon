@@ -1,15 +1,12 @@
-import { Asset } from 'expo-asset';
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import { UNSW_CENTER, DEMO_POIS } from '@/constants/coordinates';
-import {
-  createPOIMarker,
-  createUserAvatarMarker,
-  toLeafletIcon,
-} from './markers';
+import type { Map as LeafletMap } from "leaflet";
+import { Asset } from "expo-asset";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { Platform, StyleSheet, View } from "react-native";
+import { UNSW_CENTER, DEMO_POIS } from "@/constants/coordinates";
+import { createPOIMarker, createUserAvatarMarker, toLeafletIcon } from "./markers";
 
 const TILE_URL =
-  'https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=0f64302472524b558aa92ebe1c088f04';
+  "https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=0f64302472524b558aa92ebe1c088f04";
 const TILE_ATTR =
   '&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
@@ -29,15 +26,15 @@ export default forwardRef<MapHandle>(function MapWeb(_props, ref) {
   }));
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    if (typeof window === 'undefined') return;
+    if (Platform.OS !== "web") return;
+    if (typeof window === "undefined") return;
 
     const container = containerRef.current as unknown as HTMLElement;
     if (!container) return;
 
-    let map: { invalidateSize: () => void; remove: () => void } | null = null;
+    let map: LeafletMap | null = null;
 
-    import('leaflet').then((L) => {
+    import("leaflet").then((L) => {
       map = L.map(container, {
         center: [UNSW_CENTER.lat, UNSW_CENTER.lng],
         zoom: 19,
@@ -60,9 +57,7 @@ export default forwardRef<MapHandle>(function MapWeb(_props, ref) {
           .bindPopup(`<strong>${poi.title}</strong><br/>${poi.description}`);
       }
 
-      const avatarUrl = Asset.fromModule(
-        require('@/assets/images/avatar.png'),
-      ).uri;
+      const avatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
       L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
         icon: toLeafletIcon(createUserAvatarMarker(avatarUrl)),
       }).addTo(map);
@@ -82,6 +77,6 @@ export default forwardRef<MapHandle>(function MapWeb(_props, ref) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: '100%',
+    width: "100%",
   },
 });
