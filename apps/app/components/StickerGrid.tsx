@@ -25,13 +25,13 @@ export function StickerGrid({ grid, gridSize }: StickerGridProps) {
               width: cellSize,
             },
           ]}
-        />
+        />,
       );
     }
     rows.push(
       <View key={row} style={styles.row}>
         {cells}
-      </View>
+      </View>,
     );
   }
 

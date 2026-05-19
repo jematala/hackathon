@@ -14,13 +14,13 @@ export function QuestCard({ title, description, progress, total, completed }: Qu
     <View style={[styles.card, completed && styles.completed]}>
       <View style={styles.header}>
         <Text style={[styles.title, completed && styles.completedText]}>{title}</Text>
-        {completed && (
-          <Text style={styles.checkmark}>✓</Text>
-        )}
+        {completed && <Text style={styles.checkmark}>✓</Text>}
       </View>
       <Text style={styles.description}>{description}</Text>
       <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { width: `${Math.min((progress / total) * 100, 100)}%` }]} />
+        <View
+          style={[styles.progressBar, { width: `${Math.min((progress / total) * 100, 100)}%` }]}
+        />
       </View>
       <Text style={styles.progressText}>
         {progress}/{total}

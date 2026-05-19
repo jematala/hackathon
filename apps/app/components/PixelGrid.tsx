@@ -28,13 +28,13 @@ export function PixelGrid({ grid, gridSize, onCellPress }: PixelGridProps) {
           ]}
         >
           <View style={styles.hitArea} onTouchEnd={() => onCellPress(index)} />
-        </View>
+        </View>,
       );
     }
     rows.push(
       <View key={row} style={styles.row}>
         {cells}
-      </View>
+      </View>,
     );
   }
 

@@ -13,9 +13,7 @@ export function POIMarker({ name, distance }: POIMarkerProps) {
         <Text style={styles.icon}>⭐</Text>
         <View style={styles.labelContainer}>
           <Text style={styles.name}>{name}</Text>
-          {distance && (
-            <Text style={styles.distance}>{distance}</Text>
-          )}
+          {distance && <Text style={styles.distance}>{distance}</Text>}
         </View>
       </View>
     </View>

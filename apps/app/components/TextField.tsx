@@ -9,11 +9,7 @@ export function TextField({ label, style, ...props }: TextFieldProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput
-        autoCapitalize="none"
-        style={[styles.input, style]}
-        {...props}
-      />
+      <TextInput autoCapitalize="none" style={[styles.input, style]} {...props} />
     </View>
   );
 }

@@ -16,7 +16,9 @@ export function BillboardCard({ title, author, preview }: BillboardCardProps) {
         </View>
       </View>
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.preview} numberOfLines={2}>{preview}</Text>
+      <Text style={styles.preview} numberOfLines={2}>
+        {preview}
+      </Text>
     </View>
   );
 }
