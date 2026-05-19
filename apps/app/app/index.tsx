@@ -1,4 +1,4 @@
-import { createEventSchema } from "@repo/shared";
+import { createPoiInputSchema } from "@repo/shared";
 import { Link } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -9,17 +9,22 @@ import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
 
 export default function HomeScreen() {
-  const [title, setTitle] = useState("Campus meetup");
-  const [location, setLocation] = useState("UNSW Library");
-  const [startsAt, setStartsAt] = useState("2026-05-18T09:00:00.000Z");
-  const [message, setMessage] = useState("Ready to validate a demo event.");
+  const [title, setTitle] = useState("Main Library");
+  const [lat, setLat] = useState("-33.9173");
+  const [lng, setLng] = useState("151.2313");
+  const [message, setMessage] = useState("Ready to validate a demo POI.");
 
   const validateDraft = () => {
-    const result = createEventSchema.safeParse({ title, location, startsAt });
+    const result = createPoiInputSchema.safeParse({
+      campusId: "unsw-kensington",
+      title,
+      lat: Number(lat),
+      lng: Number(lng),
+    });
 
     setMessage(
       result.success
-        ? "Draft event matches the shared API contract."
+        ? "Draft POI matches the shared API contract."
         : (result.error.issues[0]?.message ?? "Invalid draft."),
     );
   };
@@ -35,10 +40,10 @@ export default function HomeScreen() {
       </View>
 
       <Card>
-        <Text style={styles.sectionTitle}>Event draft</Text>
+        <Text style={styles.sectionTitle}>POI draft</Text>
         <TextField label="Title" value={title} onChangeText={setTitle} />
-        <TextField label="Location" value={location} onChangeText={setLocation} />
-        <TextField label="Starts at" value={startsAt} onChangeText={setStartsAt} />
+        <TextField label="Latitude" value={lat} onChangeText={setLat} />
+        <TextField label="Longitude" value={lng} onChangeText={setLng} />
         <Button label="Validate" onPress={validateDraft} />
         <Text style={styles.message}>{message}</Text>
       </Card>

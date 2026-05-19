@@ -1,4 +1,3 @@
-import type { EventSummary } from "@repo/shared";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
@@ -7,6 +6,13 @@ import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
+
+type EventSummary = {
+  id: string;
+  title: string;
+  location: string;
+  startsAt: string;
+};
 
 async function fetchEvents(): Promise<EventSummary[]> {
   const response = await fetch(`${apiBaseUrl}/api/events`);
