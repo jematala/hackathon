@@ -92,7 +92,7 @@ The deploy workflow runs on pushes to `main` and via `workflow_dispatch`. Config
 - `SUPABASE_PROJECT_ID`
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
-- `DATABASE_URL`
+- `SUPABASE_POOLER_DATABASE_URL`
 - `CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
 - `OPENAI_API_KEY`

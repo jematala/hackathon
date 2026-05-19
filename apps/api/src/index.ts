@@ -23,7 +23,7 @@ app.use("/api/*", cors());
 
 app.get("/api/health", (c) => {
   return c.json({
-    database: Boolean(c.env.DATABASE_URL),
+    database: Boolean(c.env.SUPABASE_POOLER_DATABASE_URL),
     durableObjects: Boolean(c.env.CAMPUS_REALTIME_ROOM),
     ok: true,
     service: "jematala-api",
