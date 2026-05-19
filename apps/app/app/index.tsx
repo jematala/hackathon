@@ -1,5 +1,6 @@
 import { createPoiInputSchema } from "@repo/shared";
-import { Link } from "expo-router";
+import { useAuth } from "@clerk/expo";
+import { Link, Redirect } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -7,10 +8,13 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { TextField } from "@/components/TextField";
+import { ThemedText } from "@/components/ThemedText";
 
 const demoCampusId = "00000000-0000-4000-8000-000000000100";
 
 export default function HomeScreen() {
+  const { isLoaded, isSignedIn } = useAuth();
+
   const [title, setTitle] = useState("Main Library");
   const [lat, setLat] = useState("-33.9173");
   const [lng, setLng] = useState("151.2313");
@@ -31,32 +35,45 @@ export default function HomeScreen() {
     );
   };
 
+  if (!isLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ThemedText type="default">Loading...</ThemedText>
+      </View>
+    );
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href="/sign-in" />;
+  }
+
   return (
     <Screen>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>Hackathon scaffold</Text>
-        <Text style={styles.title}>UNSW Connect</Text>
-        <Text style={styles.subtitle}>
-          Expo Router on web now, with the same route tree ready for native builds later.
-        </Text>
-      </View>
-
       <Card>
         <Text style={styles.sectionTitle}>POI draft</Text>
+
         <TextField label="Title" value={title} onChangeText={setTitle} />
         <TextField label="Latitude" value={lat} onChangeText={setLat} />
         <TextField label="Longitude" value={lng} onChangeText={setLng} />
+
         <Button label="Validate" onPress={validateDraft} />
+
         <Text style={styles.message}>{message}</Text>
       </Card>
 
       <View style={styles.links}>
+        <Link href="/(tabs)/map" style={styles.link}>
+          Open map
+        </Link>
+
         <Link href="/events" style={styles.link}>
           Browse events
         </Link>
+
         <Link href="/events/demo-event" style={styles.link}>
           Open dynamic event
         </Link>
+
         <Link href="/profile/demo-user" style={styles.link}>
           Open profile
         </Link>
@@ -66,41 +83,28 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    gap: 8,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  eyebrow: {
-    color: "#0f766e",
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  title: {
-    color: "#111827",
-    fontSize: 34,
-    fontWeight: "800",
-  },
-  subtitle: {
-    color: "#4b5563",
-    fontSize: 16,
-    lineHeight: 24,
-  },
+
   sectionTitle: {
-    color: "#111827",
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: "600",
+    marginBottom: 16,
   },
+
   message: {
-    color: "#374151",
-    fontSize: 14,
-    lineHeight: 20,
+    marginTop: 12,
   },
+
   links: {
+    marginTop: 24,
     gap: 12,
   },
+
   link: {
-    color: "#2563eb",
     fontSize: 16,
-    fontWeight: "700",
   },
 });

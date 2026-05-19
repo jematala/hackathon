@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
+import { colors, fonts } from "@/app/theme";
 
 type EventSummary = {
   id: string;
@@ -41,20 +42,28 @@ export default function EventsScreen() {
 
 const styles = StyleSheet.create({
   title: {
-    color: "#111827",
+    color: colors.text,
     fontSize: 28,
-    fontWeight: "800",
+    fontWeight: "700",
+    fontFamily: fonts.family,
   },
   list: {
     gap: 12,
   },
   eventTitle: {
-    color: "#111827",
+    color: colors.text,
     fontSize: 18,
     fontWeight: "700",
+    fontFamily: fonts.family,
   },
   eventMeta: {
-    color: "#4b5563",
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: fonts.family,
+  },
+  error: {
+    color: colors.danger,
     fontSize: 14,
     lineHeight: 20,
   },
