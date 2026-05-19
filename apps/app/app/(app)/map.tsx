@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import type { BillboardPlacement } from "@repo/shared";
+import { useCallback, useState } from "react";
 import {
   LayoutChangeEvent,
   Modal,
@@ -10,40 +11,53 @@ import {
   View,
 } from "react-native";
 
+import {
+  LOCAL_AUTHOR_ID,
+  LOCAL_AUTHOR_USERNAME,
+  LocalBillboardPanel,
+  localUuid,
+  type LocalBillboard,
+} from "@/components/billboard/LocalBillboardPanel";
 import { Map } from "@/components/map/Map";
 import { MapHUD } from "@/components/map/MapHUD";
 import { DEMO_BILLBOARD, UNSW_CENTER } from "@/constants/coordinates";
 import { colors } from "@/lib/theme";
 
-type PlaceholderBillboard = {
-  id: string;
-  title: string;
-  body: string;
-  authorUsername: string;
-  lat: number;
-  lng: number;
-};
-
-const EXAMPLE_BILLBOARD: PlaceholderBillboard = {
+const EXAMPLE_BILLBOARD: LocalBillboard = {
   id: DEMO_BILLBOARD.id,
-  title: DEMO_BILLBOARD.title,
-  body: "Welcome to Campus Connect - pin a sticky note or sticker on this whiteboard.",
+  authorId: "00000000-0000-4000-8000-000000000001",
   authorUsername: "admin",
+  body: "Welcome to Campus Connect - pin a sticky note or sticker on this whiteboard.",
   lat: DEMO_BILLBOARD.lat,
   lng: DEMO_BILLBOARD.lng,
+  expiresAt: hoursFromNowIso(120),
+  placements: [
+    {
+      id: "00000000-0000-4000-8000-000000000c01",
+      billboardId: DEMO_BILLBOARD.id,
+      authorId: "00000000-0000-4000-8000-000000000011",
+      authorUsername: "tess",
+      kind: "sticky_note",
+      x: 0.68,
+      y: 0.62,
+      zIndex: 0,
+      stickerAsset: null,
+      body: "study group @ Basser Steps, 3pm sharp",
+      status: "active",
+      createdAt: new Date().toISOString(),
+    },
+  ],
 };
 
 export default function MapScreen() {
-  const mapRef = useRef<{ invalidateSize: () => void }>(null);
   const [activeBillboardId, setActiveBillboardId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [body, setBody] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
-  const [billboards, setBillboards] = useState<PlaceholderBillboard[]>([]);
+  const [exampleBillboard, setExampleBillboard] = useState<LocalBillboard>(EXAMPLE_BILLBOARD);
+  const [billboards, setBillboards] = useState<LocalBillboard[]>([]);
 
-  const onLayout = useCallback((_event: LayoutChangeEvent) => {
-    mapRef.current?.invalidateSize();
-  }, []);
+  const onLayout = useCallback((_event: LayoutChangeEvent) => {}, []);
 
   const closeCreate = () => {
     setCreateOpen(false);
@@ -57,17 +71,19 @@ export default function MapScreen() {
       return;
     }
 
+    const id = localUuid();
     setCreateError(null);
-    const id = `placeholder-${Date.now()}`;
     setBillboards((current) => [
       ...current,
       {
         id,
-        title: "New whiteboard",
+        authorId: LOCAL_AUTHOR_ID,
+        authorUsername: LOCAL_AUTHOR_USERNAME,
         body: trimmed,
-        authorUsername: "bluewren",
         lat: UNSW_CENTER.lat,
         lng: UNSW_CENTER.lng,
+        expiresAt: hoursFromNowIso(120),
+        placements: [],
       },
     ]);
     setBody("");
@@ -75,15 +91,42 @@ export default function MapScreen() {
     setActiveBillboardId(id);
   };
 
-  const visibleBillboards = [EXAMPLE_BILLBOARD, ...billboards];
+  const addPlacement = (billboardId: string, placement: BillboardPlacement) => {
+    if (billboardId === exampleBillboard.id) {
+      setExampleBillboard((current) => ({
+        ...current,
+        placements: [...current.placements, placement],
+      }));
+      return;
+    }
+
+    setBillboards((current) =>
+      current.map((billboard) =>
+        billboard.id === billboardId
+          ? { ...billboard, placements: [...billboard.placements, placement] }
+          : billboard,
+      ),
+    );
+  };
+
+  const visibleBillboards = [exampleBillboard, ...billboards];
   const activeBillboard = visibleBillboards.find((billboard) => billboard.id === activeBillboardId);
 
   return (
     <View style={styles.root} onLayout={onLayout}>
       <Map
-        ref={mapRef}
-        billboards={billboards}
-        exampleBillboard={EXAMPLE_BILLBOARD}
+        billboards={billboards.map((billboard) => ({
+          id: billboard.id,
+          title: "New whiteboard",
+          lat: billboard.lat,
+          lng: billboard.lng,
+        }))}
+        exampleBillboard={{
+          id: exampleBillboard.id,
+          title: DEMO_BILLBOARD.title,
+          lat: exampleBillboard.lat,
+          lng: exampleBillboard.lng,
+        }}
         onBillboardPress={setActiveBillboardId}
       />
       <MapHUD onCreateBillboard={() => setCreateOpen(true)} />
@@ -102,8 +145,9 @@ export default function MapScreen() {
           >
             <View style={styles.modalPanel}>
               {activeBillboard ? (
-                <PlaceholderBillboardPanel
+                <LocalBillboardPanel
                   billboard={activeBillboard}
+                  onAddPlacement={(placement) => addPlacement(activeBillboard.id, placement)}
                   onClose={() => setActiveBillboardId(null)}
                 />
               ) : null}
@@ -150,39 +194,8 @@ export default function MapScreen() {
   );
 }
 
-function PlaceholderBillboardPanel({
-  billboard,
-  onClose,
-}: {
-  billboard: PlaceholderBillboard;
-  onClose: () => void;
-}) {
-  return (
-    <>
-      <View style={styles.placeholderHeader}>
-        <Text style={styles.authorPill}>@{billboard.authorUsername}</Text>
-        <Pressable
-          onPress={onClose}
-          style={styles.closeButton}
-          hitSlop={8}
-          accessibilityLabel="Close billboard"
-        >
-          <Text style={styles.closeText}>×</Text>
-        </Pressable>
-      </View>
-      <View style={styles.placeholderFrame}>
-        <View style={styles.placeholderBoard}>
-          <View style={styles.placeholderNote}>
-            <Text style={styles.placeholderBody}>{billboard.body}</Text>
-            <Text style={styles.placeholderAuthor}>- @{billboard.authorUsername}</Text>
-          </View>
-        </View>
-      </View>
-      <Pressable style={styles.placeholderAddButton}>
-        <Text style={styles.placeholderAddText}>+ Add a note</Text>
-      </Pressable>
-    </>
-  );
+function hoursFromNowIso(hours: number): string {
+  return new Date(Date.now() + hours * 3600_000).toISOString();
 }
 
 const styles = StyleSheet.create({
@@ -287,71 +300,6 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   submitText: {
-    color: colors.creamText,
-    fontSize: 20,
-  },
-  placeholderHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  authorPill: {
-    backgroundColor: colors.sageDark,
-    borderColor: colors.sageDarker,
-    borderRadius: 999,
-    borderWidth: 2,
-    color: colors.creamText,
-    fontSize: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  placeholderFrame: {
-    backgroundColor: colors.sage,
-    borderColor: colors.sageDarker,
-    borderRadius: 14,
-    borderWidth: 3,
-    padding: 10,
-  },
-  placeholderBoard: {
-    alignItems: "center",
-    backgroundColor: colors.cork,
-    borderColor: colors.corkEdge,
-    borderRadius: 8,
-    borderWidth: 2,
-    height: 420,
-    justifyContent: "flex-start",
-    paddingTop: 36,
-  },
-  placeholderNote: {
-    backgroundColor: colors.paperCream,
-    borderColor: colors.paperEdge,
-    borderRadius: 4,
-    borderWidth: 2,
-    minHeight: 130,
-    padding: 18,
-    transform: [{ rotate: "-2deg" }],
-    width: 230,
-  },
-  placeholderBody: {
-    color: colors.ink,
-    fontSize: 20,
-    lineHeight: 25,
-  },
-  placeholderAuthor: {
-    color: colors.inkSoft,
-    fontSize: 14,
-    marginTop: 28,
-  },
-  placeholderAddButton: {
-    alignItems: "center",
-    backgroundColor: colors.sageDark,
-    borderColor: colors.sageDarker,
-    borderRadius: 12,
-    borderWidth: 2,
-    minHeight: 48,
-    justifyContent: "center",
-  },
-  placeholderAddText: {
     color: colors.creamText,
     fontSize: 20,
   },
