@@ -3,7 +3,7 @@ import L from "leaflet";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
-import { DEMO_BILLBOARD, DEMO_POIS, UNSW_CENTER } from "@/constants/coordinates";
+import { DEMO_POIS, UNSW_CENTER } from "@/constants/coordinates";
 
 import { createBillboardIcon, createPOIIcon, createUserAvatarIcon } from "./markers";
 
@@ -13,11 +13,23 @@ const TILE_ATTR =
   '&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 type MapProps = {
+  exampleBillboard: {
+    id: string;
+    title: string;
+    lat: number;
+    lng: number;
+  };
+  billboards: Array<{
+    id: string;
+    title: string;
+    lat: number;
+    lng: number;
+  }>;
   onBillboardPress?: (id: string) => void;
 };
 
 export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function Map(
-  { onBillboardPress },
+  { billboards, exampleBillboard, onBillboardPress },
   ref,
 ) {
   const containerRef = useRef<View | null>(null);
@@ -58,11 +70,19 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
         .bindPopup(`<strong>${poi.title}</strong><br/>${poi.description}`);
     }
 
-    L.marker([DEMO_BILLBOARD.lat, DEMO_BILLBOARD.lng], {
-      icon: createBillboardIcon(DEMO_BILLBOARD.title),
+    L.marker([exampleBillboard.lat, exampleBillboard.lng], {
+      icon: createBillboardIcon(exampleBillboard.title),
     })
       .addTo(map)
-      .on("click", () => onBillboardPress?.(DEMO_BILLBOARD.id));
+      .on("click", () => onBillboardPress?.(exampleBillboard.id));
+
+    for (const billboard of billboards) {
+      L.marker([billboard.lat, billboard.lng], {
+        icon: createBillboardIcon(billboard.title),
+      })
+        .addTo(map)
+        .on("click", () => onBillboardPress?.(billboard.id));
+    }
 
     const avatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
 
@@ -76,7 +96,7 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
       map.remove();
       mapRef.current = null;
     };
-  }, [onBillboardPress]);
+  }, [billboards, exampleBillboard, onBillboardPress]);
 
   return <View ref={containerRef} style={styles.container} />;
 });

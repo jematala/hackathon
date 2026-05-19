@@ -51,14 +51,29 @@ function TextButton({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
-export function MapHUD() {
+function AddButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityLabel="Create billboard"
+      style={({ pressed }) => [styles.addButton, { opacity: pressed ? 0.7 : 1 }]}
+    >
+      <Text style={styles.addLabel}>+</Text>
+    </Pressable>
+  );
+}
+
+export function MapHUD({ onCreateBillboard }: { onCreateBillboard: () => void }) {
   return (
     <View style={styles.container}>
       <ProfileButton />
-      <View style={styles.rightCluster}>
-        <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
-        <View style={{ width: 10 }} />
-        <TextButton label="Studio" onPress={() => {}} />
+      <View style={styles.rightStack}>
+        <AddButton onPress={onCreateBillboard} />
+        <View style={styles.rightCluster}>
+          <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
+          <View style={{ width: 10 }} />
+          <TextButton label="Studio" onPress={() => {}} />
+        </View>
       </View>
     </View>
   );
@@ -121,6 +136,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family,
     fontSize: 28,
   },
+  addButton: {
+    alignItems: "center",
+    backgroundColor: COLOR_FG,
+    borderRadius: 8,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  addLabel: {
+    color: "#ffedd6",
+    fontFamily: fonts.family,
+    fontSize: 36,
+    lineHeight: 38,
+  },
   levelLabel: {
     color: "#5b7559",
     fontFamily: fonts.family,
@@ -128,7 +157,12 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   rightCluster: {
-    flexDirection: "row",
     alignSelf: "flex-end",
+    flexDirection: "row",
+  },
+  rightStack: {
+    alignItems: "flex-end",
+    alignSelf: "flex-end",
+    gap: 10,
   },
 });
