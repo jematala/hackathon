@@ -92,6 +92,11 @@ The deploy workflow runs on pushes to `main` and via `workflow_dispatch`. Config
 - `SUPABASE_PROJECT_ID`
 - `SUPABASE_URL`
 - `SUPABASE_SECRET_KEY`
+- `DATABASE_URL`
+- `CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `OPENAI_API_KEY`
+- `EXPO_ACCESS_TOKEN` (optional; push notification calls are currently disabled)
 
 The Cloudflare API token needs permission to deploy Workers and write Worker secrets. The deploy workflow syncs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` into the API Worker before deploying.
 

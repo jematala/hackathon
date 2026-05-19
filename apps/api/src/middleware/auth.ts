@@ -1,13 +1,22 @@
+import { createClerkClient, type ClerkClient } from "@clerk/backend";
 import { sql } from "drizzle-orm";
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import type { MiddlewareHandler } from "hono";
 
 import { getDb } from "../db";
 import { unauthorized } from "../http";
 import type { AppBindings, AuthUser, Env } from "../types";
 
-let cachedJwksUrl: string | undefined;
-let cachedJwks: ReturnType<typeof createRemoteJWKSet> | undefined;
+type ClerkClaims = Record<string, unknown> & {
+  email?: string;
+  given_name?: string;
+  name?: string;
+  sub?: string;
+  username?: string;
+};
+
+let cachedClerkClient: ClerkClient | undefined;
+let cachedPublishableKey: string | undefined;
+let cachedSecretKey: string | undefined;
 
 function getToken(authorization: string | undefined, queryToken: string | undefined) {
   if (authorization?.startsWith("Bearer ")) {
@@ -17,24 +26,39 @@ function getToken(authorization: string | undefined, queryToken: string | undefi
   return queryToken;
 }
 
-function jwksForEnv(env: Env) {
-  const jwksUrl =
-    env.CLERK_JWKS_URL ??
-    (env.CLERK_ISSUER ? `${env.CLERK_ISSUER}/.well-known/jwks.json` : undefined);
-
-  if (!jwksUrl) {
-    throw new Error("CLERK_JWKS_URL or CLERK_ISSUER is not configured.");
+function clerkClientForEnv(env: Env) {
+  if (!env.CLERK_SECRET_KEY || !env.CLERK_PUBLISHABLE_KEY) {
+    throw new Error("CLERK_SECRET_KEY and CLERK_PUBLISHABLE_KEY are not configured.");
   }
 
-  if (!cachedJwks || cachedJwksUrl !== jwksUrl) {
-    cachedJwks = createRemoteJWKSet(new URL(jwksUrl));
-    cachedJwksUrl = jwksUrl;
+  if (
+    !cachedClerkClient ||
+    cachedSecretKey !== env.CLERK_SECRET_KEY ||
+    cachedPublishableKey !== env.CLERK_PUBLISHABLE_KEY
+  ) {
+    cachedClerkClient = createClerkClient({
+      publishableKey: env.CLERK_PUBLISHABLE_KEY,
+      secretKey: env.CLERK_SECRET_KEY,
+    });
+    cachedPublishableKey = env.CLERK_PUBLISHABLE_KEY;
+    cachedSecretKey = env.CLERK_SECRET_KEY;
   }
 
-  return cachedJwks;
+  return cachedClerkClient;
 }
 
-function usernameFromClaims(payload: JWTPayload) {
+function requestWithQueryToken(request: Request, token: string | undefined) {
+  if (!token || request.headers.has("authorization")) {
+    return request;
+  }
+
+  const headers = new Headers(request.headers);
+  headers.set("authorization", `Bearer ${token}`);
+
+  return new Request(request, { headers });
+}
+
+function usernameFromClaims(payload: ClerkClaims) {
   const raw =
     (typeof payload.username === "string" && payload.username) ||
     (typeof payload.email === "string" && payload.email.split("@")[0]) ||
@@ -51,7 +75,7 @@ function usernameFromClaims(payload: JWTPayload) {
   return `${clean || "student"}_${suffix}`.slice(0, 32);
 }
 
-function displayNameFromClaims(payload: JWTPayload) {
+function displayNameFromClaims(payload: ClerkClaims) {
   if (typeof payload.name === "string" && payload.name.trim()) {
     return payload.name.trim().slice(0, 80);
   }
@@ -63,15 +87,35 @@ function displayNameFromClaims(payload: JWTPayload) {
   return usernameFromClaims(payload);
 }
 
-async function verifyAuth(env: Env, token: string): Promise<JWTPayload> {
-  const verified = await jwtVerify(token, jwksForEnv(env), {
-    issuer: env.CLERK_ISSUER,
-  });
+async function resolveAuthClaims(
+  env: Env,
+  request: Request,
+  token?: string,
+): Promise<ClerkClaims | null> {
+  const state = await clerkClientForEnv(env).authenticateRequest(
+    requestWithQueryToken(request, token),
+    {
+      acceptsToken: "session_token",
+    },
+  );
 
-  return verified.payload;
+  if (!state.isAuthenticated) {
+    return null;
+  }
+
+  const auth = state.toAuth();
+
+  if (!auth.userId) {
+    return null;
+  }
+
+  return {
+    ...auth.sessionClaims,
+    sub: auth.userId,
+  };
 }
 
-async function upsertAuthUser(env: Env, payload: JWTPayload): Promise<AuthUser> {
+async function upsertAuthUser(env: Env, payload: ClerkClaims): Promise<AuthUser> {
   if (!payload.sub) {
     unauthorized("Authentication token is missing a subject.");
   }
@@ -100,12 +144,12 @@ async function upsertAuthUser(env: Env, payload: JWTPayload): Promise<AuthUser> 
 
 export const requireAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
   const token = getToken(c.req.header("authorization"), c.req.query("token"));
+  const payload = await resolveAuthClaims(c.env, c.req.raw, token);
 
-  if (!token) {
+  if (!payload) {
     unauthorized();
   }
 
-  const payload = await verifyAuth(c.env, token);
   c.set("authUser", await upsertAuthUser(c.env, payload));
 
   await next();
@@ -113,9 +157,9 @@ export const requireAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
 
 export const optionalAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
   const token = getToken(c.req.header("authorization"), c.req.query("token"));
+  const payload = await resolveAuthClaims(c.env, c.req.raw, token);
 
-  if (token) {
-    const payload = await verifyAuth(c.env, token);
+  if (payload) {
     c.set("authUser", await upsertAuthUser(c.env, payload));
   }
 
