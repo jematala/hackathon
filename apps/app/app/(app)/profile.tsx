@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/expo";
 import type { UserSignature } from "@repo/shared";
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
@@ -12,12 +13,22 @@ type State =
   | { kind: "error"; message: string };
 
 export default function ProfileScreen() {
+  const { getToken, isLoaded } = useAuth({ treatPendingAsSignedOut: false });
   const [state, setState] = useState<State>({ kind: "loading" });
   const [equipping, setEquipping] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!isLoaded) {
+      return;
+    }
+
     try {
-      const data = await fetchMySignatures();
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Sign in to load signatures.");
+      }
+
+      const data = await fetchMySignatures(token);
       setState({
         kind: "ready",
         featureUnlocked: data.signatureFeatureUnlocked,
@@ -29,7 +40,7 @@ export default function ProfileScreen() {
         message: error instanceof Error ? error.message : "Failed to load signatures",
       });
     }
-  }, []);
+  }, [getToken, isLoaded]);
 
   useEffect(() => {
     void load();
@@ -39,13 +50,18 @@ export default function ProfileScreen() {
     async (id: string | null) => {
       setEquipping(id ?? "none");
       try {
-        await equipSignature({ signatureId: id });
+        const token = await getToken();
+        if (!token) {
+          throw new Error("Sign in to equip signatures.");
+        }
+
+        await equipSignature({ signatureId: id }, token);
         await load();
       } finally {
         setEquipping(null);
       }
     },
-    [load],
+    [getToken, load],
   );
 
   return (

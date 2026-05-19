@@ -1,6 +1,15 @@
+import type {
+  EquipSignatureInput,
+  EquipSignatureResponse,
+  ListMySignaturesResponse,
+  ListSignaturesResponse,
+} from "@repo/shared";
+
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
 
-export const DEV_BEARER_TOKEN = "dev";
+type ApiFetchOptions = RequestInit & {
+  token?: string | null;
+};
 
 export class ApiError extends Error {
   readonly status: number;
@@ -14,10 +23,11 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, init: ApiFetchOptions = {}): Promise<T> {
+  const { token, ...requestInit } = init;
   const headers = new Headers(init.headers);
-  if (!headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${DEV_BEARER_TOKEN}`);
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
   if (init.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -25,7 +35,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   headers.set("Accept", "application/json");
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
+    ...requestInit,
     headers,
   });
 
@@ -53,24 +63,18 @@ function safeJsonParse(text: string): unknown {
   }
 }
 
-import type {
-  EquipSignatureInput,
-  EquipSignatureResponse,
-  ListMySignaturesResponse,
-  ListSignaturesResponse,
-} from "@repo/shared";
-
 export function fetchSignatureCatalog() {
   return apiFetch<ListSignaturesResponse>("/api/signatures");
 }
 
-export function fetchMySignatures() {
-  return apiFetch<ListMySignaturesResponse>("/api/users/me/signatures");
+export function fetchMySignatures(token: string) {
+  return apiFetch<ListMySignaturesResponse>("/api/users/me/signatures", { token });
 }
 
-export function equipSignature(input: EquipSignatureInput) {
+export function equipSignature(input: EquipSignatureInput, token: string) {
   return apiFetch<EquipSignatureResponse>("/api/users/me/signature", {
     method: "PATCH",
     body: JSON.stringify(input),
+    token,
   });
 }
