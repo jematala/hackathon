@@ -2,8 +2,8 @@ import type { Context } from "hono";
 
 export type Env = {
   CAMPUS_REALTIME_ROOM: DurableObjectNamespace;
-  CLERK_ISSUER?: string;
-  CLERK_JWKS_URL?: string;
+  CLERK_PUBLISHABLE_KEY?: string;
+  CLERK_SECRET_KEY?: string;
   DATABASE_URL?: string;
   DEV_AUTH_USER_ID?: string;
   EXPO_ACCESS_TOKEN?: string;
