@@ -132,3 +132,70 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 - **Push notification timing:** 8–9am daily quest reminder
 - **POI picture:** compressed 128×128 base64 PNG (stored inline in DB)
 - **User avatar:** 64×64 pixel art drawn on sign-up, stored as base64 PNG in `users.avatar_base64` column
+
+---
+
+## Map Implementation (FE1)
+
+### Tile Configuration
+
+| Property | Value |
+|----------|-------|
+| Provider | Thunderforest (Neighbourhood) |
+| URL | `https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=…` |
+| CSS filter | `sepia(0.6) saturate(0.5) brightness(1.05)` |
+| Pixel filter | `image-rendering: pixelated` |
+| Center | UNSW Kensington (-33.917, 151.231) |
+| Default zoom | 18 |
+| Max zoom | 22 (scales z21 tiles at 22 via `maxNativeZoom: 21`) |
+
+### File Structure
+
+```
+components/map/
+├── Map.tsx       ← Leaflet ref-based wrapper (useEffect + useRef)
+├── markers.ts    ← L.divIcon factories (POI, user avatar)
+├── MapHUD.tsx    ← Floating bottom bar (Webfishing-style buttons)
+```
+
+### Navigation
+
+```
+app/
+├── _layout.tsx          ← Auth skeleton (sign-in gate)
+└── (tabs)/
+    ├── _layout.tsx      ← Tab navigator
+    ├── map/index.tsx    ← Map screen (Map + HUD)
+    ├── quests/index.tsx
+    ├── studio/index.tsx
+    └── profile/index.tsx
+```
+
+### Components
+
+**Map.tsx** — Creates Leaflet map in a `useEffect` ref. Adds Thunderforest Neighbourhood tiles with CSS filter injection. Renders POI markers (glowing billboard divIcon) and user avatar marker. Handles resize and cleanup.
+
+**markers.ts** — `createPOIIcon(title)` returns `L.divIcon` with small wooden billboard shape + golden glow box-shadow. `createUserAvatarIcon(imageUrl)` returns a circular avatar marker using the app avatar asset.
+
+**MapHUD.tsx** — Floating bottom bar (~20px from bottom edge). Profile button (bottom-left), Quests + Studio buttons (bottom-right cluster). Webfishing-style: 56×56px, forest green `#4a7c59`, 3px darker border `#2d4a36`, rounded corners 12px, pixel shadow.
+
+### Demo Data
+
+Hardcoded in `constants/coordinates.ts`:
+- UNSW center (-33.917, 151.231)
+- 5 demo POIs around campus (Main Library, Science Theatre, Quad, Roundhouse, Mathews Building)
+
+### Dependencies
+
+| Package | Version |
+|---------|---------|
+| `leaflet` | latest |
+| `@types/leaflet` | latest |
+
+### Maps Backlog (post-hackathon)
+
+- Swap renderer to `react-native-leaflet-view` for mobile
+- Replace placeholder avatar SVG with drawn 64×64 user avatar
+- Wire POI data to live API
+- POI discovery toast on geofence enter
+- Real-time updates via Durable Object WebSocket

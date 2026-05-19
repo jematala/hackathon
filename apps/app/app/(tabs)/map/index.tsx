@@ -1,28 +1,26 @@
-import { Screen } from "@/components/Screen";
-import { StyleSheet, Text } from "react-native";
-import { colors, fonts } from "@/app/theme";
+import { useCallback, useRef } from "react";
+import { LayoutChangeEvent, StyleSheet, View } from "react-native";
+
+import { Map } from "@/components/map/Map";
+import { MapHUD } from "@/components/map/MapHUD";
 
 export default function MapScreen() {
+  const mapRef = useRef<{ invalidateSize: () => void }>(null);
+
+  const onLayout = useCallback((_event: LayoutChangeEvent) => {
+    mapRef.current?.invalidateSize();
+  }, []);
+
   return (
-    <Screen>
-      <Text style={styles.title}>Map</Text>
-      <Text style={styles.subtitle}>Map coming soon</Text>
-    </Screen>
+    <View style={styles.root} onLayout={onLayout}>
+      <Map ref={mapRef} />
+      <MapHUD />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    color: colors.text,
-    fontFamily: fonts.family,
-    fontSize: 34,
-    textAlign: "center",
-    fontWeight: "700",
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    fontFamily: fonts.family,
-    fontSize: 18,
-    textAlign: "center",
+  root: {
+    flex: 1,
   },
 });
