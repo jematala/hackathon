@@ -1,10 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { DottingRef } from "dotting";
 import { fonts } from "@/app/theme";
 import { ApiError } from "@/lib/api/client";
 import { useCreateStickerAsset, useSaveSticker } from "@/lib/api/hooks";
-import { PixelCanvas } from "@/components/PixelCanvas";
+import { PixelCanvas, type PixelCanvasRef } from "@/components/PixelCanvas";
 
 const STICKER_SIZE = 64;
 
@@ -27,60 +26,13 @@ type CreateStickerPanelProps = {
   onAvatarSaved?: (payload: { dataUrl: string; base64: string }) => void;
 };
 
-type StickerUploadPayload = {
-  base64: string;
-  dataUrl: string;
-  filename: string;
-  mimeType: "image/png";
-};
-
-function prepareStickerUpload(ref: DottingRef): StickerUploadPayload | null {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const [layer] = ref.getLayersAsArray();
-  if (!layer) {
-    return null;
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = STICKER_SIZE;
-  canvas.height = STICKER_SIZE;
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return null;
-  }
-
-  for (const row of layer.data) {
-    for (const pixel of row) {
-      if (!pixel.color || pixel.color === "transparent") {
-        continue;
-      }
-
-      context.fillStyle = pixel.color;
-      context.fillRect(pixel.columnIndex, pixel.rowIndex, 1, 1);
-    }
-  }
-
-  const dataUrl = canvas.toDataURL("image/png");
-
-  return {
-    base64: dataUrl.replace(/^data:image\/png;base64,/, ""),
-    dataUrl,
-    filename: "sticker.png",
-    mimeType: "image/png",
-  };
-}
-
 export function CreateStickerPanel({
   onClose,
   variant = "sticker",
   onAvatarSaved,
 }: CreateStickerPanelProps) {
   const isAvatar = variant === "avatar";
-  const ref = useRef<DottingRef>(null);
+  const ref = useRef<PixelCanvasRef>(null);
   const [brushColor, setBrushColor] = useState("#111827");
   const [submitStatus, setSubmitStatus] = useState<string | null>(null);
   const [submitTone, setSubmitTone] = useState<"info" | "success" | "error">("info");
@@ -89,7 +41,13 @@ export function CreateStickerPanel({
   const isSubmitting = !isAvatar && (createAsset.isPending || saveSticker.isPending);
 
   const handleDownload = useCallback(() => {
-    ref.current?.downloadImage({ type: "png" });
+    void ref.current?.exportAsBase64().then((payload) => {
+      if (!payload || typeof document === "undefined") return;
+      const link = document.createElement("a");
+      link.href = payload.dataUrl;
+      link.download = payload.filename;
+      link.click();
+    });
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -99,7 +57,7 @@ export function CreateStickerPanel({
       return;
     }
 
-    const payload = prepareStickerUpload(ref.current);
+    const payload = await ref.current.exportAsBase64();
     if (!payload) {
       setSubmitTone("error");
       setSubmitStatus(isAvatar ? "Could not prepare avatar." : "Could not prepare sticker.");

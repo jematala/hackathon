@@ -5,9 +5,10 @@ import { Jersey10_400Regular, useFonts } from "@expo-google-fonts/jersey-10";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as SecureStore from "expo-secure-store";
 
 import { DevUserProvider } from "@/lib/devUser";
 import { colors } from "@/lib/theme";
@@ -43,6 +44,24 @@ export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
   const [loaded, error] = useFonts({ Jersey10_400Regular });
 
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = LEAFLET_CSS;
+    document.head.appendChild(link);
+
+    const style = document.createElement("style");
+    style.textContent = MAP_STYLES;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(link);
+      document.head.removeChild(style);
+    };
+  }, []);
+
   if (error) {
     throw error;
   }
@@ -55,13 +74,23 @@ export default function RootLayout() {
     );
   }
 
+  const tokenCache = {
+    async getToken(key: string) {
+      return SecureStore.getItemAsync(key);
+    },
+    async saveToken(key: string, value: string) {
+      return SecureStore.setItemAsync(key, value);
+    },
+  };
+
   return (
     <GestureHandlerRootView style={styles.root}>
-      <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+      <ClerkProvider
+        tokenCache={tokenCache}
+        publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+      >
         <QueryClientProvider client={queryClient}>
           <DevUserProvider>
-            <link rel="stylesheet" href={LEAFLET_CSS} />
-            <style>{MAP_STYLES}</style>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(auth)/sign-in" />
               <Stack.Screen name="(auth)/sign-up" />

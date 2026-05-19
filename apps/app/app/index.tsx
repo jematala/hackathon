@@ -5,7 +5,7 @@ import { StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 
 export default function HomeScreen() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
 
   if (!isLoaded) {
     return (
@@ -15,11 +15,11 @@ export default function HomeScreen() {
     );
   }
 
-  if (!isSignedIn) {
-    return <Redirect href="/sign-in" />;
+  if (isSignedIn) {
+    return <Redirect href="/(app)/map" />;
   }
 
-  return <Redirect href="/map" />;
+  return <Redirect href="/(auth)/sign-in" />;
 }
 
 const styles = StyleSheet.create({
