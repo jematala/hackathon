@@ -15,21 +15,40 @@ Mobile app where students discover geofenced Points of Interest (POIs) around UN
 ## 2. Tech Stack
 
 | Layer | Choice |
-|---|---|
+|---|---|---|
 | Mobile framework | Expo (React Native) with native geofencing |
-| Backend runtime | Hono on Cloudflare Workers |
+| API runtime (non-real-time) | Hono on Cloudflare Workers |
+| Real-time runtime | Cloudflare Durable Objects (WebSockets, broadcasting) |
 | Database | PostgreSQL + PostGIS on Supabase (no RLS) |
 | ORM | Drizzle |
 | Auth | Clerk (social login only — Google, Apple) |
 | Maps | Leaflet + OSM (provider TBD) |
 | Content moderation | OpenAI Moderation API |
-| Real-time | WebSockets |
+| Real-time transport | WebSockets via Durable Objects |
 | Push notifications | Expo Push Notifications |
 | Monorepo | Bun workspaces (`apps/app`, `apps/api`, `packages/db`, `packages/shared`) |
 
 ---
 
-## 3. Map & Location
+## 3. Architecture
+
+Cloudflare Workers are the entry point for all HTTP requests. Routing depends on the type of request:
+
+| Request type | Handler | Example |
+|---|---|---|
+| Non-real-time GET | CF Worker (Hono) → Postgres | Fetch user profile, list saved stickers |
+| Non-real-time POST | CF Worker (Hono) → Postgres | Update user display name, settings |
+| Real-time GET | Durable Object → Postgres (via WebSocket) | Query notes, POIs, and map data |
+| Real-time POST | Durable Object → Postgres + broadcast | Post a note, place a sticker |
+| WebSocket connect | Durable Object (persistent connection) | Live map updates, push notifications |
+
+Durable Objects manage persistent WebSocket connections for real-time features — querying notes and map data, broadcasting changes, and sending notifications. Mutations required for real-time functionality (e.g. posting notes, placing stickers) also run inside the Durable Object so the result can be broadcast immediately.
+
+Non-real-time requests (e.g. updating user settings, fetching saved stickers) go through standard CF Workers with Hono and do not require a Durable Object.
+
+---
+
+## 4. Map & Location
 
 - 2D top-down map centered on UNSW Kensington campus
 - User sees: their own location dot, POI markers, and billboard notes
@@ -137,8 +156,9 @@ Main quest examples:
 
 ## 8. Real-time & Notifications
 
-- **WebSockets** for live updates: new notes, new replies, POI rotations appear instantly
+- **WebSockets via Durable Objects** for live updates: new notes, new sticker placements, POI rotations appear instantly without a refresh
 - **Push notifications:** daily quest reminder, reply received, new POI nearby
+- The Durable Object handles all WebSocket connections, broadcasts changes to connected clients, and performs mutations needed for real-time features so results are immediately visible
 
 ---
 
