@@ -63,7 +63,12 @@ function AddButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-export function MapHUD({ onCreateBillboard }: { onCreateBillboard: () => void }) {
+type MapHUDProps = {
+  onCreateBillboard: () => void;
+  onOpenStudio: () => void;
+};
+
+export function MapHUD({ onCreateBillboard, onOpenStudio }: MapHUDProps) {
   return (
     <View style={styles.container}>
       <ProfileButton />
@@ -72,7 +77,7 @@ export function MapHUD({ onCreateBillboard }: { onCreateBillboard: () => void })
         <View style={styles.rightCluster}>
           <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
           <View style={{ width: 10 }} />
-          <TextButton label="Studio" onPress={() => {}} />
+          <TextButton label="Studio" onPress={onOpenStudio} />
         </View>
       </View>
     </View>
