@@ -63,7 +63,7 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 
 - **5–10 concurrent POIs** selected daily from seeded/admin-created POIs
 - POIs are visually distinct from notes (e.g. glowing markers vs. note icons)
-- **Rotation:** every 24 hours, a scheduled job randomly selects active POIs from the POI table
+- **Rotation:** each campus day deterministically selects active POIs from the POI table
 - **First visit** to a POI — on an individual user basis — advances quest progress, assuming the user has a relevant quest (daily or level-based). Visiting gives no direct XP.
 - Visited POIs are recorded to prevent repeat quest progress from the same POI
 - Optional picture: compressed 128×128 base64 PNG image (pixel-art icon or photo)
@@ -131,7 +131,7 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 ### 6.2 Daily quests & streaks
 
 - Daily quests rotate each Sydney calendar day, separate from the main quest tree
-- Daily quest templates and the curated daily quest pool are seeded data; a scheduled job randomly chooses the active daily quest from that pool
+- Daily quest templates and the curated daily quest pool are seeded data; the active daily quest is deterministically selected from the Sydney calendar day
 - Completing the daily quest maintains the streak
 - Streaks grant bonus rewards (cosmetics, XP multipliers)
 - Push notification each day to remind users

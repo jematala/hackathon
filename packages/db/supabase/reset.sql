@@ -77,14 +77,6 @@ create table app.pois (
   deleted_at timestamptz
 );
 
-create table app.poi_daily_activations (
-  campus_id uuid not null references app.campuses(id) on delete cascade,
-  poi_id uuid not null references app.pois(id) on delete cascade,
-  active_on date not null,
-  created_at timestamptz not null default now(),
-  primary key (campus_id, poi_id, active_on)
-);
-
 create table app.poi_visits (
   user_id uuid not null references app.users(id) on delete cascade,
   poi_id uuid not null references app.pois(id) on delete cascade,
@@ -153,8 +145,7 @@ create table app.billboard_placements (
       and sticker_asset_id is null
       and body is not null
     )
-  ),
-  unique (billboard_id, author_id)
+  )
 );
 
 create table app.saved_stickers (
@@ -226,20 +217,12 @@ create table app.daily_quest_pool (
   created_at timestamptz not null default now()
 );
 
-create table app.daily_quest_assignments (
-  id uuid primary key default gen_random_uuid(),
-  campus_id uuid not null references app.campuses(id) on delete cascade,
-  active_on date not null,
-  daily_quest_pool_id uuid not null references app.daily_quest_pool(id) on delete restrict,
-  created_at timestamptz not null default now(),
-  unique (campus_id, active_on)
-);
-
 create table app.user_quest_progress (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references app.users(id) on delete cascade,
   source app.quest_source not null,
   source_id uuid not null,
+  active_on date,
   progress_count integer not null default 0 check (progress_count >= 0),
   target_count integer not null check (target_count > 0),
   completed_at timestamptz,
@@ -248,7 +231,16 @@ create table app.user_quest_progress (
   claimed_xp integer check (claimed_xp is null or claimed_xp >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (user_id, source, source_id)
+  check (
+    (
+      source = 'daily_quest'
+      and active_on is not null
+    )
+    or (
+      source = 'level_quest'
+      and active_on is null
+    )
+  )
 );
 
 create table app.perk_definitions (
@@ -353,16 +345,29 @@ create index billboards_author_day_idx on app.billboards (
   author_id,
   ((timezone('Australia/Sydney', created_at))::date)
 );
+create unique index billboard_placements_one_per_user_idx on app.billboard_placements (
+  billboard_id,
+  author_id
+)
+where deleted_at is null;
 create index billboard_placements_billboard_idx on app.billboard_placements (billboard_id, z_index);
 create index sticker_assets_owner_idx on app.sticker_assets (owner_id);
 create index saved_stickers_user_idx on app.saved_stickers (user_id) where deleted_at is null;
+create unique index user_quest_progress_level_unique_idx on app.user_quest_progress (
+  user_id,
+  source,
+  source_id
+)
+where active_on is null;
+create unique index user_quest_progress_daily_unique_idx on app.user_quest_progress (
+  user_id,
+  source,
+  source_id,
+  active_on
+)
+where active_on is not null;
 create index user_quest_progress_user_idx on app.user_quest_progress (user_id);
 create index reports_status_idx on app.reports (status, created_at);
-
-insert into app.users (id, clerk_user_id, username, display_name, avatar_base64, is_admin)
-values
-  ('00000000-0000-4000-8000-000000000001', 'clerk_demo_admin', 'admin', 'Demo Admin', null, true),
-  ('00000000-0000-4000-8000-000000000002', 'clerk_demo_user', 'bluewren', 'Blue Wren', null, false);
 
 insert into app.campuses (id, name, timezone, center_lat, center_lng, radius_meters, bounds)
 values (
@@ -375,20 +380,14 @@ values (
   '{"north":-33.9095,"south":-33.9249,"east":151.2398,"west":151.2252}'::jsonb
 );
 
-insert into app.pois (id, campus_id, title, description, location_point, lat, lng, created_by)
+insert into app.pois (id, campus_id, title, description, location_point, lat, lng)
 values
-  ('00000000-0000-4000-8000-000000000201', '00000000-0000-4000-8000-000000000100', 'Main Library', 'A busy study landmark near the centre of campus.', st_setsrid(st_makepoint(151.2313, -33.9173), 4326)::geography, -33.9173, 151.2313, '00000000-0000-4000-8000-000000000001'),
-  ('00000000-0000-4000-8000-000000000202', '00000000-0000-4000-8000-000000000100', 'Basser Steps', 'A classic meeting spot between upper and lower campus.', st_setsrid(st_makepoint(151.2298, -33.9179), 4326)::geography, -33.9179, 151.2298, '00000000-0000-4000-8000-000000000001'),
-  ('00000000-0000-4000-8000-000000000203', '00000000-0000-4000-8000-000000000100', 'Quadrangle Lawn', 'Open green space for quick quest stops.', st_setsrid(st_makepoint(151.2334, -33.9170), 4326)::geography, -33.9170, 151.2334, '00000000-0000-4000-8000-000000000001'),
-  ('00000000-0000-4000-8000-000000000204', '00000000-0000-4000-8000-000000000100', 'Red Centre', 'A bright landmark for art, design, and engineering students.', st_setsrid(st_makepoint(151.2306, -33.9161), 4326)::geography, -33.9161, 151.2306, '00000000-0000-4000-8000-000000000001'),
-  ('00000000-0000-4000-8000-000000000205', '00000000-0000-4000-8000-000000000100', 'Village Green', 'A broad outdoor hub for lunch breaks and quick meetups.', st_setsrid(st_makepoint(151.2345, -33.9152), 4326)::geography, -33.9152, 151.2345, '00000000-0000-4000-8000-000000000001'),
-  ('00000000-0000-4000-8000-000000000206', '00000000-0000-4000-8000-000000000100', 'Science Theatre', 'A lower-campus lecture landmark with steady student traffic.', st_setsrid(st_makepoint(151.2291, -33.9192), 4326)::geography, -33.9192, 151.2291, '00000000-0000-4000-8000-000000000001');
-
-insert into app.poi_daily_activations (campus_id, poi_id, active_on)
-select '00000000-0000-4000-8000-000000000100', id, (timezone('Australia/Sydney', now()))::date
-from app.pois
-order by random()
-limit 5;
+  ('00000000-0000-4000-8000-000000000201', '00000000-0000-4000-8000-000000000100', 'Main Library', 'A busy study landmark near the centre of campus.', st_setsrid(st_makepoint(151.2313, -33.9173), 4326)::geography, -33.9173, 151.2313),
+  ('00000000-0000-4000-8000-000000000202', '00000000-0000-4000-8000-000000000100', 'Basser Steps', 'A classic meeting spot between upper and lower campus.', st_setsrid(st_makepoint(151.2298, -33.9179), 4326)::geography, -33.9179, 151.2298),
+  ('00000000-0000-4000-8000-000000000203', '00000000-0000-4000-8000-000000000100', 'Quadrangle Lawn', 'Open green space for quick quest stops.', st_setsrid(st_makepoint(151.2334, -33.9170), 4326)::geography, -33.9170, 151.2334),
+  ('00000000-0000-4000-8000-000000000204', '00000000-0000-4000-8000-000000000100', 'Red Centre', 'A bright landmark for art, design, and engineering students.', st_setsrid(st_makepoint(151.2306, -33.9161), 4326)::geography, -33.9161, 151.2306),
+  ('00000000-0000-4000-8000-000000000205', '00000000-0000-4000-8000-000000000100', 'Village Green', 'A broad outdoor hub for lunch breaks and quick meetups.', st_setsrid(st_makepoint(151.2345, -33.9152), 4326)::geography, -33.9152, 151.2345),
+  ('00000000-0000-4000-8000-000000000206', '00000000-0000-4000-8000-000000000100', 'Science Theatre', 'A lower-campus lecture landmark with steady student traffic.', st_setsrid(st_makepoint(151.2291, -33.9192), 4326)::geography, -33.9192, 151.2291);
 
 insert into app.quest_templates (id, key, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
 values
@@ -467,13 +466,6 @@ values
   ('00000000-0000-4000-8000-000000000603', '00000000-0000-4000-8000-000000000403', 2, 0),
   ('00000000-0000-4000-8000-000000000604', '00000000-0000-4000-8000-000000000404', 1, 0),
   ('00000000-0000-4000-8000-000000000605', '00000000-0000-4000-8000-000000000405', 1, 0);
-
-insert into app.daily_quest_assignments (id, campus_id, active_on, daily_quest_pool_id)
-select '00000000-0000-4000-8000-000000000701', '00000000-0000-4000-8000-000000000100', (timezone('Australia/Sydney', now()))::date, id
-from app.daily_quest_pool
-where active
-order by random()
-limit 1;
 
 insert into app.perk_definitions (id, key, name, description)
 values

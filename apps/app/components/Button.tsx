@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
-import { colors, fonts } from "@/app/theme";
+import { colors } from "@/app/theme";
 
 type ButtonProps = {
   label: string;
