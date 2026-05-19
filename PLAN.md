@@ -2,12 +2,12 @@
 
 ## Team Structure
 
-| Person | Role | Primary Focus |
-|--------|------|---------------|
-| **BE1** | Backend Lead | DB schema, Drizzle ORM, API routes (POI, billboard, sticker, quest, user), auth middleware, deployment |
-| **BE2** | Backend | Durable Object (WebSocket), content moderation, push notifications, reporting/admin API |
-| **FE1** | Frontend Lead | Navigation/routing, auth UI, map component, POI display, app theme/styling, admin panel |
-| **FE2** | Frontend | Billboard expanded view, pixel art sticker editor, sticker/sticky note placement, quest UI, profile screen, push notification handling |
+| Person  | Role          | Primary Focus                                                                                                                          |
+| ------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **BE1** | Backend Lead  | DB schema, Drizzle ORM, API routes (POI, billboard, sticker, quest, user), auth middleware, deployment                                 |
+| **BE2** | Backend       | Durable Object (WebSocket), content moderation, push notifications, reporting/admin API                                                |
+| **FE1** | Frontend Lead | Navigation/routing, auth UI, map component, POI display, app theme/styling, admin panel                                                |
+| **FE2** | Frontend      | Billboard expanded view, pixel art sticker editor, sticker/sticky note placement, quest UI, profile screen, push notification handling |
 
 ---
 
@@ -39,7 +39,7 @@
 
 - [x] **FE1** — Drop `/events` screens, add `/map`, `/profile`, `/quests` routes (no `/billboard` or `/studio` yet)
 - [ ] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks
-- [ ] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
+- [x] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
 - [x] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
 - [x] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
 - [ ] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
@@ -139,15 +139,15 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 
 ### Tile Configuration
 
-| Property | Value |
-|----------|-------|
-| Provider | Thunderforest (Neighbourhood) |
-| URL | `https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=…` |
-| CSS filter | `sepia(0.3) saturate(0.8) brightness(0.8) contrast(150%)` |
-| Pixel filter | `image-rendering: pixelated` |
-| Center | UNSW Kensington (-33.917, 151.231) |
-| Default zoom | 18 |
-| Max zoom | 22 (scales z21 tiles at 22 via `maxNativeZoom: 21`) |
+| Property     | Value                                                                     |
+| ------------ | ------------------------------------------------------------------------- |
+| Provider     | Thunderforest (Neighbourhood)                                             |
+| URL          | `https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=…` |
+| CSS filter   | `sepia(0.3) saturate(0.8) brightness(0.8) contrast(150%)`                 |
+| Pixel filter | `image-rendering: pixelated`                                              |
+| Center       | UNSW Kensington (-33.917, 151.231)                                        |
+| Default zoom | 18                                                                        |
+| Max zoom     | 22 (scales z21 tiles at 22 via `maxNativeZoom: 21`)                       |
 
 ### File Structure
 
@@ -182,15 +182,16 @@ app/
 ### Demo Data
 
 Hardcoded in `constants/coordinates.ts`:
+
 - UNSW center (-33.917, 151.231)
 - 5 demo POIs around campus (Main Library, Science Theatre, Quad, Roundhouse, Mathews Building)
 
 ### Dependencies
 
-| Package | Version |
-|---------|---------|
-| `leaflet` | latest |
-| `@types/leaflet` | latest |
+| Package          | Version |
+| ---------------- | ------- |
+| `leaflet`        | latest  |
+| `@types/leaflet` | latest  |
 
 ### Maps Backlog (post-hackathon)
 
