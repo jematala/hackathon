@@ -6,7 +6,14 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./events": "./src/events.ts"
+    "./billboard": "./src/billboard.ts",
+    "./common": "./src/common.ts",
+    "./perk": "./src/perk.ts",
+    "./poi": "./src/poi.ts",
+    "./quest": "./src/quest.ts",
+    "./report": "./src/report.ts",
+    "./sticker": "./src/sticker.ts",
+    "./user": "./src/user.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
