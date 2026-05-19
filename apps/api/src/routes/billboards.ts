@@ -23,7 +23,6 @@ import {
 } from "../services/progression";
 import { broadcastRealtime } from "../services/realtime";
 import { moderateText, recordModerationLog } from "../services/moderation";
-import { expireBillboards } from "../services/rotations";
 import type { AppBindings } from "../types";
 
 type BillboardRow = {
@@ -68,8 +67,6 @@ export const billboardsRoute = new Hono<AppBindings>();
 billboardsRoute.get("/billboards", optionalAuth, async (c) => {
   const db = getDb(c.env);
 
-  await expireBillboards(db);
-
   const campusId = c.req.query("campusId");
   const rows = await db.execute<BillboardRow>(sql`
     select
@@ -100,6 +97,18 @@ billboardsRoute.get("/billboards", optionalAuth, async (c) => {
       and billboards.hidden_at is null
       and billboards.status = 'active'
       and billboards.expires_at > now()
+      and (
+        billboards.empty_expires_at > now()
+        or exists (
+          select 1
+          from app.billboard_placements
+          where
+            billboard_placements.billboard_id = billboards.id
+            and billboard_placements.deleted_at is null
+            and billboard_placements.hidden_at is null
+            and billboard_placements.status = 'active'
+        )
+      )
       and (${campusId ?? null}::uuid is null or billboards.campus_id = ${campusId ?? null})
       and (${c.req.query("north") ?? null}::double precision is null or billboards.lat <= ${c.req.query("north") ?? null})
       and (${c.req.query("south") ?? null}::double precision is null or billboards.lat >= ${c.req.query("south") ?? null})
@@ -163,6 +172,18 @@ billboardsRoute.post(
             and hidden_at is null
             and status = 'active'
             and expires_at > now()
+            and (
+              empty_expires_at > now()
+              or exists (
+                select 1
+                from app.billboard_placements
+                where
+                  billboard_placements.billboard_id = billboards.id
+                  and billboard_placements.deleted_at is null
+                  and billboard_placements.hidden_at is null
+                  and billboard_placements.status = 'active'
+              )
+            )
         ) as "activeCount",
         (
           select count(*)::int
@@ -194,6 +215,18 @@ billboardsRoute.post(
             and hidden_at is null
             and status = 'active'
             and expires_at > now()
+            and (
+              empty_expires_at > now()
+              or exists (
+                select 1
+                from app.billboard_placements
+                where
+                  billboard_placements.billboard_id = billboards.id
+                  and billboard_placements.deleted_at is null
+                  and billboard_placements.hidden_at is null
+                  and billboard_placements.status = 'active'
+              )
+            )
           order by created_at asc
           limit 1
         )
@@ -314,6 +347,22 @@ billboardsRoute.post(
 
     const stickerAssetId = input.kind === "sticker" ? input.stickerAssetId : null;
 
+    if (stickerAssetId) {
+      const stickerRows = await db.execute<{ id: string }>(sql`
+        select id
+        from app.sticker_assets
+        where
+          id = ${stickerAssetId}
+          and owner_id = ${authUser.id}
+          and deleted_at is null
+          and status = 'active'
+      `);
+
+      if (!stickerRows[0]) {
+        notFound("Sticker asset not found.");
+      }
+    }
+
     const insertRows = await db.execute<{ id: string }>(sql`
       insert into app.billboard_placements (
         billboard_id,
@@ -366,16 +415,6 @@ billboardsRoute.post(
 
     if (billboard.authorId !== authUser.id) {
       await incrementQuestProgress(db, billboard.authorId, "receive_replies");
-      // Expo push notifications are disabled until push credentials and UX are finalized.
-      // await sendPushToUser(c.env, db, billboard.authorId, {
-      //   body: `${authUser.username} replied to your billboard.`,
-      //   data: {
-      //     billboardId: id.data,
-      //     kind: "billboard_reply",
-      //     placementId,
-      //   },
-      //   title: "New reply",
-      // });
     }
 
     await broadcastRealtime(c.env, {
@@ -425,6 +464,18 @@ async function loadBillboard(db: ReturnType<typeof getDb>, id: string) {
       and billboards.hidden_at is null
       and billboards.status = 'active'
       and billboards.expires_at > now()
+      and (
+        billboards.empty_expires_at > now()
+        or exists (
+          select 1
+          from app.billboard_placements
+          where
+            billboard_placements.billboard_id = billboards.id
+            and billboard_placements.deleted_at is null
+            and billboard_placements.hidden_at is null
+            and billboard_placements.status = 'active'
+        )
+      )
   `);
   const billboard = rows[0];
 

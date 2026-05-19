@@ -127,6 +127,18 @@ stickersRoute.post(
       conflict("Saved sticker capacity reached.");
     }
 
+    if (input.kind === "sticker") {
+      const stickerRows = await db.execute<{ id: string }>(sql`
+        select id
+        from app.sticker_assets
+        where id = ${input.stickerAssetId} and deleted_at is null and status = 'active'
+      `);
+
+      if (!stickerRows[0]) {
+        notFound("Sticker asset not found.");
+      }
+    }
+
     const rows = await db.execute<{ id: string }>(sql`
       insert into app.saved_stickers (user_id, kind, sticker_asset_id, body, label)
       values (
