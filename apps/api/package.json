@@ -10,8 +10,12 @@
   },
   "dependencies": {
     "@hono/zod-validator": "latest",
+    "@repo/db": "workspace:*",
     "@repo/shared": "workspace:*",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.12.19",
+    "jose": "^6.2.3",
+    "postgres": "^3.4.9",
     "zod": "latest"
   },
   "devDependencies": {

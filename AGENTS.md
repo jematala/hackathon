@@ -37,11 +37,11 @@ bun --cwd apps/app expo export -p web && bun --cwd apps/app wrangler deploy
 - Expo web output is a **static SPA** (`expo export -p web`); dynamic routes are client-side via Expo Router
 - Wrangler configs use `wrangler.jsonc` (not `.toml`), schema at `node_modules/wrangler/config-schema.json`
 - DB uses **PostGIS** — `packages/db/supabase/reset.sql` creates the `app` schema and enables the extension
-- Shared package has a subpath export: `@repo/shared/events`
+- Shared package exports domain schemas via `@repo/shared` and subpaths such as `@repo/shared/poi`, `@repo/shared/billboard`, `@repo/shared/quest`, and `@repo/shared/user`
 - Node 25, Bun latest (pinned via mise)
 - `bun.lock` is checked in; CI uses `--frozen-lockfile`
 - **Drizzle ORM** for Postgres queries (not Prisma)
-- **Maps**: Leaflet + OSM (provider decision deferred)
+- **Maps**: `react-native-leaflet-view` + OSM
 - **Icons**: `lucide-react-native`, `@expo/vector-icons`, and `expo-symbols` all available
 - **HTTP client**: `@tanstack/react-query` for data fetching in the app
 - **Animations**: `react-native-reanimated` + `react-native-gesture-handler` available
