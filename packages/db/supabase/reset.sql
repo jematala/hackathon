@@ -103,7 +103,6 @@ create table app.billboards (
   lng double precision not null,
   status app.content_status not null default 'pending',
   moderation_summary jsonb,
-  created_on date not null default ((timezone('Australia/Sydney', now()))::date),
   empty_expires_at timestamptz not null default (now() + interval '24 hours'),
   expires_at timestamptz not null default (now() + interval '5 days'),
   hidden_at timestamptz,
@@ -329,7 +328,10 @@ create index pois_active_campus_idx on app.pois (campus_id, is_active) where del
 create index poi_visits_poi_idx on app.poi_visits (poi_id);
 create index billboards_location_point_idx on app.billboards using gist (location_point);
 create index billboards_active_idx on app.billboards (campus_id, status, expires_at) where deleted_at is null;
-create index billboards_author_day_idx on app.billboards (author_id, created_on);
+create index billboards_author_day_idx on app.billboards (
+  author_id,
+  ((timezone('Australia/Sydney', created_at))::date)
+);
 create index billboard_placements_billboard_idx on app.billboard_placements (billboard_id, z_index);
 create index sticker_assets_owner_idx on app.sticker_assets (owner_id);
 create index saved_stickers_user_idx on app.saved_stickers (user_id) where deleted_at is null;
