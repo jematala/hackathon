@@ -1,6 +1,17 @@
-import { forwardRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { forwardRef, useMemo } from "react";
 import { BrushTool, Dotting, DottingRef } from "dotting";
+
+const GRID = 64;
+
+function makeInitData() {
+  return Array.from({ length: GRID }, (_, rowIndex) =>
+    Array.from({ length: GRID }, (_, columnIndex) => ({
+      rowIndex,
+      columnIndex,
+      color: "#ffffff",
+    })),
+  );
+}
 
 type PixelCanvasProps = {
   brushColor?: string;
@@ -10,33 +21,27 @@ export const PixelCanvas = forwardRef<DottingRef, PixelCanvasProps>(function Pix
   { brushColor = "#111827" },
   ref,
 ) {
-  return (
-    <View style={styles.container}>
-      <Dotting
-        ref={ref}
-        width={384}
-        height={384}
-        brushColor={brushColor}
-        brushTool={BrushTool.DOT}
-        isGridFixed
-        isPanZoomable={false}
-        minColumnCount={64}
-        maxColumnCount={64}
-        minRowCount={64}
-        maxRowCount={64}
-        gridSquareLength={6}
-        isGridVisible
-        defaultPixelColor="#ffffff"
-        backgroundColor="#ffffff"
-      />
-    </View>
-  );
-});
+  const initLayers = useMemo(() => [{ id: "layer1", data: makeInitData() }], []);
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    borderRadius: 8,
-    overflow: "hidden",
-  },
+  return (
+    <Dotting
+      ref={ref}
+      width={320}
+      height={320}
+      brushColor={brushColor}
+      brushTool={BrushTool.DOT}
+      isGridFixed
+      isPanZoomable={false}
+      minColumnCount={GRID}
+      maxColumnCount={GRID}
+      minRowCount={GRID}
+      maxRowCount={GRID}
+      isGridVisible={false}
+      initAutoScale={false}
+      defaultPixelColor="#ffffff"
+      backgroundColor="#ffffff"
+      initLayers={initLayers}
+      style={{ border: "solid 1px black", padding: "none", margin: "none" }}
+    />
+  );
 });
