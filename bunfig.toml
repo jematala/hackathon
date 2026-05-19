@@ -1,0 +1,4 @@
+[install.scopes]
+
+[hoisting]
+hoistWorkspacePackages = true
