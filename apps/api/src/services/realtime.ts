@@ -11,12 +11,6 @@ export type RealtimeEvent =
       campusId: string;
       kind: "placement_created";
       placementId: string;
-    }
-  | {
-      campusId: string;
-      kind: "poi_visited";
-      poiId: string;
-      userId: string;
     };
 
 export function realtimeStub(env: Env, campusId: string) {

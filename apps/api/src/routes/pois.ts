@@ -16,7 +16,6 @@ import { z } from "zod";
 import { getDb } from "../db";
 import { badRequest, notFound } from "../http";
 import { getAuthUser, optionalAuth, requireAuth } from "../middleware/auth";
-import { broadcastRealtime } from "../services/realtime";
 import { incrementQuestProgress, questProgressUpdate } from "../services/progression";
 import { ensureDailyRotations } from "../services/rotations";
 import { isoDate, isoDateTime } from "../serialize";
@@ -243,15 +242,6 @@ poisRoute.post(
     const progress = firstVisit
       ? (await incrementQuestProgress(db, authUser.id, "visit_pois")).map(questProgressUpdate)
       : [];
-
-    if (firstVisit) {
-      await broadcastRealtime(c.env, {
-        campusId: poi.campusId,
-        kind: "poi_visited",
-        poiId: id.data,
-        userId: authUser.id,
-      });
-    }
 
     return c.json(
       visitPoiResponseSchema.parse({

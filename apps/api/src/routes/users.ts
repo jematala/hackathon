@@ -10,7 +10,6 @@ import {
 import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { z } from "zod";
 
 import { getDb } from "../db";
 import { forbidden, notFound } from "../http";
@@ -54,11 +53,6 @@ type PerkRow = {
 };
 
 export const usersRoute = new Hono<AppBindings>();
-
-const registerPushTokenInputSchema = z.object({
-  platform: z.enum(["android", "expo", "ios", "web"]).default("expo"),
-  token: z.string().min(1),
-});
 
 usersRoute.get("/users/me", requireAuth, async (c) => {
   const user = await loadUser(c.env, getAuthUser(c).id);
@@ -132,26 +126,6 @@ usersRoute.patch(
     `);
 
     return c.json(updateCurrentUserResponseSchema.parse({ user: currentUser(rows[0]!) }));
-  },
-);
-
-usersRoute.post(
-  "/users/me/push-tokens",
-  requireAuth,
-  zValidator("json", registerPushTokenInputSchema),
-  async (c) => {
-    const authUser = getAuthUser(c);
-    const input = c.req.valid("json");
-    const db = getDb(c.env);
-
-    await db.execute(sql`
-      insert into app.push_tokens (user_id, token, platform)
-      values (${authUser.id}, ${input.token}, ${input.platform})
-      on conflict (token) do update
-        set user_id = excluded.user_id, platform = excluded.platform, revoked_at = null
-    `);
-
-    return c.json({ registered: true });
   },
 );
 

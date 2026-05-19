@@ -10,12 +10,12 @@ let cachedUrl: string | undefined;
 let cachedDb: Database | undefined;
 
 export function getDb(env: Env) {
-  if (!env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is not configured.");
+  if (!env.SUPABASE_POOLER_DATABASE_URL) {
+    throw new Error("SUPABASE_POOLER_DATABASE_URL is not configured.");
   }
 
-  if (!cachedDb || cachedUrl !== env.DATABASE_URL) {
-    const client = postgres(env.DATABASE_URL, {
+  if (!cachedDb || cachedUrl !== env.SUPABASE_POOLER_DATABASE_URL) {
+    const client = postgres(env.SUPABASE_POOLER_DATABASE_URL, {
       connect_timeout: 10,
       idle_timeout: 20,
       max: 1,
@@ -23,7 +23,7 @@ export function getDb(env: Env) {
     });
 
     cachedDb = drizzle(client, { schema });
-    cachedUrl = env.DATABASE_URL;
+    cachedUrl = env.SUPABASE_POOLER_DATABASE_URL;
   }
 
   return cachedDb;

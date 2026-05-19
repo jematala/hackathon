@@ -13,7 +13,6 @@ import { stickersRoute } from "./routes/stickers";
 import { usersRoute } from "./routes/users";
 import { CampusRealtimeRoomDO } from "./realtime/campus-room";
 import { realtimeStub } from "./services/realtime";
-import { isSydneyReminderWindow, sendDailyQuestReminder } from "./services/push";
 import { ensureDailyRotations, expireBillboards } from "./services/rotations";
 import { resetBrokenStreaks } from "./services/streaks";
 import type { AppBindings, Env } from "./types";
@@ -26,7 +25,7 @@ app.use("/api/*", cors());
 
 app.get("/api/health", (c) => {
   return c.json({
-    database: Boolean(c.env.DATABASE_URL),
+    database: Boolean(c.env.SUPABASE_POOLER_DATABASE_URL),
     durableObjects: Boolean(c.env.CAMPUS_REALTIME_ROOM),
     ok: true,
     service: "jematala-api",
@@ -69,9 +68,5 @@ export default {
     await ensureDailyRotations(db);
     await expireBillboards(db);
     await resetBrokenStreaks(db);
-
-    if (isSydneyReminderWindow()) {
-      await sendDailyQuestReminder(env, db);
-    }
   },
 };
