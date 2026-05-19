@@ -110,11 +110,12 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 
 ---
 
-## Key Architectural Decisions (make before Phase 0)
+## Key Architectural Decisions (confirmed)
 
-- **Sticker storage:** base64 PNG blob in DB
+- **Sticker storage:** base64 PNG blob — FE produces B64 string, sends to BE for moderation (B64 moderation via OpenAI)
 - **Admin role:** `is_admin` boolean column on `app.users`
-- **Map on mobile:** `react-native-maps` with OSM tiles (or WebView leaflet — test first)
+- **Map on mobile:** `react-native-leaflet-view` (pavel-corsaghin/react-native-leaflet)
 - **Drizzle migrations:** Drizzle Kit with `drizzle-kit push` for hackathon speed
-- **POI rotation:** cron trigger or scheduled Worker (TBD — can be static for MVP)
-- **24h expiry:** soft-delete via a cron or check-on-read query
+- **POI rotation:** scheduled Worker (cron trigger)
+- **24h expiry:** scheduled Worker (soft-delete expired billboards)
+- **Daily quests / POIs:** managed via admin panel — POST endpoints for creating daily quests, POIs, etc.
