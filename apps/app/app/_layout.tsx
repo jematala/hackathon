@@ -1,13 +1,13 @@
-import { ClerkProvider } from '@clerk/expo';
-import { Jersey10_400Regular, useFonts } from '@expo-google-fonts/jersey-10';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { ClerkProvider } from "@clerk/expo";
+import { Jersey10_400Regular, useFonts } from "@expo-google-fonts/jersey-10";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
-const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 
 const MAP_STYLES = `
   html, body, #root {
@@ -38,14 +38,14 @@ export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
+    if (Platform.OS !== "web") return;
 
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
     link.href = LEAFLET_CSS;
     document.head.appendChild(link);
 
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = MAP_STYLES;
     document.head.appendChild(style);
 
@@ -66,7 +66,7 @@ export default function RootLayout() {
   if (!loaded) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size='large' color='#5b7559' />
+        <ActivityIndicator size="large" color="#5b7559" />
       </View>
     );
   }
@@ -87,17 +87,17 @@ export default function RootLayout() {
     >
       <QueryClientProvider client={queryClient}>
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name='(auth)/sign-in' />
-          <Stack.Screen name='(auth)/sign-up' />
-          <Stack.Screen name='(app)' />
-          <Stack.Screen name='avatar/create' />
-          <Stack.Screen name='billboard/[id]' />
-          <Stack.Screen name='events/index' />
-          <Stack.Screen name='events/[id]' />
-          <Stack.Screen name='index' />
-          <Stack.Screen name='profile/[userId]' />
+          <Stack.Screen name="(auth)/sign-in" />
+          <Stack.Screen name="(auth)/sign-up" />
+          <Stack.Screen name="(app)" />
+          <Stack.Screen name="avatar/create" />
+          <Stack.Screen name="billboard/[id]" />
+          <Stack.Screen name="events/index" />
+          <Stack.Screen name="events/[id]" />
+          <Stack.Screen name="index" />
+          <Stack.Screen name="profile/[userId]" />
         </Stack>
-        <StatusBar style='dark' />
+        <StatusBar style="dark" />
       </QueryClientProvider>
     </ClerkProvider>
   );
@@ -105,9 +105,9 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   loading: {
-    alignItems: 'center',
-    backgroundColor: '#FEEED5',
+    alignItems: "center",
+    backgroundColor: "#FEEED5",
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
 });

@@ -1,4 +1,4 @@
-import L from 'leaflet';
+import L from "leaflet";
 
 export type MarkerSpec = {
   html: string;
@@ -9,7 +9,7 @@ export type MarkerSpec = {
 
 export function createPOIMarker(title: string): MarkerSpec {
   return {
-    className: 'poi-marker',
+    className: "poi-marker",
     size: [32, 40],
     anchor: [16, 40],
     html: `
@@ -30,7 +30,7 @@ export function createPOIMarker(title: string): MarkerSpec {
 
 export function createUserAvatarMarker(imageUrl: string): MarkerSpec {
   return {
-    className: 'user-avatar-marker',
+    className: "user-avatar-marker",
     size: [54, 61],
     anchor: [27, 61],
     html: `
