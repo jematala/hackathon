@@ -23,6 +23,8 @@ function makeXpRingUri(progress: number): string {
 function ProfileButton() {
   return (
     <View style={styles.leftSection}>
+      <Text style={styles.levelLabel}>lv22</Text>
+
       <View style={styles.profileWrapper}>
         <Image source={{ uri: makeXpRingUri(0.72) }} style={styles.xpRing} />
         <Pressable
@@ -38,7 +40,6 @@ function ProfileButton() {
           />
         </Pressable>
       </View>
-      <Text style={styles.levelLabel}>lv22</Text>
     </View>
   );
 }
@@ -82,15 +83,15 @@ export function MapHUD() {
 const styles = StyleSheet.create({
   container: {
     alignItems: "flex-start",
-    bottom: 20,
+    bottom: 15,
     flexDirection: "row",
     justifyContent: "space-between",
-    left: 20,
+    left: 15,
     position: "absolute",
-    right: 20,
+    right: 15,
   },
   leftSection: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
   },
   profileWrapper: {
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
     color: "#5b7559",
     fontFamily: "Jersey10",
     fontSize: 36,
-    alignSelf: "flex-end",
+    alignSelf: "center",
   },
   rightCluster: {
     flexDirection: "row",
