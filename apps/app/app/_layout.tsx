@@ -3,8 +3,9 @@ import { Jersey10_400Regular, useFonts } from "@expo-google-fonts/jersey-10";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 
@@ -36,6 +37,24 @@ const MAP_STYLES = `
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
 
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = LEAFLET_CSS;
+    document.head.appendChild(link);
+
+    const style = document.createElement("style");
+    style.textContent = MAP_STYLES;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(link);
+      document.head.removeChild(style);
+    };
+  }, []);
+
   const [loaded, error] = useFonts({
     Jersey10_400Regular,
   });
@@ -52,11 +71,21 @@ export default function RootLayout() {
     );
   }
 
+  const tokenCache = {
+    async getToken(key: string) {
+      return SecureStore.getItemAsync(key);
+    },
+    async saveToken(key: string, value: string) {
+      return SecureStore.setItemAsync(key, value);
+    },
+  };
+
   return (
-    <ClerkProvider publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+    <ClerkProvider
+      tokenCache={tokenCache}
+      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+    >
       <QueryClientProvider client={queryClient}>
-        <link rel="stylesheet" href={LEAFLET_CSS} />
-        <style>{MAP_STYLES}</style>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)/sign-in" />
           <Stack.Screen name="(auth)/sign-up" />

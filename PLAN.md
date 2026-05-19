@@ -37,13 +37,13 @@
 
 ## Phase 1a — Foundation: Frontend
 
-- [x] **FE1** — Drop `/events` screens, add `/map`, `/profile`, `/quests` routes (no `/billboard` or `/studio` yet)
-- [ ] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks
+- [ ] **FE1** — Drop `/events` screens (still exist as stubs), add `/map`, `/profile`, `/quests` routes
+- [x] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks
 - [x] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
-- [x] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
+- [x] **FE1** — Install Leaflet (web) / MapLibre (native) and render a basic 2D top-down map on `/map`
 - [x] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
-- [ ] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
-- [ ] **FE2** — Build map overlay components: POI popup, billboard marker callout
+- [x] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
+- [ ] **FE2** — Build map overlay components: POI popup (done), billboard marker callout
 
 ---
 
@@ -64,7 +64,7 @@
 - [x] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
 - [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger
 - [ ] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
-- [ ] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
+- [x] **FE2** — Pixel art sticker editor (no save-to-collection flow yet)
 - [ ] **FE2** — Sticky note composer: text input, preview as sticky note, post to billboard
 
 ---
@@ -119,7 +119,7 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 - **Sticker storage:** base64 PNG blob — FE produces B64 string, sends to BE for moderation (B64 moderation via OpenAI)
 - **Admin role:** `is_admin` boolean column on `app.users`
 - **Primary keys:** internal UUIDv4 values for all primary keys; Clerk user IDs are stored as unique external auth identifiers on `app.users.clerk_user_id`
-- **Map on mobile:** `react-native-leaflet-view` (pavel-corsaghin/react-native-leaflet)
+- **Map on mobile:** `@maplibre/maplibre-react-native` (MapLibre GL)
 - **Drizzle migrations:** Drizzle Kit with `drizzle-kit push` for hackathon speed
 - **Billboard limits:** concurrent active cap starts at 3 and scales with level; posting at the cap soft-deletes the user's oldest active billboard before publishing the new one
 - **Billboard daily limit:** separate Sydney calendar-day posting cap; seeded as concurrent + 1 and capped at 10/day
@@ -162,22 +162,54 @@ components/map/
 
 ```
 app/
-├── _layout.tsx          ← Auth skeleton (sign-in gate), font loading, Leaflet CSS + map styles
-└── (tabs)/
-    ├── _layout.tsx      ← Tab navigator
-    ├── map/index.tsx    ← Map screen (Map + HUD)
-    ├── quests/index.tsx
-    ├── studio/index.tsx
-    └── profile/index.tsx
+├── _layout.tsx            ← ClerkProvider + QueryClient + font loading + Leaflet CSS
+├── index.tsx              ← Signed-in redirect → /map, signed-out → /sign-in
+├── create.tsx             ← Standalone sticker maker page
+├── (app)/
+│   ├── _layout.tsx        ← Stack navigator (headerShown: false)
+│   ├── index.tsx          ← Redirects to /map
+│   ├── map.tsx            ← Map + MapHUD + CanvasModal (Studio button opens modal)
+│   ├── quests.tsx         ← STUB: "Coming soon…"
+│   └── profile.tsx        ← STUB: "Coming soon…"
+├── (auth)/
+│   ├── sign-in.tsx        ← Platform re-export
+│   ├── sign-in.web.tsx    ← Clerk <SignIn>
+│   ├── sign-in.native.tsx ← Clerk <AuthView>
+│   ├── sign-up.tsx        ← Platform re-export
+│   ├── sign-up.web.tsx    ← Clerk <SignUp>
+│   └── sign-up.native.tsx ← Clerk <AuthView>
+├── avatar/
+│   └── create.tsx         ← 64×64 pixel art avatar editor
+├── billboard/
+│   └── [id].tsx           ← STUB: "Billboard" + id param
+├── events/
+│   ├── index.tsx          ← STUB (legacy — to be dropped)
+│   └── [id].tsx           ← STUB (legacy — to be dropped)
+└── profile/
+    └── [userId].tsx       ← STUB: shows userId param
 ```
 
 ### Components
 
-**Map.tsx** — Creates Leaflet map in a `useEffect` ref. Adds Thunderforest Neighbourhood tiles with CSS filter injection (sepia + saturation + brightness + contrast). Renders POI markers (wooden billboard divIcon) and user avatar marker (profile image with circular border + downward pointer triangle for location). Handles resize and cleanup. Avatar URL resolved via `expo-asset` (`Asset.fromModule`).
+**Map.tsx** — Platform switch (Map.web / Map.native).
 
-**markers.ts** — `createPOIIcon(title)` returns `L.divIcon` with small wooden billboard SVG. `createUserAvatarIcon(imageUrl)` returns avatar circle (profile image, `#5b7559` border) with a CSS triangle pointer at the bottom.
+**Map.web.tsx** — Creates Leaflet map in a `useEffect` ref. Adds Thunderforest Neighbourhood tiles with CSS filter injection (sepia + saturation + brightness + contrast). Renders POI markers (wooden billboard divIcon) and user avatar marker (profile image with circular border + downward pointer triangle for location). Handles resize and cleanup. Avatar URL resolved via `expo-asset` (`Asset.fromModule`).
 
-**MapHUD.tsx** — Floating bottom bar (~20px from bottom, `absolute` positioning). Left section: profile picture (100×100) with elevation shadow, SVG data-URI XP progress ring (`#4A90D9`, 72%), and "lv22" level indicator (Jersey10, `#ffedd6`, 36px). Right section: "Quests" + "Studio" text buttons (forest green `#5b7559`, rounded 8px, Jersey10, `#ffedd6`).
+**Map.native.tsx** — Uses `@maplibre/maplibre-react-native` with same Thunderforest tile source. Custom `POIMarker` component (gold top circle + wooden main box + bar). Bottom sheet POI callout on tap. User avatar marker (circular frame + triangle pointer).
+
+**markers.ts** — `createPOIIcon(title)` returns `L.divIcon` with small wooden billboard SVG. `createUserAvatarIcon(imageUrl)` returns avatar circle (profile image, `#5b7559` border) with a CSS triangle pointer at the bottom. Web-only (Leaflet divIcons).
+
+**MapHUD.tsx** — Floating bottom bar (~20px from bottom, `absolute` positioning). Left section: profile picture (100×100) with elevation shadow, SVG data-URI XP progress ring (`#4A90D9`, 72%), and "lv22" level indicator (Jersey10, `#ffedd6`, 36px). Right section: "Quests" + "Studio" text buttons (forest green `#5b7559`, rounded 8px, Jersey10, `#ffedd6`). "Studio" opens `CanvasModal` overlay (not a route).
+
+**PixelCanvas.tsx** — Platform switch (PixelCanvas.web / PixelCanvas.native).
+
+**PixelCanvas.web.tsx** — Uses `dotting` library's `<Dotting>` component. 64×64 grid, provides `clear()` and `exportAsBase64()` via imperative handle.
+
+**PixelCanvas.native.tsx** — Uses `react-native-webview` with inline HTML `<canvas>` element. Handles brush color, clear, and export via `postMessage`/`onMessage` bridge.
+
+**CreateStickerPanel.tsx** — Full sticker editor UI: header, PixelCanvas, 8-colour palette swatches, action buttons (Clear, Download, Submit). Download uses browser download on web, `Share.share()` on native.
+
+**CanvasModal.tsx** — Modal wrapper for CreateStickerPanel with dimmed backdrop. Used by MapHUD Studio button.
 
 ### Demo Data
 
@@ -188,14 +220,17 @@ Hardcoded in `constants/coordinates.ts`:
 
 ### Dependencies
 
-| Package          | Version |
-| ---------------- | ------- |
-| `leaflet`        | latest  |
-| `@types/leaflet` | latest  |
+| Package                       | Version | Purpose               |
+| ----------------------------- | ------- | --------------------- |
+| `leaflet`                     | latest  | Web map renderer      |
+| `@types/leaflet`              | latest  | Web map types         |
+| `@maplibre/maplibre-react-native` | ^10    | Native map renderer   |
+| `dotting`                     | latest  | Web pixel canvas      |
+| `react-native-webview`        | ^13.16  | Native pixel canvas   |
 
 ### Maps Backlog (post-hackathon)
 
-- Swap renderer to `react-native-leaflet-view` for mobile
 - Wire POI data to live API
 - POI discovery toast on geofence enter
+- Billboard markers on map
 - Real-time updates via Durable Object WebSocket
