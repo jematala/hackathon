@@ -3,6 +3,7 @@ import { z } from "zod";
 import { idSchema, isoDateTimeSchema } from "./common";
 
 export const perkKeySchema = z.enum([
+  "max_concurrent_billboards",
   "daily_billboard_limit",
   "sticker_slots",
   "note_signature",

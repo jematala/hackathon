@@ -6,7 +6,7 @@ A location-based social exploration game for UNSW students.
 
 ## 1. Overview
 
-Mobile app where students discover geofenced Points of Interest (POIs) around UNSW Kensington campus, leave billboard notes, and reply with pixel-art stickers. Progression via quests and levelling unlocks cosmetic perks and sticker collection capacity upgrades.
+Mobile app where students discover geofenced Points of Interest (POIs) around UNSW Kensington campus, leave billboard notes, and reply with pixel-art stickers. Progression via quests and levelling unlocks cosmetic perks, billboard capacity, and sticker collection capacity upgrades.
 
 **Core loop:** Explore campus → discover POIs → leave/read notes → reply with stickers → complete quests → level up → unlock perks → explore more.
 
@@ -75,7 +75,8 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 ### 5.1 Billboards (text notes)
 
 - Placed by users at their current real-world location
-- **Limit:** 1 billboard per user per Sydney calendar day for the MVP; no per-user concurrent billboard cap. The schema can support future daily cap increases up to 10/day if progression needs it.
+- **Concurrent limit:** starts at 3 active billboards per user and scales with level. If a user posts while already at their concurrent limit, the backend soft-deletes that user's oldest active billboard before publishing the new one.
+- **Daily posting limit:** separate Sydney calendar-day cap that is slightly above the concurrent limit to prevent unlimited churn. MVP seeded values are concurrent + 1, capped at 10/day.
 - Always display a **username pill** above them
 - Take up ~60% of viewport height when expanded
 - Passed through OpenAI Moderation API before publishing
@@ -101,8 +102,8 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 
 ### 5.4 Expiry
 
-- 24-hour period means a **Sydney calendar day** (midnight → 11:59pm Australia/Sydney), not a rolling window
-- If a billboard receives **no placements by end of day**, it soft-deletes at midnight
+- Daily posting limits use a **Sydney calendar day** (midnight → 11:59pm Australia/Sydney), not a rolling window
+- If a billboard receives **no placements within 24 rolling hours from creation**, it soft-deletes
 - All billboards have a hard maximum lifetime of **5 days**, after which they soft-delete regardless of placements
 - The entire billboard (all placements) soft-deletes together
 - Saved stickers/sticky notes persist in the user's collection regardless
@@ -139,16 +140,16 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 
 | Level    | Perk                                                     |
 | -------- | -------------------------------------------------------- |
-| 1 (base) | 1 billboard/day, 10 sticker slots                        |
-| 2        | No new perk                                              |
+| 1 (base) | 3 concurrent billboards, 4 billboards/day, 10 sticker slots |
+| 2        | +1 concurrent billboard (4 total), 5 billboards/day      |
 | 3        | +2 sticker slots (12 total)                              |
 | 4        | Cosmetic: signature on notes/stickers                    |
-| 5        | No new perk                                              |
+| 5        | +1 concurrent billboard (5 total), 6 billboards/day      |
 | 6        | Note border flair                                        |
 | 7        | +2 sticker slots (14 total)                              |
-| 8        | No new perk                                              |
+| 8        | +1 concurrent billboard (6 total), 7 billboards/day      |
 | 9        | Unique sticker colour palette expansion                  |
-| 10       | Maxed: 20 sticker slots, all flairs                      |
+| 10       | Maxed: 10 concurrent billboards, 10 billboards/day, 20 sticker slots, all flairs |
 
 ---
 
@@ -221,6 +222,7 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 | Question                         | Decision                               |
 | -------------------------------- | -------------------------------------- |
 | Primary key format               | **UUIDv4** for internal primary keys; Clerk IDs are unique auth-provider identifiers, not primary keys |
+| Billboard limits                 | **Concurrent cap + Sydney-day posting cap**; posting at the concurrent cap replaces the user's oldest active billboard |
 | POI geofence trigger radius      | **30m**                                |
 | Map provider                     | **react-native-leaflet-view** + OSM    |
 | Sticker storage format           | **base64 PNG**                         |

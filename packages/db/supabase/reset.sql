@@ -104,12 +104,14 @@ create table app.billboards (
   status app.content_status not null default 'pending',
   moderation_summary jsonb,
   created_on date not null default ((timezone('Australia/Sydney', now()))::date),
+  empty_expires_at timestamptz not null default (now() + interval '24 hours'),
   expires_at timestamptz not null default (now() + interval '5 days'),
   hidden_at timestamptz,
   deleted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  check (expires_at > created_at and expires_at <= created_at + interval '5 days')
+  check (expires_at > created_at and expires_at <= created_at + interval '5 days'),
+  check (empty_expires_at > created_at and empty_expires_at <= created_at + interval '24 hours')
 );
 
 create table app.sticker_assets (
@@ -406,6 +408,7 @@ limit 1;
 
 insert into app.perk_definitions (id, key, name, description)
 values
+  ('00000000-0000-4000-8000-000000000800', 'max_concurrent_billboards', 'Concurrent billboards', 'Maximum active billboards a user can maintain.'),
   ('00000000-0000-4000-8000-000000000801', 'daily_billboard_limit', 'Daily billboard limit', 'Billboards a user can post per calendar day.'),
   ('00000000-0000-4000-8000-000000000802', 'sticker_slots', 'Sticker slots', 'Saved sticker and sticky note collection capacity.'),
   ('00000000-0000-4000-8000-000000000803', 'note_signature', 'Note signature', 'Cosmetic signature on notes and stickers.'),
@@ -414,14 +417,23 @@ values
 
 insert into app.level_perks (id, level, perk_id, numeric_value, metadata)
 values
-  ('00000000-0000-4000-8000-000000000901', 1, '00000000-0000-4000-8000-000000000801', 1, null),
+  ('00000000-0000-4000-8000-000000000900', 1, '00000000-0000-4000-8000-000000000800', 3, null),
+  ('00000000-0000-4000-8000-000000000901', 1, '00000000-0000-4000-8000-000000000801', 4, null),
   ('00000000-0000-4000-8000-000000000902', 1, '00000000-0000-4000-8000-000000000802', 10, null),
-  ('00000000-0000-4000-8000-000000000903', 3, '00000000-0000-4000-8000-000000000802', 12, null),
-  ('00000000-0000-4000-8000-000000000904', 4, '00000000-0000-4000-8000-000000000803', null, '{"enabled":true}'::jsonb),
-  ('00000000-0000-4000-8000-000000000905', 6, '00000000-0000-4000-8000-000000000804', null, '{"enabled":true}'::jsonb),
-  ('00000000-0000-4000-8000-000000000906', 7, '00000000-0000-4000-8000-000000000802', 14, null),
-  ('00000000-0000-4000-8000-000000000907', 9, '00000000-0000-4000-8000-000000000805', null, '{"palette":"extended"}'::jsonb),
-  ('00000000-0000-4000-8000-000000000908', 10, '00000000-0000-4000-8000-000000000802', 20, null);
+  ('00000000-0000-4000-8000-000000000903', 2, '00000000-0000-4000-8000-000000000800', 4, null),
+  ('00000000-0000-4000-8000-000000000904', 2, '00000000-0000-4000-8000-000000000801', 5, null),
+  ('00000000-0000-4000-8000-000000000905', 3, '00000000-0000-4000-8000-000000000802', 12, null),
+  ('00000000-0000-4000-8000-000000000906', 4, '00000000-0000-4000-8000-000000000803', null, '{"enabled":true}'::jsonb),
+  ('00000000-0000-4000-8000-000000000907', 5, '00000000-0000-4000-8000-000000000800', 5, null),
+  ('00000000-0000-4000-8000-000000000908', 5, '00000000-0000-4000-8000-000000000801', 6, null),
+  ('00000000-0000-4000-8000-000000000909', 6, '00000000-0000-4000-8000-000000000804', null, '{"enabled":true}'::jsonb),
+  ('00000000-0000-4000-8000-00000000090a', 7, '00000000-0000-4000-8000-000000000802', 14, null),
+  ('00000000-0000-4000-8000-00000000090b', 8, '00000000-0000-4000-8000-000000000800', 6, null),
+  ('00000000-0000-4000-8000-00000000090c', 8, '00000000-0000-4000-8000-000000000801', 7, null),
+  ('00000000-0000-4000-8000-00000000090d', 9, '00000000-0000-4000-8000-000000000805', null, '{"palette":"extended"}'::jsonb),
+  ('00000000-0000-4000-8000-00000000090e', 10, '00000000-0000-4000-8000-000000000800', 10, null),
+  ('00000000-0000-4000-8000-00000000090f', 10, '00000000-0000-4000-8000-000000000801', 10, null),
+  ('00000000-0000-4000-8000-000000000910', 10, '00000000-0000-4000-8000-000000000802', 20, null);
 
 insert into app.streak_reward_definitions (id, streak_days, name, reward)
 values

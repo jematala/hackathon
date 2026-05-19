@@ -225,6 +225,9 @@ export const billboards = appSchema.table(
     status: contentStatusEnum("status").notNull().default("pending"),
     moderationSummary: jsonb("moderation_summary").$type<JsonObject>(),
     createdOn: date("created_on").notNull().default(currentSydneyDate),
+    emptyExpiresAt: timestamp("empty_expires_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now() + interval '24 hours'`),
     expiresAt: timestamp("expires_at", { withTimezone: true })
       .notNull()
       .default(sql`now() + interval '5 days'`),
@@ -242,6 +245,10 @@ export const billboards = appSchema.table(
     check(
       "billboards_expires_at_check",
       sql`${table.expiresAt} > ${table.createdAt} and ${table.expiresAt} <= ${table.createdAt} + interval '5 days'`,
+    ),
+    check(
+      "billboards_empty_expires_at_check",
+      sql`${table.emptyExpiresAt} > ${table.createdAt} and ${table.emptyExpiresAt} <= ${table.createdAt} + interval '24 hours'`,
     ),
   ],
 );

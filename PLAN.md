@@ -18,7 +18,7 @@
 - [x] **BE1** — Write Drizzle schema in `packages/db/src/schema/` (POI: picture field; User: avatar field)
 - [x] **BE1** — Write shared Zod schemas in `packages/shared/src/` (poi includes optional picture, user includes avatar)
 - [x] **BE1** — Delete old `events`-related code from `packages/shared/src/events.ts`
-- [x] **All 4** — Agree on sticker storage format (base64 PNG), admin role mechanism (is_admin), map provider for mobile (react-native-leaflet-view), quest system (parameterised templates), daily quest pool (~5), push timing (8–9am), billboard limit (1/day MVP)
+- [x] **All 4** — Agree on sticker storage format (base64 PNG), admin role mechanism (is_admin), map provider for mobile (react-native-leaflet-view), quest system (parameterised templates), daily quest pool (~5), push timing (8–9am), billboard limits (concurrent cap + Sydney-day posting cap)
 
 > **Dependency edge:** Everything else depends on the shared schemas and DB schema.
 
@@ -87,7 +87,7 @@
 - [ ] **BE2** — Analytics query endpoints: DAU, popular POIs, note volume, abuse metrics
 - [ ] **FE1** — Admin panel screens: reported content list with context, action buttons, soft-delete indicators, POI creation form (name, description, lat/lng, picture upload)
 - [ ] **FE1** — Analytics dashboard (simple stats grid)
-- [ ] **FE2** — Polish: error states, loading skeletons, empty states, edge cases (1 billboard/Sydney-day limit, 5-day billboard expiry, 1-placement/billboard limit)
+- [ ] **FE2** — Polish: error states, loading skeletons, empty states, edge cases (concurrent billboard replacement, Sydney-day posting limit, 24h inactive billboard expiry, 5-day billboard expiry, 1-placement/billboard limit)
 - [ ] **FE2** — Pull-to-refresh on map + billboard screen
 
 ---
@@ -119,8 +119,9 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 - **Primary keys:** internal UUIDv4 values for all primary keys; Clerk user IDs are stored as unique external auth identifiers on `app.users.clerk_user_id`
 - **Map on mobile:** `react-native-leaflet-view` (pavel-corsaghin/react-native-leaflet)
 - **Drizzle migrations:** Drizzle Kit with `drizzle-kit push` for hackathon speed
-- **Billboard expiry:** scheduled Worker (soft-delete empty billboards at Sydney midnight; soft-delete all billboards after 5 days)
-- **Billboard daily limit:** 1 billboard per user per Sydney calendar day for MVP; schema can support future cap increases up to 10/day
+- **Billboard limits:** concurrent active cap starts at 3 and scales with level; posting at the cap soft-deletes the user's oldest active billboard before publishing the new one
+- **Billboard daily limit:** separate Sydney calendar-day posting cap; seeded as concurrent + 1 and capped at 10/day
+- **Billboard expiry:** scheduled Worker (soft-delete billboards with no placements after 24 hours; soft-delete all billboards after 5 days)
 - **Daily quests:** seeded templates/pool; scheduled Worker randomly assigns one active daily quest per Sydney calendar day
 - **POI rotation:** seeded/admin-created POI table; scheduled Worker randomly activates the daily POI set
 - **POI geofence radius:** 30m

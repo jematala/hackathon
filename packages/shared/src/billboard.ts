@@ -23,6 +23,7 @@ export const billboardSummarySchema = z.object({
   lng: longitudeSchema,
   status: contentStatusSchema,
   placementCount: z.number().int().min(0),
+  emptyExpiresAt: isoDateTimeSchema,
   expiresAt: isoDateTimeSchema,
   createdAt: isoDateTimeSchema,
 });
@@ -71,6 +72,7 @@ export const createBillboardInputSchema = z.object({
 
 export const createBillboardResponseSchema = z.object({
   billboard: billboardSummarySchema,
+  replacedBillboardId: idSchema.nullable(),
   questProgress: z.array(questProgressUpdateSchema),
 });
 
