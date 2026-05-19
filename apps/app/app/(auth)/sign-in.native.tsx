@@ -1,17 +1,18 @@
-import { AuthView } from "@clerk/expo/native";
-import { useAuth } from "@clerk/expo";
-import { useRouter } from "expo-router";
-import { useEffect } from "react";
+import { AuthView } from '@clerk/expo/native';
+import { useAuth } from '@clerk/expo';
+import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 
 export default function SignInScreen() {
   const { isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const router = useRouter();
 
   useEffect(() => {
+    alert(isSignedIn);
     if (isSignedIn) {
-      router.replace("/map");
+      router.replace('/(app)/map');
     }
   }, [isSignedIn]);
 
-  return <AuthView mode="signInOrUp" />;
+  return <AuthView mode='signInOrUp' />;
 }
