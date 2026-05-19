@@ -1,8 +1,6 @@
 import { router } from "expo-router";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { fonts } from "@/app/theme";
-
 const HUD_BUTTON_SIZE = 100;
 const COLOR_FG = "#5b7559";
 const XP_COLOR = "#4A90D9";
@@ -122,12 +120,12 @@ const styles = StyleSheet.create({
   },
   textLabel: {
     color: "#ffedd6",
-    fontFamily: fonts.family,
+    fontFamily: "Jersey10",
     fontSize: 28,
   },
   levelLabel: {
     color: "#5b7559",
-    fontFamily: fonts.family,
+    fontFamily: "Jersey10",
     fontSize: 36,
     alignSelf: "center",
   },

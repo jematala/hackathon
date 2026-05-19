@@ -24,4 +24,7 @@
       "new_sqlite_classes": ["CampusRealtimeRoomDO"],
     },
   ],
+  "triggers": {
+    "crons": ["0 21 * * *", "*/30 * * * *"],
+  },
 }

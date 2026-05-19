@@ -315,6 +315,27 @@ create table app.content_moderation_logs (
   created_at timestamptz not null default now()
 );
 
+create table app.signatures (
+  id uuid primary key default gen_random_uuid(),
+  key text not null unique,
+  name text not null,
+  asset_base64 text not null,
+  streak_day_required integer not null check (streak_day_required > 0),
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table app.user_signatures (
+  user_id uuid not null references app.users(id) on delete cascade,
+  signature_id uuid not null references app.signatures(id) on delete cascade,
+  unlocked_at timestamptz not null default now(),
+  is_equipped boolean not null default false,
+  primary key (user_id, signature_id)
+);
+
+create unique index user_signatures_one_equipped_idx
+  on app.user_signatures (user_id) where is_equipped;
+
 create index pois_location_point_idx on app.pois using gist (location_point);
 create index pois_active_campus_idx on app.pois (campus_id, is_active) where deleted_at is null;
 create index poi_visits_poi_idx on app.poi_visits (poi_id);
@@ -370,35 +391,81 @@ values
 
 insert into app.quest_templates (id, key, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
 values
-  ('00000000-0000-4000-8000-000000000301', 'visit_pois', 'visit_pois', 'Visit {target} new POIs', 'Discover {target} campus landmarks you have not visited before.', 1, 5, 50),
-  ('00000000-0000-4000-8000-000000000302', 'leave_billboards', 'leave_billboards', 'Leave {target} billboards', 'Post {target} notes around campus.', 1, 5, 50),
-  ('00000000-0000-4000-8000-000000000303', 'place_stickers', 'place_stickers', 'Place {target} stickers', 'Reply to billboards with {target} sticker placements.', 1, 6, 50),
-  ('00000000-0000-4000-8000-000000000304', 'receive_replies', 'receive_replies', 'Receive {target} replies', 'Have other students reply to your billboards {target} times.', 1, 5, 75),
-  ('00000000-0000-4000-8000-000000000305', 'save_stickers', 'save_stickers', 'Save {target} stickers', 'Save {target} stickers or sticky notes to your collection.', 1, 4, 40);
+  ('00000000-0000-4000-8000-000000000301', 'visit_pois', 'visit_pois', 'Visit {target} new POIs', 'Discover {target} campus landmarks you have not visited before.', 1, 15, 50),
+  ('00000000-0000-4000-8000-000000000302', 'leave_billboards', 'leave_billboards', 'Leave {target} billboards', 'Post {target} notes around campus.', 1, 12, 50),
+  ('00000000-0000-4000-8000-000000000303', 'place_stickers', 'place_stickers', 'Place {target} stickers', 'Reply to billboards with {target} sticker placements.', 1, 12, 50),
+  ('00000000-0000-4000-8000-000000000304', 'receive_replies', 'receive_replies', 'Receive {target} replies', 'Have other students reply to your billboards {target} times.', 1, 10, 75),
+  ('00000000-0000-4000-8000-000000000305', 'save_stickers', 'save_stickers', 'Save {target} stickers', 'Save {target} stickers or sticky notes to your collection.', 1, 12, 40);
 
 insert into app.daily_quest_templates (id, key, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
 values
-  ('00000000-0000-4000-8000-000000000401', 'daily_explorer', 'visit_pois', 'Daily wander', 'Visit {target} active POIs today.', 1, 3, 30),
-  ('00000000-0000-4000-8000-000000000402', 'daily_note', 'leave_billboards', 'Campus bulletin', 'Leave {target} billboard today.', 1, 2, 25),
-  ('00000000-0000-4000-8000-000000000403', 'daily_sticker', 'place_stickers', 'Sticker hello', 'Place {target} stickers on billboards today.', 1, 3, 30),
-  ('00000000-0000-4000-8000-000000000404', 'daily_save', 'save_stickers', 'Pocket a favourite', 'Save {target} sticker or sticky note today.', 1, 2, 25),
-  ('00000000-0000-4000-8000-000000000405', 'daily_replies', 'receive_replies', 'Start a conversation', 'Receive {target} replies on your billboards today.', 1, 2, 35);
+  ('00000000-0000-4000-8000-000000000401', 'daily_explorer', 'visit_pois', 'Daily wander', 'Visit {target} active POIs today.', 1, 3, 0),
+  ('00000000-0000-4000-8000-000000000402', 'daily_note', 'leave_billboards', 'Campus bulletin', 'Leave {target} billboard today.', 1, 2, 0),
+  ('00000000-0000-4000-8000-000000000403', 'daily_sticker', 'place_stickers', 'Sticker hello', 'Place {target} stickers on billboards today.', 1, 3, 0),
+  ('00000000-0000-4000-8000-000000000404', 'daily_save', 'save_stickers', 'Pocket a favourite', 'Save {target} sticker or sticky note today.', 1, 2, 0),
+  ('00000000-0000-4000-8000-000000000405', 'daily_replies', 'receive_replies', 'Start a conversation', 'Receive {target} replies on your billboards today.', 1, 2, 0);
 
 insert into app.level_quest_sets (id, level, template_id, target_count, xp_reward, sort_order)
 values
-  ('00000000-0000-4000-8000-000000000501', 1, '00000000-0000-4000-8000-000000000301', 1, 40, 1),
-  ('00000000-0000-4000-8000-000000000502', 1, '00000000-0000-4000-8000-000000000302', 1, 40, 2),
-  ('00000000-0000-4000-8000-000000000503', 2, '00000000-0000-4000-8000-000000000303', 2, 60, 1),
-  ('00000000-0000-4000-8000-000000000504', 2, '00000000-0000-4000-8000-000000000305', 1, 40, 2),
-  ('00000000-0000-4000-8000-000000000505', 3, '00000000-0000-4000-8000-000000000304', 2, 80, 1);
+  -- L1 (1 quest)
+  ('00000000-0000-4000-8000-000000000501', 1, '00000000-0000-4000-8000-000000000301', 3,  60, 1),
+
+  -- L2 (2 quests)
+  ('00000000-0000-4000-8000-000000000502', 2, '00000000-0000-4000-8000-000000000302', 2,  40, 1),
+  ('00000000-0000-4000-8000-000000000503', 2, '00000000-0000-4000-8000-000000000303', 2,  40, 2),
+
+  -- L3 (2 quests)
+  ('00000000-0000-4000-8000-000000000504', 3, '00000000-0000-4000-8000-000000000301', 4,  80, 1),
+  ('00000000-0000-4000-8000-000000000505', 3, '00000000-0000-4000-8000-000000000305', 3,  60, 2),
+
+  -- L4 (3 quests)
+  ('00000000-0000-4000-8000-000000000506', 4, '00000000-0000-4000-8000-000000000302', 3,  60, 1),
+  ('00000000-0000-4000-8000-000000000507', 4, '00000000-0000-4000-8000-000000000303', 3,  60, 2),
+  ('00000000-0000-4000-8000-000000000508', 4, '00000000-0000-4000-8000-000000000304', 2,  90, 3),
+
+  -- L5 (3 quests)
+  ('00000000-0000-4000-8000-000000000509', 5, '00000000-0000-4000-8000-000000000301', 6, 120, 1),
+  ('00000000-0000-4000-8000-00000000050a', 5, '00000000-0000-4000-8000-000000000302', 4,  80, 2),
+  ('00000000-0000-4000-8000-00000000050b', 5, '00000000-0000-4000-8000-000000000305', 4,  80, 3),
+
+  -- L6 (3 quests)
+  ('00000000-0000-4000-8000-00000000050c', 6, '00000000-0000-4000-8000-000000000303', 5, 100, 1),
+  ('00000000-0000-4000-8000-00000000050d', 6, '00000000-0000-4000-8000-000000000304', 3, 120, 2),
+  ('00000000-0000-4000-8000-00000000050e', 6, '00000000-0000-4000-8000-000000000305', 5, 100, 3),
+
+  -- L7 (4 quests)
+  ('00000000-0000-4000-8000-00000000050f', 7, '00000000-0000-4000-8000-000000000301', 7, 140, 1),
+  ('00000000-0000-4000-8000-000000000510', 7, '00000000-0000-4000-8000-000000000302', 5, 100, 2),
+  ('00000000-0000-4000-8000-000000000511', 7, '00000000-0000-4000-8000-000000000303', 6, 120, 3),
+  ('00000000-0000-4000-8000-000000000512', 7, '00000000-0000-4000-8000-000000000304', 4, 160, 4),
+
+  -- L8 (4 quests)
+  ('00000000-0000-4000-8000-000000000513', 8, '00000000-0000-4000-8000-000000000302', 6, 120, 1),
+  ('00000000-0000-4000-8000-000000000514', 8, '00000000-0000-4000-8000-000000000303', 7, 140, 2),
+  ('00000000-0000-4000-8000-000000000515', 8, '00000000-0000-4000-8000-000000000304', 5, 200, 3),
+  ('00000000-0000-4000-8000-000000000516', 8, '00000000-0000-4000-8000-000000000305', 6, 120, 4),
+
+  -- L9 (5 quests — all 5 templates)
+  ('00000000-0000-4000-8000-000000000517', 9, '00000000-0000-4000-8000-000000000301', 9, 180, 1),
+  ('00000000-0000-4000-8000-000000000518', 9, '00000000-0000-4000-8000-000000000302', 7, 140, 2),
+  ('00000000-0000-4000-8000-000000000519', 9, '00000000-0000-4000-8000-000000000303', 8, 160, 3),
+  ('00000000-0000-4000-8000-00000000051a', 9, '00000000-0000-4000-8000-000000000304', 6, 240, 4),
+  ('00000000-0000-4000-8000-00000000051b', 9, '00000000-0000-4000-8000-000000000305', 8, 160, 5),
+
+  -- L10 (5 quests — all 5 templates, highest targets)
+  ('00000000-0000-4000-8000-00000000051c', 10, '00000000-0000-4000-8000-000000000301', 11, 220, 1),
+  ('00000000-0000-4000-8000-00000000051d', 10, '00000000-0000-4000-8000-000000000302', 8,  160, 2),
+  ('00000000-0000-4000-8000-00000000051e', 10, '00000000-0000-4000-8000-000000000303', 10, 200, 3),
+  ('00000000-0000-4000-8000-00000000051f', 10, '00000000-0000-4000-8000-000000000304', 7,  280, 4),
+  ('00000000-0000-4000-8000-000000000520', 10, '00000000-0000-4000-8000-000000000305', 9,  180, 5);
 
 insert into app.daily_quest_pool (id, template_id, target_count, xp_reward)
 values
-  ('00000000-0000-4000-8000-000000000601', '00000000-0000-4000-8000-000000000401', 1, 25),
-  ('00000000-0000-4000-8000-000000000602', '00000000-0000-4000-8000-000000000402', 1, 25),
-  ('00000000-0000-4000-8000-000000000603', '00000000-0000-4000-8000-000000000403', 2, 30),
-  ('00000000-0000-4000-8000-000000000604', '00000000-0000-4000-8000-000000000404', 1, 25),
-  ('00000000-0000-4000-8000-000000000605', '00000000-0000-4000-8000-000000000405', 1, 35);
+  ('00000000-0000-4000-8000-000000000601', '00000000-0000-4000-8000-000000000401', 1, 0),
+  ('00000000-0000-4000-8000-000000000602', '00000000-0000-4000-8000-000000000402', 1, 0),
+  ('00000000-0000-4000-8000-000000000603', '00000000-0000-4000-8000-000000000403', 2, 0),
+  ('00000000-0000-4000-8000-000000000604', '00000000-0000-4000-8000-000000000404', 1, 0),
+  ('00000000-0000-4000-8000-000000000605', '00000000-0000-4000-8000-000000000405', 1, 0);
 
 insert into app.perk_definitions (id, key, name, description)
 values
@@ -411,25 +478,43 @@ values
 
 insert into app.level_perks (id, level, perk_id, numeric_value, metadata)
 values
+  -- L1 base
   ('00000000-0000-4000-8000-000000000900', 1, '00000000-0000-4000-8000-000000000800', 3, null),
   ('00000000-0000-4000-8000-000000000901', 1, '00000000-0000-4000-8000-000000000801', 4, null),
   ('00000000-0000-4000-8000-000000000902', 1, '00000000-0000-4000-8000-000000000802', 10, null),
+  -- L2: +1 concurrent, +1 per day
   ('00000000-0000-4000-8000-000000000903', 2, '00000000-0000-4000-8000-000000000800', 4, null),
   ('00000000-0000-4000-8000-000000000904', 2, '00000000-0000-4000-8000-000000000801', 5, null),
+  -- L3: +2 sticker slots
   ('00000000-0000-4000-8000-000000000905', 3, '00000000-0000-4000-8000-000000000802', 12, null),
+  -- L4: signature display feature unlock
   ('00000000-0000-4000-8000-000000000906', 4, '00000000-0000-4000-8000-000000000803', null, '{"enabled":true}'::jsonb),
-  ('00000000-0000-4000-8000-000000000907', 5, '00000000-0000-4000-8000-000000000800', 5, null),
+  -- L5: +1 per day (no concurrent bump per revised spec)
   ('00000000-0000-4000-8000-000000000908', 5, '00000000-0000-4000-8000-000000000801', 6, null),
+  -- L6: note border flair
   ('00000000-0000-4000-8000-000000000909', 6, '00000000-0000-4000-8000-000000000804', null, '{"enabled":true}'::jsonb),
+  -- L7: +2 sticker slots
   ('00000000-0000-4000-8000-00000000090a', 7, '00000000-0000-4000-8000-000000000802', 14, null),
-  ('00000000-0000-4000-8000-00000000090b', 8, '00000000-0000-4000-8000-000000000800', 6, null),
+  -- L8: +1 concurrent, +1 per day (final concurrent bump from leveling)
+  ('00000000-0000-4000-8000-00000000090b', 8, '00000000-0000-4000-8000-000000000800', 5, null),
   ('00000000-0000-4000-8000-00000000090c', 8, '00000000-0000-4000-8000-000000000801', 7, null),
+  -- L9: palette expansion
   ('00000000-0000-4000-8000-00000000090d', 9, '00000000-0000-4000-8000-000000000805', null, '{"palette":"extended"}'::jsonb),
-  ('00000000-0000-4000-8000-00000000090e', 10, '00000000-0000-4000-8000-000000000800', 10, null),
-  ('00000000-0000-4000-8000-00000000090f', 10, '00000000-0000-4000-8000-000000000801', 10, null),
-  ('00000000-0000-4000-8000-000000000910', 10, '00000000-0000-4000-8000-000000000802', 20, null);
+  -- L10: +1 per day, +2 sticker slots (no concurrent bump — capped at 5 from L8)
+  ('00000000-0000-4000-8000-00000000090f', 10, '00000000-0000-4000-8000-000000000801', 8, null),
+  ('00000000-0000-4000-8000-000000000910', 10, '00000000-0000-4000-8000-000000000802', 16, null);
 
 insert into app.streak_reward_definitions (id, streak_days, name, reward)
 values
-  ('00000000-0000-4000-8000-000000000a01', 3, 'Three day trail', '{"rewards":[{"type":"xp_multiplier","multiplier":1.1}]}'::jsonb),
-  ('00000000-0000-4000-8000-000000000a02', 7, 'Weekly wanderer', '{"rewards":[{"type":"cosmetic","cosmeticKey":"leaf_badge"}]}'::jsonb);
+  ('00000000-0000-4000-8000-000000000a01', 3,  'Three day spark',
+   '{"rewards":[{"type":"signature","signatureKey":"signature_a"}]}'::jsonb),
+  ('00000000-0000-4000-8000-000000000a02', 7,  'Week one trail',
+   '{"rewards":[{"type":"signature","signatureKey":"signature_b"}]}'::jsonb),
+  ('00000000-0000-4000-8000-000000000a03', 14, 'Fortnight forager',
+   '{"rewards":[{"type":"capacity_billboard","amount":1}]}'::jsonb),
+  ('00000000-0000-4000-8000-000000000a04', 30, 'Month-long marker',
+   '{"rewards":[{"type":"signature","signatureKey":"signature_c"}]}'::jsonb);
+
+insert into app.signatures (id, key, name, asset_base64, streak_day_required) values ('00000000-0000-4000-8000-000000000b01', 'signature_a', 'Sunrise Mark',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 3);
+insert into app.signatures (id, key, name, asset_base64, streak_day_required) values ('00000000-0000-4000-8000-000000000b02', 'signature_b', 'Pixel Bloom',     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 7);
+insert into app.signatures (id, key, name, asset_base64, streak_day_required) values ('00000000-0000-4000-8000-000000000b03', 'signature_c', 'Prestige Cipher', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 30);

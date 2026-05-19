@@ -17,6 +17,7 @@ import { getDb } from "../db";
 import { badRequest, notFound } from "../http";
 import { getAuthUser, optionalAuth, requireAuth } from "../middleware/auth";
 import { incrementQuestProgress, questProgressUpdate } from "../services/progression";
+import { ensureDailyRotations } from "../services/rotations";
 import { isoDate, isoDateTime } from "../serialize";
 import type { AppBindings, AuthUser } from "../types";
 import { requireAdmin } from "./users";
@@ -58,23 +59,10 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
   const campusId = c.req.query("campusId");
   const authUser = safeAuthUser(c);
 
+  await ensureDailyRotations(db);
+
   const campus = await loadCampus(db, campusId);
   const rows = await db.execute<PoiRow>(sql`
-    with daily_pois as (
-      select
-        pois.id,
-        (timezone(${campus.timezone}, now()))::date as active_on
-      from app.pois
-      where
-        pois.campus_id = ${campus.id}
-        and pois.deleted_at is null
-        and pois.is_active
-      order by md5(
-        pois.id::text || ':' || ${campus.id}::text || ':' ||
-          (timezone(${campus.timezone}, now()))::date::text
-      )
-      limit 5
-    )
     select
       pois.id,
       pois.campus_id as "campusId",
@@ -85,7 +73,7 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
       pois.lng,
       pois.radius_meters as "radiusMeters",
       pois.is_active as "isActive",
-      daily_pois.active_on as "activeOn",
+      poi_daily_activations.active_on as "activeOn",
       exists (
         select 1 from app.poi_visits
         where poi_visits.poi_id = pois.id and poi_visits.user_id = ${authUser?.id ?? null}
@@ -93,8 +81,11 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
       pois.created_at as "createdAt",
       pois.updated_at as "updatedAt",
       0::int as "visitCount"
-    from daily_pois
-    join app.pois on pois.id = daily_pois.id
+    from app.pois
+    join app.poi_daily_activations
+      on poi_daily_activations.poi_id = pois.id
+      and poi_daily_activations.campus_id = pois.campus_id
+      and poi_daily_activations.active_on = (timezone(${campus.timezone}, now()))::date
     where
       pois.campus_id = ${campus.id}
       and pois.deleted_at is null
@@ -212,37 +203,16 @@ poisRoute.post(
       withinRadius: boolean;
     }>(sql`
       select
-        pois.campus_id as "campusId",
-        pois.radius_meters as "radiusMeters",
+        campus_id as "campusId",
+        radius_meters as "radiusMeters",
         now() as "visitedAt",
         st_dwithin(
-          pois.location_point,
+          location_point,
           st_setsrid(st_makepoint(${input.lng}, ${input.lat}), 4326)::geography,
-          pois.radius_meters
+          radius_meters
         ) as "withinRadius"
       from app.pois
-      join app.campuses on campuses.id = pois.campus_id
-      where
-        pois.id = ${id.data}
-        and pois.deleted_at is null
-        and pois.is_active
-        and exists (
-          select 1
-          from (
-            select candidate.id
-            from app.pois candidate
-            where
-              candidate.campus_id = pois.campus_id
-              and candidate.deleted_at is null
-              and candidate.is_active
-            order by md5(
-              candidate.id::text || ':' || pois.campus_id::text || ':' ||
-                (timezone(campuses.timezone, now()))::date::text
-            )
-            limit 5
-          ) selected
-          where selected.id = pois.id
-        )
+      where id = ${id.data} and deleted_at is null and is_active
     `);
     const poi = rows[0];
 
@@ -328,7 +298,7 @@ async function loadPoi(db: ReturnType<typeof getDb>, id: string, userId: string 
       pois.lng,
       pois.radius_meters as "radiusMeters",
       pois.is_active as "isActive",
-      daily_pois.active_on as "activeOn",
+      poi_daily_activations.active_on as "activeOn",
       exists (
         select 1 from app.poi_visits
         where poi_visits.poi_id = pois.id and poi_visits.user_id = ${userId ?? null}
@@ -340,25 +310,10 @@ async function loadPoi(db: ReturnType<typeof getDb>, id: string, userId: string 
       ) as "visitCount"
     from app.pois
     left join app.campuses on campuses.id = pois.campus_id
-    left join lateral (
-      select selected.active_on
-      from (
-        select
-          candidate.id,
-          (timezone(campuses.timezone, now()))::date as active_on
-        from app.pois candidate
-        where
-          candidate.campus_id = pois.campus_id
-          and candidate.deleted_at is null
-          and candidate.is_active
-        order by md5(
-          candidate.id::text || ':' || pois.campus_id::text || ':' ||
-            (timezone(campuses.timezone, now()))::date::text
-        )
-        limit 5
-      ) selected
-      where selected.id = pois.id
-    ) daily_pois on true
+    left join app.poi_daily_activations
+      on poi_daily_activations.poi_id = pois.id
+      and poi_daily_activations.campus_id = pois.campus_id
+      and poi_daily_activations.active_on = (timezone(campuses.timezone, now()))::date
     where pois.id = ${id} and pois.deleted_at is null
   `);
   const poi = rows[0];

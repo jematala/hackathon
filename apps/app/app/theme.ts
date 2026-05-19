@@ -29,7 +29,7 @@ export const colors = {
 };
 
 export const fonts = {
-  family: "Jersey10_400Regular",
+  family: "Jersey10",
   sizes: {
     xs: 16,
     sm: 18,

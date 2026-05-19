@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
-import { colors, fonts } from "@/app/theme";
+import { fonts } from "@/app/theme";
 
 type TextFieldProps = {
   label: string;
@@ -19,18 +19,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    color: colors.text,
-    fontSize: fonts.sizes.sm,
+    color: "#6A401A",
+    fontSize: 14,
     fontWeight: "700",
     fontFamily: fonts.family,
   },
   input: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderRadius: 0,
-    borderWidth: 2,
-    color: colors.text,
-    fontSize: fonts.sizes.md,
+    backgroundColor: "#FFF5E6",
+    borderColor: "#B17833",
+    borderRadius: 8,
+    borderWidth: 1,
+    color: "#6A401A",
+    fontSize: 16,
     minHeight: 44,
     paddingHorizontal: 12,
     fontFamily: fonts.family,
