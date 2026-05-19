@@ -2,12 +2,12 @@
 
 ## Team Structure
 
-| Person | Role | Primary Focus |
-|--------|------|---------------|
-| **BE1** | Backend Lead | DB schema, Drizzle ORM, API routes (POI, billboard, sticker, quest, user), auth middleware, deployment |
-| **BE2** | Backend | Durable Object (WebSocket), content moderation, push notifications, reporting/admin API |
-| **FE1** | Frontend Lead | Navigation/routing, auth UI, map component, POI display, app theme/styling, admin panel |
-| **FE2** | Frontend | Billboard expanded view, pixel art sticker editor, sticker/sticky note placement, quest UI, profile screen, push notification handling |
+| Person  | Role          | Primary Focus                                                                                                                          |
+| ------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **BE1** | Backend Lead  | DB schema, Drizzle ORM, API routes (POI, billboard, sticker, quest, user), auth middleware, deployment                                 |
+| **BE2** | Backend       | Durable Object (WebSocket), content moderation, push notifications, reporting/admin API                                                |
+| **FE1** | Frontend Lead | Navigation/routing, auth UI, map component, POI display, app theme/styling, admin panel                                                |
+| **FE2** | Frontend      | Billboard expanded view, pixel art sticker editor, sticker/sticky note placement, quest UI, profile screen, push notification handling |
 
 ---
 
@@ -37,11 +37,11 @@
 
 ## Phase 1a — Foundation: Frontend
 
-- [ ] **FE1** — Replace app navigation: drop `/events` screens, add `/map`, `/billboard/[id]`, `/profile`, `/quests`, `/studio` routes
+- [x] **FE1** — Drop `/events` screens, add `/map`, `/profile`, `/quests` routes (no `/billboard` or `/studio` yet)
 - [ ] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks
-- [ ] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
-- [ ] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
-- [ ] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
+- [x] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
+- [x] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
+- [x] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
 - [ ] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
 - [ ] **FE2** — Build map overlay components: POI popup, billboard marker callout
 
@@ -59,9 +59,9 @@
 
 ## Phase 2 — Frontend Features
 
-- [ ] **FE1** — Map: show POI markers with distinct glowing style
+- [x] **FE1** — Map: show POI markers with distinct glowing style
 - [ ] **FE1** — Map: show billboard markers with note icon style
-- [ ] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
+- [x] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
 - [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger
 - [ ] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
 - [ ] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
@@ -132,3 +132,70 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 - **Push notification timing:** 8–9am daily quest reminder when push is enabled
 - **POI picture:** compressed 128×128 base64 PNG (stored inline in DB)
 - **User avatar:** 64×64 pixel art drawn on sign-up, stored as base64 PNG in `users.avatar_base64` column
+
+---
+
+## Map Implementation (FE1)
+
+### Tile Configuration
+
+| Property     | Value                                                                     |
+| ------------ | ------------------------------------------------------------------------- |
+| Provider     | Thunderforest (Neighbourhood)                                             |
+| URL          | `https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=…` |
+| CSS filter   | `sepia(0.3) saturate(0.8) brightness(0.8) contrast(150%)`                 |
+| Pixel filter | `image-rendering: pixelated`                                              |
+| Center       | UNSW Kensington (-33.917, 151.231)                                        |
+| Default zoom | 18                                                                        |
+| Max zoom     | 22 (scales z21 tiles at 22 via `maxNativeZoom: 21`)                       |
+
+### File Structure
+
+```
+components/map/
+├── Map.tsx       ← Leaflet ref-based wrapper (useEffect + useRef)
+├── markers.ts    ← L.divIcon factories (POI, user avatar)
+├── MapHUD.tsx    ← Floating bottom bar (Webfishing-style buttons)
+```
+
+### Navigation
+
+```
+app/
+├── _layout.tsx          ← Auth skeleton (sign-in gate), font loading, Leaflet CSS + map styles
+└── (tabs)/
+    ├── _layout.tsx      ← Tab navigator
+    ├── map/index.tsx    ← Map screen (Map + HUD)
+    ├── quests/index.tsx
+    ├── studio/index.tsx
+    └── profile/index.tsx
+```
+
+### Components
+
+**Map.tsx** — Creates Leaflet map in a `useEffect` ref. Adds Thunderforest Neighbourhood tiles with CSS filter injection (sepia + saturation + brightness + contrast). Renders POI markers (wooden billboard divIcon) and user avatar marker (profile image with circular border + downward pointer triangle for location). Handles resize and cleanup. Avatar URL resolved via `expo-asset` (`Asset.fromModule`).
+
+**markers.ts** — `createPOIIcon(title)` returns `L.divIcon` with small wooden billboard SVG. `createUserAvatarIcon(imageUrl)` returns avatar circle (profile image, `#5b7559` border) with a CSS triangle pointer at the bottom.
+
+**MapHUD.tsx** — Floating bottom bar (~20px from bottom, `absolute` positioning). Left section: profile picture (100×100) with elevation shadow, SVG data-URI XP progress ring (`#4A90D9`, 72%), and "lv22" level indicator (Jersey10, `#ffedd6`, 36px). Right section: "Quests" + "Studio" text buttons (forest green `#5b7559`, rounded 8px, Jersey10, `#ffedd6`).
+
+### Demo Data
+
+Hardcoded in `constants/coordinates.ts`:
+
+- UNSW center (-33.917, 151.231)
+- 5 demo POIs around campus (Main Library, Science Theatre, Quad, Roundhouse, Mathews Building)
+
+### Dependencies
+
+| Package          | Version |
+| ---------------- | ------- |
+| `leaflet`        | latest  |
+| `@types/leaflet` | latest  |
+
+### Maps Backlog (post-hackathon)
+
+- Swap renderer to `react-native-leaflet-view` for mobile
+- Wire POI data to live API
+- POI discovery toast on geofence enter
+- Real-time updates via Durable Object WebSocket

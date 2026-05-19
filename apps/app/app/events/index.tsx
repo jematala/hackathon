@@ -27,7 +27,7 @@ export default function EventsScreen() {
       <Text style={styles.title}>Events</Text>
       <View style={styles.list}>
         {demoEvents.map((event) => (
-          <Pressable key={event.id} onPress={() => router.push(`/events/${event.id}`)}>
+          <Pressable key={event.id} onPress={() => router.push(`/events/${event.id}` as any)}>
             <Card>
               <Text style={styles.eventTitle}>{event.title}</Text>
               <Text style={styles.eventMeta}>{event.location}</Text>

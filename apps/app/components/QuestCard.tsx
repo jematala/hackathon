@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors, fonts, pixelBorder } from "@/app/theme";
+import { colors, fonts } from "@/app/theme";
 
 type QuestCardProps = {
   title: string;
