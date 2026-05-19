@@ -3,16 +3,23 @@ import L from "leaflet";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
-import { UNSW_CENTER, DEMO_POIS } from "@/constants/coordinates";
+import { DEMO_BILLBOARD, DEMO_POIS, UNSW_CENTER } from "@/constants/coordinates";
 
-import { createPOIIcon, createUserAvatarIcon } from "./markers";
+import { createBillboardIcon, createPOIIcon, createUserAvatarIcon } from "./markers";
 
 const TILE_URL =
   "https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=0f64302472524b558aa92ebe1c088f04";
 const TILE_ATTR =
   '&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-export const Map = forwardRef<{ invalidateSize: () => void }>(function Map(_props, ref) {
+type MapProps = {
+  onBillboardPress?: (id: string) => void;
+};
+
+export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function Map(
+  { onBillboardPress },
+  ref,
+) {
   const containerRef = useRef<View | null>(null);
   const mapRef = useRef<L.Map | null>(null);
 
@@ -51,6 +58,12 @@ export const Map = forwardRef<{ invalidateSize: () => void }>(function Map(_prop
         .bindPopup(`<strong>${poi.title}</strong><br/>${poi.description}`);
     }
 
+    L.marker([DEMO_BILLBOARD.lat, DEMO_BILLBOARD.lng], {
+      icon: createBillboardIcon(DEMO_BILLBOARD.title),
+    })
+      .addTo(map)
+      .on("click", () => onBillboardPress?.(DEMO_BILLBOARD.id));
+
     const avatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
 
     L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
@@ -63,7 +76,7 @@ export const Map = forwardRef<{ invalidateSize: () => void }>(function Map(_prop
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [onBillboardPress]);
 
   return <View ref={containerRef} style={styles.container} />;
 });

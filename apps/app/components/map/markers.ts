@@ -18,6 +18,25 @@ export function createPOIIcon(title: string): L.DivIcon {
   });
 }
 
+export function createBillboardIcon(title: string): L.DivIcon {
+  return L.divIcon({
+    className: "billboard-marker",
+    html: `<div class="billboard-marker-inner" title="${title}">
+      <svg width="44" height="48" viewBox="0 0 44 48" fill="none">
+        <rect x="5" y="9" width="34" height="26" rx="2" fill="#D2B689" stroke="#4D5E40" stroke-width="3"/>
+        <rect x="8" y="12" width="28" height="20" rx="1" fill="#F4ECCC" stroke="#A88F5F" stroke-width="2"/>
+        <rect x="13" y="18" width="8" height="7" rx="1" fill="#F7E8B0" stroke="#DCC080" stroke-width="1"/>
+        <rect x="23" y="16" width="9" height="9" rx="1" fill="#D8E2E5" stroke="#9DAFB3" stroke-width="1"/>
+        <circle cx="17" cy="17" r="2" fill="#E589A0" stroke="#A14860" stroke-width="1"/>
+        <circle cx="28" cy="15" r="2" fill="#F2C84B" stroke="#B68A20" stroke-width="1"/>
+        <path d="M17 35H27L22 45L17 35Z" fill="#4D5E40"/>
+      </svg>
+    </div>`,
+    iconSize: [44, 48],
+    iconAnchor: [22, 45],
+  });
+}
+
 export function createUserAvatarIcon(imageUrl: string): L.DivIcon {
   return L.divIcon({
     className: "user-avatar-marker",
