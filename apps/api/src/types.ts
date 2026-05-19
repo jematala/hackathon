@@ -5,10 +5,6 @@ export type Env = {
   CLERK_PUBLISHABLE_KEY?: string;
   CLERK_SECRET_KEY?: string;
   OPENAI_API_KEY?: string;
-  // "false" disables OpenAI Moderation in local dev (treated as opt-in
-  // everywhere else). Anything other than "false" enables it when the key
-  // is present. Per-category thresholds live in code at
-  // apps/api/src/services/moderation.ts.
   MODERATION_ENABLED?: string;
   SUPABASE_POOLER_DATABASE_URL?: string;
   SUPABASE_SECRET_KEY?: string;
