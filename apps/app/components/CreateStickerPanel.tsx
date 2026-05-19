@@ -86,11 +86,7 @@ export function CreateStickerPanel({ onClose }: CreateStickerPanelProps) {
 
     const payload = prepareStickerUpload(ref.current);
     preparedStickerRef.current = payload;
-    setSubmitStatus(
-      payload
-        ? `Ready to send ${payload.filename}`
-        : "Could not prepare sticker.",
-    );
+    setSubmitStatus(payload ? `Ready to send ${payload.filename}` : "Could not prepare sticker.");
   }, []);
 
   return (
@@ -138,33 +134,21 @@ export function CreateStickerPanel({ onClose }: CreateStickerPanelProps) {
       </View>
 
       <View style={styles.actions}>
-        <Pressable
-          style={styles.actionButton}
-          onPress={() => ref.current?.clear()}
-        >
+        <Pressable style={styles.actionButton} onPress={() => ref.current?.clear()}>
           <Text style={styles.actionLabel}>Clear</Text>
         </Pressable>
         <Pressable
           style={[styles.actionButton, styles.actionButtonPrimary]}
           onPress={handleDownload}
         >
-          <Text style={[styles.actionLabel, styles.actionLabelPrimary]}>
-            Download
-          </Text>
+          <Text style={[styles.actionLabel, styles.actionLabelPrimary]}>Download</Text>
         </Pressable>
-        <Pressable
-          style={[styles.actionButton, styles.actionButtonSubmit]}
-          onPress={handleSubmit}
-        >
-          <Text style={[styles.actionLabel, styles.actionLabelSubmit]}>
-            Submit
-          </Text>
+        <Pressable style={[styles.actionButton, styles.actionButtonSubmit]} onPress={handleSubmit}>
+          <Text style={[styles.actionLabel, styles.actionLabelSubmit]}>Submit</Text>
         </Pressable>
       </View>
 
-      {submitStatus ? (
-        <Text style={styles.submitStatus}>{submitStatus}</Text>
-      ) : null}
+      {submitStatus ? <Text style={styles.submitStatus}>{submitStatus}</Text> : null}
     </View>
   );
 }

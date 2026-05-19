@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { StyleSheet, View } from "react-native";
-import { colors, fonts, pixelBorder } from "@/app/theme";
+import { colors } from "@/app/theme";
 
 export function Card({ children }: PropsWithChildren) {
   return <View style={styles.card}>{children}</View>;
