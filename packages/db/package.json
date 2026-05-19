@@ -8,10 +8,15 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "db:push": "drizzle-kit push",
     "reset:local": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f supabase/reset.sql",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2"
+  },
   "devDependencies": {
+    "drizzle-kit": "^0.31.10",
     "typescript": "latest"
   }
 }

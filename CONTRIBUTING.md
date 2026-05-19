@@ -39,6 +39,10 @@ packages/shared   Shared Zod schemas & API contracts
 
 ## Commit Practices
 
+### Update PLAN.md Before Each Commit
+
+Before committing, ensure [`PLAN.md`](./PLAN.md) is up to date — mark completed tasks with `- [x]` so the team can track progress.
+
 ### No AI Attribution
 
 Before committing, pushing, or opening a PR, remove any:
