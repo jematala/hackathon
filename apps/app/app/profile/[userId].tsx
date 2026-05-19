@@ -3,12 +3,14 @@ import { StyleSheet, Text } from "react-native";
 
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
+import { colors } from "@/lib/theme";
 
 export default function ProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
 
   return (
     <Screen>
+      <Text style={styles.eyebrow}>UNSW · pixel social</Text>
       <Text style={styles.title}>Profile</Text>
       <Card>
         <Text style={styles.label}>User route</Text>
@@ -19,20 +21,29 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    color: "#111827",
-    fontSize: 28,
+  eyebrow: {
+    color: colors.sageDark,
+    fontSize: 12,
     fontWeight: "800",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  title: {
+    color: colors.ink,
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: -0.5,
   },
   label: {
-    color: "#6b7280",
-    fontSize: 13,
-    fontWeight: "700",
+    color: colors.sageDark,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
     textTransform: "uppercase",
   },
   value: {
-    color: "#111827",
-    fontSize: 18,
-    fontWeight: "700",
+    color: colors.ink,
+    fontSize: 20,
+    fontWeight: "900",
   },
 });

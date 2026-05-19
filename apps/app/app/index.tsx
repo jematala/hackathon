@@ -1,62 +1,58 @@
-import { createPoiInputSchema } from "@repo/shared";
 import { Link } from "expo-router";
-import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
-import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
-import { TextField } from "@/components/TextField";
+import { useDevUser } from "@/lib/devUser";
+import { colors } from "@/lib/theme";
+
+const DEMO_BILLBOARD_ID = "bb-seed-1";
 
 export default function HomeScreen() {
-  const [title, setTitle] = useState("Main Library");
-  const [lat, setLat] = useState("-33.9173");
-  const [lng, setLng] = useState("151.2313");
-  const [message, setMessage] = useState("Ready to validate a demo POI.");
-
-  const validateDraft = () => {
-    const result = createPoiInputSchema.safeParse({
-      campusId: "unsw-kensington",
-      title,
-      lat: Number(lat),
-      lng: Number(lng),
-    });
-
-    setMessage(
-      result.success
-        ? "Draft POI matches the shared API contract."
-        : (result.error.issues[0]?.message ?? "Invalid draft."),
-    );
-  };
+  const { user, users, setUserId } = useDevUser();
 
   return (
     <Screen>
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>Hackathon scaffold</Text>
-        <Text style={styles.title}>UNSW Connect</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.headerText}>
+            <Text style={styles.eyebrow}>UNSW · pixel social</Text>
+            <Text style={styles.title}>Campus Connect</Text>
+          </View>
+          <View style={styles.pillStack}>
+            <Text style={styles.pillLabel}>dev user</Text>
+            <View style={styles.pillGroup}>
+              {users.map((u) => {
+                const active = u.id === user.id;
+                return (
+                  <Pressable
+                    key={u.id}
+                    onPress={() => setUserId(u.id)}
+                    style={[styles.pill, active ? styles.pillActive : null]}
+                  >
+                    <Text style={[styles.pillText, active ? styles.pillTextActive : null]}>
+                      {u.displayName}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
         <Text style={styles.subtitle}>
-          Expo Router on web now, with the same route tree ready for native builds later.
+          A cosy bulletin board for the UNSW campus. Pin paper notes and pixel-art stickers around
+          town.
         </Text>
       </View>
 
-      <Card>
-        <Text style={styles.sectionTitle}>POI draft</Text>
-        <TextField label="Title" value={title} onChangeText={setTitle} />
-        <TextField label="Latitude" value={lat} onChangeText={setLat} />
-        <TextField label="Longitude" value={lng} onChangeText={setLng} />
-        <Button label="Validate" onPress={validateDraft} />
-        <Text style={styles.message}>{message}</Text>
-      </Card>
-
-      <View style={styles.links}>
-        <Link href="/events" style={styles.link}>
-          Browse events
-        </Link>
-        <Link href="/events/demo-event" style={styles.link}>
-          Open dynamic event
-        </Link>
-        <Link href="/profile/demo-user" style={styles.link}>
-          Open profile
+      <View style={styles.ctaCard}>
+        <Text style={styles.ctaTitle}>See a whiteboard</Text>
+        <Text style={styles.ctaBody}>
+          Take a look at the demo bulletin board — pin your own paper note, drag it anywhere on the
+          cork.
+        </Text>
+        <Link href={`/billboard/${DEMO_BILLBOARD_ID}`} asChild>
+          <Button label="Open the demo whiteboard" />
         </Link>
       </View>
     </Screen>
@@ -65,40 +61,85 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    gap: 8,
+    gap: 14,
+  },
+  headerRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  headerText: {
+    flex: 1,
+    gap: 6,
   },
   eyebrow: {
-    color: "#0f766e",
+    color: colors.sageDark,
     fontSize: 13,
-    fontWeight: "700",
+    letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   title: {
-    color: "#111827",
-    fontSize: 34,
-    fontWeight: "800",
+    color: colors.ink,
+    fontSize: 40,
+    letterSpacing: -0.5,
+    lineHeight: 42,
   },
   subtitle: {
-    color: "#4b5563",
-    fontSize: 16,
-    lineHeight: 24,
+    color: colors.inkSoft,
+    fontSize: 17,
+    lineHeight: 22,
   },
-  sectionTitle: {
-    color: "#111827",
-    fontSize: 20,
-    fontWeight: "700",
+  pillStack: {
+    alignItems: "flex-end",
+    gap: 6,
   },
-  message: {
-    color: "#374151",
+  pillLabel: {
+    color: colors.sageDark,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  pillGroup: {
+    backgroundColor: colors.pageBgSoft,
+    borderColor: colors.sageDark,
+    borderRadius: 999,
+    borderWidth: 2,
+    flexDirection: "row",
+    padding: 3,
+  },
+  pill: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  pillActive: {
+    backgroundColor: colors.sageDark,
+  },
+  pillText: {
+    color: colors.sageDark,
     fontSize: 14,
-    lineHeight: 20,
+    letterSpacing: 0.4,
   },
-  links: {
+  pillTextActive: {
+    color: colors.creamText,
+  },
+  ctaCard: {
+    backgroundColor: colors.pageBgSoft,
+    borderColor: colors.sageDark,
+    borderRadius: 14,
+    borderWidth: 3,
     gap: 12,
+    padding: 20,
   },
-  link: {
-    color: "#2563eb",
+  ctaTitle: {
+    color: colors.ink,
+    fontSize: 24,
+    letterSpacing: 0.2,
+  },
+  ctaBody: {
+    color: colors.inkSoft,
     fontSize: 16,
-    fontWeight: "700",
+    lineHeight: 22,
   },
 });

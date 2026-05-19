@@ -1,17 +1,19 @@
 import type { PropsWithChildren } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { colors } from "@/lib/theme";
+
 export function Card({ children }: PropsWithChildren) {
   return <View style={styles.card}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e5e7eb",
-    borderRadius: 8,
-    borderWidth: 1,
+    backgroundColor: colors.pageBgSoft,
+    borderColor: colors.sage,
+    borderRadius: 12,
+    borderWidth: 2,
     gap: 12,
-    padding: 16,
+    padding: 18,
   },
 });

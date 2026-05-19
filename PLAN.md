@@ -26,7 +26,7 @@
 
 ## Phase 1a — Foundation: Backend
 
-- [ ] **BE2** — Set up Clerk JWKS verification middleware in `apps/api/src/middleware/auth.ts`
+- [] **BE2** — Set up Clerk JWKS verification middleware in `apps/api/src/middleware/auth.ts`
 - [ ] **BE2** — Set up Drizzle driver + Supabase connection in `apps/api/src/db.ts`
 - [ ] **BE2** — User profile API: avatar upload (base64 PNG) + `PATCH /api/users/me/avatar`
 - [ ] **BE2** — Restructure `apps/api/src/index.ts` — split into route modules (`/pois`, `/billboards`, `/stickers`, `/quests`, `/users`, `/admin`)
@@ -35,12 +35,13 @@
 
 ## Phase 1a — Foundation: Frontend
 
-- [ ] **FE1** — Replace app navigation: drop `/events` screens, add `/map`, `/billboard/[id]`, `/profile`, `/quests`, `/studio` routes
-- [ ] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks
+- [~] **FE1** — Replace app navigation: drop `/events` screens, add `/map`, `/billboard/[id]`, `/profile`, `/quests`, `/studio` routes _(events removed; `/billboard/[id]`, `/billboards`, `/profile/[userId]` added; `/map`, `/quests`, `/studio` still pending)_
+- [ ] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks _(dev-user switcher in `lib/devUser.tsx` is a stand-in until Clerk lands)_
 - [ ] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
 - [ ] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
-- [ ] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
-- [ ] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
+- [x] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles _(Jersey 10 loaded + globally patched via `lib/installGlobalFont.ts`; palette in `lib/theme.ts`; pixel-art border treatments still TODO)_
+- [~] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker` _(`UsernamePill` done; the rest pending)_
+  - [x] **FE2** — Billboard composition primitives: `FlowerPin`, `AnchorNote`, `StickyNoteView`, `Placement`, `EditingSticky` (drag-to-place sticky composer)
 - [ ] **FE2** — Build map overlay components: POI popup, billboard marker callout
 
 ---
@@ -61,9 +62,9 @@
 - [ ] **FE1** — Map: show billboard markers with note icon style
 - [ ] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
 - [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger
-- [ ] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
+- [x] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered) _(`app/billboard/[id].tsx` — anchor note + z-sorted placements on a cork canvas with sunken inset shadow; backed by mocked `useBillboard` until Phase 1b BE lands)_
 - [ ] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
-- [ ] **FE2** — Sticky note composer: text input, preview as sticky note, post to billboard
+- [x] **FE2** — Sticky note composer: text input, preview as sticky note, post to billboard _(`components/billboard/EditingSticky.tsx` — drag-to-position composer with auto-growing input; rotation handle was prototyped and removed pending product call)_
 
 ---
 

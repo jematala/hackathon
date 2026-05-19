@@ -2,6 +2,8 @@ import type { PropsWithChildren } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { colors } from "@/lib/theme";
+
 export function Screen({ children }: PropsWithChildren) {
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -12,11 +14,11 @@ export function Screen({ children }: PropsWithChildren) {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.pageBg,
     flex: 1,
   },
   content: {
-    gap: 20,
+    gap: 18,
     marginHorizontal: "auto",
     maxWidth: 760,
     padding: 20,
