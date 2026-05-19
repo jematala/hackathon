@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, fonts, pixelBorder, stickerPalette } from "@/app/theme";
+import { Pressable, StyleSheet, View } from "react-native";
+import { colors, stickerPalette } from "@/app/theme";
 
 type StickerPaletteProps = {
   selectedColor: string;
