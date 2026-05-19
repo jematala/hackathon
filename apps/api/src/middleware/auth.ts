@@ -14,6 +14,10 @@ type ClerkClaims = Record<string, unknown> & {
   username?: string;
 };
 
+type AuthOptions = {
+  allowQueryToken?: boolean;
+};
+
 let cachedClerkClient: ClerkClient | undefined;
 let cachedPublishableKey: string | undefined;
 let cachedSecretKey: string | undefined;
@@ -24,6 +28,10 @@ function getToken(authorization: string | undefined, queryToken: string | undefi
   }
 
   return queryToken;
+}
+
+function hasAuthMaterial(request: Request, token: string | undefined) {
+  return Boolean(token || request.headers.get("cookie"));
 }
 
 function clerkClientForEnv(env: Env) {
@@ -159,69 +167,44 @@ async function upsertAuthUser(env: Env, payload: ClerkClaims): Promise<AuthUser>
   return user;
 }
 
-async function loadDevAuthUser(env: Env, userId: string): Promise<AuthUser> {
-  const db = getDb(env);
-  const rows = await db.execute<AuthUser>(sql`
-    select
-      id,
-      clerk_user_id as "clerkUserId",
-      username,
-      display_name as "displayName",
-      is_admin as "isAdmin"
-    from app.users
-    where id = ${userId} and deleted_at is null
-  `);
+function authMiddleware(options: AuthOptions = {}): MiddlewareHandler<AppBindings> {
+  return async (c, next) => {
+    const token = getToken(
+      c.req.header("authorization"),
+      options.allowQueryToken ? c.req.query("token") : undefined,
+    );
 
-  const user = rows[0];
-  if (!user) {
-    unauthorized("DEV_AUTH_USER_ID does not match an existing user.");
-  }
+    if (!hasAuthMaterial(c.req.raw, token)) {
+      unauthorized();
+    }
 
-  return user;
+    const payload = await resolveAuthClaims(c.env, c.req.raw, token);
+
+    if (!payload) {
+      unauthorized();
+    }
+
+    c.set("authUser", await upsertAuthUser(c.env, payload));
+
+    await next();
+  };
 }
 
-function devUserId(env: Env, token: string): string | null {
-  if (token !== "dev") return null;
-  return env.DEV_AUTH_USER_ID ?? null;
-}
+export const requireAuth = authMiddleware();
+export const requireRealtimeAuth = authMiddleware({ allowQueryToken: true });
 
-export const requireAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
-  const token = getToken(c.req.header("authorization"), c.req.query("token"));
+export const optionalAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
+  const token = getToken(c.req.header("authorization"), undefined);
 
-  if (!token) {
-    unauthorized();
-  }
-
-  const devId = devUserId(c.env, token);
-  if (devId) {
-    c.set("authUser", await loadDevAuthUser(c.env, devId));
+  if (!hasAuthMaterial(c.req.raw, token)) {
     await next();
     return;
   }
 
   const payload = await resolveAuthClaims(c.env, c.req.raw, token);
-  if (!payload) {
-    unauthorized();
-  }
 
-  c.set("authUser", await upsertAuthUser(c.env, payload));
-
-  await next();
-};
-
-export const optionalAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
-  const token = getToken(c.req.header("authorization"), c.req.query("token"));
-
-  if (token) {
-    const devId = devUserId(c.env, token);
-    if (devId) {
-      c.set("authUser", await loadDevAuthUser(c.env, devId));
-    } else {
-      const payload = await resolveAuthClaims(c.env, c.req.raw, token);
-      if (payload) {
-        c.set("authUser", await upsertAuthUser(c.env, payload));
-      }
-    }
+  if (payload) {
+    c.set("authUser", await upsertAuthUser(c.env, payload));
   }
 
   await next();

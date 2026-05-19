@@ -4,7 +4,6 @@ export type Env = {
   CAMPUS_REALTIME_ROOM: DurableObjectNamespace;
   CLERK_PUBLISHABLE_KEY?: string;
   CLERK_SECRET_KEY?: string;
-  DEV_AUTH_USER_ID?: string;
   OPENAI_API_KEY?: string;
   SUPABASE_POOLER_DATABASE_URL?: string;
   SUPABASE_SECRET_KEY?: string;
