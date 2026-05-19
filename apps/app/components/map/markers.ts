@@ -37,12 +37,13 @@ export function createBillboardIcon(title: string): L.DivIcon {
   });
 }
 
-export function createUserAvatarIcon(imageUrl: string): L.DivIcon {
+export function createUserAvatarIcon(imageUrl: string, bgColor?: string): L.DivIcon {
+  const bg = bgColor ? `background: ${bgColor};` : "";
   return L.divIcon({
     className: "user-avatar-marker",
     html: `<div style="display: flex; flex-direction: column; align-items: center;">
-      <div style="border: 3px solid #5b7559; border-radius: 50%; width: 48px; height: 48px; overflow: hidden;">
-        <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
+      <div style="border: 3px solid #5b7559; border-radius: 50%; width: 48px; height: 48px; overflow: hidden; ${bg}">
+        <img src="${imageUrl}" style="width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated;" />
       </div>
       <div style="width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid #5b7559; margin-top: -3px;"></div>
     </div>`,

@@ -1,5 +1,6 @@
 import { SignUp } from "@clerk/expo/web";
 
+import { APP_NAME, APP_TAGLINE } from "@/constants/app";
 import { AUTH_PAGE_CSS, clerkAppearance } from "@/lib/clerkAppearance";
 
 const FlowerPin = () => (
@@ -37,14 +38,10 @@ export default function SignUpPage() {
             <FlowerPin />
           </div>
           <div className="auth-header">
-            <h1 className="auth-title">CONNECT</h1>
-            <p className="auth-tagline">your campus · your world</p>
+            <h1 className="auth-title">{APP_NAME.toUpperCase()}</h1>
+            <p className="auth-tagline">{APP_TAGLINE}</p>
           </div>
-          <SignUp
-            appearance={clerkAppearance}
-            fallbackRedirectUrl="/map"
-            signInUrl="/sign-in"
-          />
+          <SignUp appearance={clerkAppearance} fallbackRedirectUrl="/map" signInUrl="/sign-in" />
         </div>
       </div>
     </>

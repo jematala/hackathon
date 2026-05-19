@@ -1,7 +1,9 @@
 import { useCallback, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { DottingRef } from "dotting";
 import { fonts } from "@/app/theme";
+import { ApiError } from "@/lib/api/client";
+import { useCreateStickerAsset, useSaveSticker } from "@/lib/api/hooks";
 import { PixelCanvas } from "@/components/PixelCanvas";
 
 const STICKER_SIZE = 64;
@@ -17,8 +19,12 @@ const COLORS = [
   { label: "Black", value: "#000000" },
 ];
 
+type CreateStickerPanelVariant = "sticker" | "avatar";
+
 type CreateStickerPanelProps = {
   onClose?: () => void;
+  variant?: CreateStickerPanelVariant;
+  onAvatarSaved?: (payload: { dataUrl: string; base64: string }) => void;
 };
 
 type StickerUploadPayload = {
@@ -68,38 +74,94 @@ function prepareStickerUpload(ref: DottingRef): StickerUploadPayload | null {
   };
 }
 
-export function CreateStickerPanel({ onClose }: CreateStickerPanelProps) {
+export function CreateStickerPanel({
+  onClose,
+  variant = "sticker",
+  onAvatarSaved,
+}: CreateStickerPanelProps) {
+  const isAvatar = variant === "avatar";
   const ref = useRef<DottingRef>(null);
-  const preparedStickerRef = useRef<StickerUploadPayload | null>(null);
   const [brushColor, setBrushColor] = useState("#111827");
   const [submitStatus, setSubmitStatus] = useState<string | null>(null);
+  const [submitTone, setSubmitTone] = useState<"info" | "success" | "error">("info");
+  const createAsset = useCreateStickerAsset();
+  const saveSticker = useSaveSticker();
+  const isSubmitting = !isAvatar && (createAsset.isPending || saveSticker.isPending);
 
   const handleDownload = useCallback(() => {
     ref.current?.downloadImage({ type: "png" });
   }, []);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!ref.current) {
-      setSubmitStatus("Sticker is not ready yet.");
+      setSubmitTone("error");
+      setSubmitStatus(isAvatar ? "Avatar is not ready yet." : "Sticker is not ready yet.");
       return;
     }
 
     const payload = prepareStickerUpload(ref.current);
-    preparedStickerRef.current = payload;
-    setSubmitStatus(payload ? `Ready to send ${payload.filename}` : "Could not prepare sticker.");
-  }, []);
+    if (!payload) {
+      setSubmitTone("error");
+      setSubmitStatus(isAvatar ? "Could not prepare avatar." : "Could not prepare sticker.");
+      return;
+    }
+
+    if (isAvatar) {
+      onAvatarSaved?.({ dataUrl: payload.dataUrl, base64: payload.base64 });
+      setSubmitTone("success");
+      setSubmitStatus("Avatar saved!");
+      return;
+    }
+
+    setSubmitTone("info");
+    setSubmitStatus("Saving to your collection…");
+
+    try {
+      const { sticker } = await createAsset.mutateAsync({
+        pngBase64: payload.base64,
+        width: STICKER_SIZE,
+        height: STICKER_SIZE,
+      });
+      await saveSticker.mutateAsync({
+        kind: "sticker",
+        stickerAssetId: sticker.id,
+      });
+      setSubmitTone("success");
+      setSubmitStatus("Saved to your collection!");
+      ref.current?.clear();
+    } catch (err) {
+      setSubmitTone("error");
+      if (err instanceof ApiError) {
+        if (err.code === "capacity_reached") {
+          setSubmitStatus("Your collection is full. Delete one to make room.");
+        } else if (err.code === "moderation_rejected") {
+          setSubmitStatus("Sticker was rejected by moderation.");
+        } else {
+          setSubmitStatus(err.message);
+        }
+      } else if (err instanceof Error) {
+        setSubmitStatus(`Couldn't save sticker: ${err.message}`);
+      } else {
+        setSubmitStatus("Couldn't save sticker. Try again.");
+      }
+    }
+  }, [createAsset, saveSticker, isAvatar, onAvatarSaved]);
 
   return (
     <View style={styles.panel}>
       <View style={styles.header}>
         <View style={styles.heading}>
-          <Text style={styles.title}>Sticker Maker</Text>
-          <Text style={styles.subtitle}>Draw a 64x64 sticker to post!</Text>
+          <Text style={styles.title}>{isAvatar ? "Avatar Maker" : "Sticker Maker"}</Text>
+          <Text style={styles.subtitle}>
+            {isAvatar
+              ? "Draw a 64x64 pixel art portrait — this becomes your profile picture."
+              : "Draw a 64x64 sticker to post!"}
+          </Text>
         </View>
 
         {onClose ? (
           <Pressable
-            accessibilityLabel="Close sticker maker"
+            accessibilityLabel={isAvatar ? "Close avatar maker" : "Close sticker maker"}
             style={styles.closeButton}
             onPress={onClose}
           >
@@ -143,12 +205,37 @@ export function CreateStickerPanel({ onClose }: CreateStickerPanelProps) {
         >
           <Text style={[styles.actionLabel, styles.actionLabelPrimary]}>Download</Text>
         </Pressable>
-        <Pressable style={[styles.actionButton, styles.actionButtonSubmit]} onPress={handleSubmit}>
-          <Text style={[styles.actionLabel, styles.actionLabelSubmit]}>Submit</Text>
+        <Pressable
+          accessibilityLabel={isAvatar ? "Save avatar" : "Save sticker to collection"}
+          disabled={isSubmitting}
+          onPress={handleSubmit}
+          style={[
+            styles.actionButton,
+            styles.actionButtonSubmit,
+            isSubmitting ? styles.actionButtonDisabled : null,
+          ]}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff8e8" size="small" />
+          ) : (
+            <Text style={[styles.actionLabel, styles.actionLabelSubmit]}>
+              {isAvatar ? "Set as Avatar" : "Save"}
+            </Text>
+          )}
         </Pressable>
       </View>
 
-      {submitStatus ? <Text style={styles.submitStatus}>{submitStatus}</Text> : null}
+      {submitStatus ? (
+        <Text
+          style={[
+            styles.submitStatus,
+            submitTone === "success" ? styles.submitStatusSuccess : null,
+            submitTone === "error" ? styles.submitStatusError : null,
+          ]}
+        >
+          {submitStatus}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -288,6 +375,9 @@ const styles = StyleSheet.create({
   actionButtonSubmit: {
     backgroundColor: "#2f6b42",
   },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
   actionLabel: {
     color: "#2d2418",
     fontFamily: fonts.family,
@@ -306,5 +396,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     textAlign: "center",
+  },
+  submitStatusSuccess: {
+    color: "#2f6b42",
+  },
+  submitStatusError: {
+    color: "#b91c1c",
   },
 });

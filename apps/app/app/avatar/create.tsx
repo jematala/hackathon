@@ -1,70 +1,324 @@
-import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
+import { useCallback, useRef, useState } from "react";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ChevronLeft, ImageUp, Palette } from "lucide-react-native";
 
-import { Button } from "@/components/Button";
-import { PixelGrid } from "@/components/PixelGrid";
+import { CreateStickerPanel } from "@/components/CreateStickerPanel";
 import { Screen } from "@/components/Screen";
-import { StickerPalette } from "@/components/StickerPalette";
-import { colors, fonts, pixelBorder, stickerPalette } from "@/app/theme";
+import { colors, fonts, pixelBorder } from "@/app/theme";
+import { setAvatarUri } from "@/lib/userProfile";
 
-const GRID_SIZE = 64;
+type Mode = "draw" | "upload";
 
-function createEmptyGrid(): string[] {
-  return Array(GRID_SIZE * GRID_SIZE).fill(stickerPalette[4]);
-}
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2MB before resize
 
 export default function CreateAvatarScreen() {
-  const [grid, setGrid] = useState(createEmptyGrid);
-  const [selectedColor, setSelectedColor] = useState(stickerPalette[0]);
+  const [mode, setMode] = useState<Mode>("draw");
+  const [uploadDataUrl, setUploadDataUrl] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [uploadTone, setUploadTone] = useState<"info" | "error" | "success">("info");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleCellPress = (index: number) => {
-    setGrid((prev) => {
-      const next = [...prev];
-      next[index] = selectedColor;
-      return next;
-    });
-  };
+  const handleAvatarDrawn = useCallback(({ dataUrl }: { dataUrl: string; base64: string }) => {
+    setAvatarUri(dataUrl);
+    // small delay so the success message is briefly visible
+    setTimeout(() => {
+      if (router.canGoBack()) router.back();
+      else router.replace("/(app)/profile" as any);
+    }, 350);
+  }, []);
 
-  const handleSave = () => {
-    console.log("Avatar saved (stub)");
-  };
+  const openFilePicker = useCallback(() => {
+    if (typeof document === "undefined") {
+      setUploadTone("error");
+      setUploadStatus("Image upload is only available on web for now.");
+      return;
+    }
+    if (!fileInputRef.current) {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.style.display = "none";
+      input.addEventListener("change", handleFileChange as unknown as EventListener);
+      document.body.appendChild(input);
+      fileInputRef.current = input;
+    }
+    fileInputRef.current.value = "";
+    fileInputRef.current.click();
+  }, []);
+
+  const handleFileChange = useCallback((e: Event) => {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadTone("error");
+      setUploadStatus("Image is over 2MB — pick a smaller file.");
+      return;
+    }
+    setUploadTone("info");
+    setUploadStatus("Reading image…");
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : null;
+      if (!result) {
+        setUploadTone("error");
+        setUploadStatus("Could not read image.");
+        return;
+      }
+      setUploadDataUrl(result);
+      setUploadTone("success");
+      setUploadStatus(`Loaded ${file.name}`);
+    };
+    reader.onerror = () => {
+      setUploadTone("error");
+      setUploadStatus("Could not read image.");
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleUseUploaded = useCallback(() => {
+    if (!uploadDataUrl) return;
+    setAvatarUri(uploadDataUrl);
+    if (router.canGoBack()) router.back();
+    else router.replace("/(app)/profile" as any);
+  }, [uploadDataUrl]);
 
   return (
     <Screen>
-      <View style={styles.container}>
-        <Text style={styles.heading}>Create Your Avatar</Text>
-        <Text style={styles.instructions}>Tap cells to fill. Choose a colour below.</Text>
+      <Pressable
+        accessibilityLabel="Back"
+        onPress={() => {
+          if (router.canGoBack()) router.back();
+          else router.replace("/(app)/profile" as any);
+        }}
+        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
+      >
+        <ChevronLeft color={colors.primaryDark} size={18} />
+        <Text style={styles.backLabel}>back</Text>
+      </Pressable>
 
-        <View style={styles.canvas}>
-          <PixelGrid grid={grid} gridSize={GRID_SIZE} onCellPress={handleCellPress} />
-        </View>
+      <Text style={styles.title}>Edit Avatar</Text>
+      <Text style={styles.subtitle}>
+        Draw a portrait in the pixel editor, or upload your own image.
+      </Text>
 
-        <StickerPalette selectedColor={selectedColor} onSelect={setSelectedColor} />
-
-        <Button label="Save Avatar" onPress={handleSave} />
+      <View style={styles.tabs}>
+        <Pressable
+          onPress={() => setMode("draw")}
+          style={[styles.tab, mode === "draw" && styles.tabActive]}
+        >
+          <Palette
+            color={mode === "draw" ? colors.white : colors.primaryDark}
+            size={16}
+          />
+          <Text
+            style={[styles.tabLabel, mode === "draw" && styles.tabLabelActive]}
+          >
+            draw
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setMode("upload")}
+          style={[styles.tab, mode === "upload" && styles.tabActive]}
+        >
+          <ImageUp
+            color={mode === "upload" ? colors.white : colors.primaryDark}
+            size={16}
+          />
+          <Text
+            style={[styles.tabLabel, mode === "upload" && styles.tabLabelActive]}
+          >
+            upload
+          </Text>
+        </Pressable>
       </View>
+
+      {mode === "draw" ? (
+        <CreateStickerPanel variant="avatar" onAvatarSaved={handleAvatarDrawn} />
+      ) : (
+        <View style={styles.uploadCard}>
+          <View style={styles.previewWrap}>
+            {uploadDataUrl ? (
+              <Image source={{ uri: uploadDataUrl }} style={styles.preview} />
+            ) : (
+              <View style={styles.previewEmpty}>
+                <ImageUp color={colors.textLight} size={42} />
+                <Text style={styles.previewHint}>no image selected</Text>
+              </View>
+            )}
+          </View>
+
+          <Pressable
+            onPress={openFilePicker}
+            style={({ pressed }) => [styles.pickBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.pickBtnLabel}>
+              {uploadDataUrl ? "choose a different image" : "choose an image"}
+            </Text>
+          </Pressable>
+
+          <Text style={styles.uploadHint}>
+            stored as a base64 png on your profile. max 2MB.
+          </Text>
+
+          {uploadStatus ? (
+            <Text
+              style={[
+                styles.status,
+                uploadTone === "success" && styles.statusSuccess,
+                uploadTone === "error" && styles.statusError,
+              ]}
+            >
+              {uploadStatus}
+            </Text>
+          ) : null}
+
+          <Pressable
+            disabled={!uploadDataUrl}
+            onPress={handleUseUploaded}
+            style={({ pressed }) => [
+              styles.saveBtn,
+              !uploadDataUrl && styles.saveBtnDisabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.saveBtnLabel}>set as avatar</Text>
+          </Pressable>
+        </View>
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  back: {
     alignItems: "center",
-    gap: 16,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    gap: 2,
   },
-  heading: {
+  backLabel: {
+    color: colors.primaryDark,
+    fontFamily: fonts.family,
+    fontSize: 18,
+  },
+  title: {
     color: colors.text,
     fontFamily: fonts.family,
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 32,
   },
-  instructions: {
+  subtitle: {
     color: colors.textSecondary,
     fontFamily: fonts.family,
     fontSize: 16,
+    marginTop: -8,
   },
-  canvas: {
+  tabs: {
+    backgroundColor: colors.card,
+    borderColor: colors.borderDark,
+    borderWidth: 2,
+    flexDirection: "row",
+    padding: 4,
+  },
+  tab: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  tabActive: {
+    backgroundColor: colors.primary,
+  },
+  tabLabel: {
+    color: colors.primaryDark,
+    fontFamily: fonts.family,
+    fontSize: 18,
+  },
+  tabLabelActive: {
+    color: colors.white,
+  },
+  uploadCard: {
+    backgroundColor: colors.parchment,
+    borderColor: colors.borderDark,
+    borderWidth: 2,
+    gap: 14,
+    padding: 16,
+  },
+  previewWrap: {
+    alignItems: "center",
+    alignSelf: "center",
+  },
+  preview: {
+    backgroundColor: colors.card,
+    borderColor: colors.text,
+    borderWidth: 3,
+    height: 200,
+    width: 200,
+  },
+  previewEmpty: {
+    alignItems: "center",
+    backgroundColor: colors.card,
     ...pixelBorder,
-    overflow: "hidden",
+    borderStyle: "dashed",
+    gap: 8,
+    height: 200,
+    justifyContent: "center",
+    width: 200,
   },
+  previewHint: {
+    color: colors.textLight,
+    fontFamily: fonts.family,
+    fontSize: 16,
+  },
+  pickBtn: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: colors.card,
+    borderColor: colors.primaryDark,
+    borderWidth: 2,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  pickBtnLabel: {
+    color: colors.primaryDark,
+    fontFamily: fonts.family,
+    fontSize: 18,
+  },
+  uploadHint: {
+    color: colors.textSecondary,
+    fontFamily: fonts.family,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  status: {
+    color: colors.textSecondary,
+    fontFamily: fonts.family,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  statusSuccess: {
+    color: colors.primaryDark,
+  },
+  statusError: {
+    color: colors.danger,
+  },
+  saveBtn: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
+    borderWidth: 2,
+    paddingVertical: 12,
+  },
+  saveBtnDisabled: {
+    opacity: 0.5,
+  },
+  saveBtnLabel: {
+    color: colors.white,
+    fontFamily: fonts.family,
+    fontSize: 20,
+  },
+  pressed: { opacity: 0.75 },
 });

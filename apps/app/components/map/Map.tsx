@@ -4,8 +4,11 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { DEMO_POIS, UNSW_CENTER } from "@/constants/coordinates";
+import { useUserProfile } from "@/lib/userProfile";
 
 import { createBillboardIcon, createPOIIcon, createUserAvatarIcon } from "./markers";
+
+const DRAWN_AVATAR_BG = "#faf7ef";
 
 const TILE_URL =
   "https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=0f64302472524b558aa92ebe1c088f04";
@@ -34,6 +37,8 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
 ) {
   const containerRef = useRef<View | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const userMarkerRef = useRef<L.Marker | null>(null);
+  const { avatarUri } = useUserProfile();
 
   useImperativeHandle(ref, () => ({
     invalidateSize: () => {
@@ -84,10 +89,15 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
         .on("click", () => onBillboardPress?.(billboard.id));
     }
 
-    const avatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
+    const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
+    const useDrawn = Boolean(avatarUri);
+    const initialIcon = createUserAvatarIcon(
+      avatarUri ?? fallbackUrl,
+      useDrawn ? DRAWN_AVATAR_BG : undefined,
+    );
 
-    L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
-      icon: createUserAvatarIcon(avatarUrl),
+    userMarkerRef.current = L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
+      icon: initialIcon,
     }).addTo(map);
 
     mapRef.current = map;
@@ -95,8 +105,24 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
     return () => {
       map.remove();
       mapRef.current = null;
+      userMarkerRef.current = null;
     };
+    // avatarUri intentionally omitted — avatar updates are handled by the effect below to avoid recreating the map.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [billboards, exampleBillboard, onBillboardPress]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    if (!userMarkerRef.current) return;
+    const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
+    const useDrawn = Boolean(avatarUri);
+    userMarkerRef.current.setIcon(
+      createUserAvatarIcon(
+        avatarUri ?? fallbackUrl,
+        useDrawn ? DRAWN_AVATAR_BG : undefined,
+      ),
+    );
+  }, [avatarUri]);
 
   return <View ref={containerRef} style={styles.container} />;
 });

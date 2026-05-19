@@ -12,7 +12,9 @@ import { StickyNoteView } from "./StickyNoteView";
 import { UsernamePill } from "./UsernamePill";
 
 const STICKY_SIZE = STICKY_EDIT_SIZE;
-const STICKER_SIZE = 64;
+const STICKER_IMAGE_SIZE = 64;
+const STICKER_CARD_PADDING = 7;
+const STICKER_SIZE = STICKER_IMAGE_SIZE + STICKER_CARD_PADDING * 2;
 const PIN_SIZE = 18;
 const PIN_OVERLAP = 6;
 
@@ -60,7 +62,7 @@ export function Placement({
     >
       <Pressable onPress={reveal} disabled={!interactive}>
         {isSticker ? (
-          renderSticker(placement)
+          renderSticker(placement, localRotation)
         ) : (
           <StickyNoteView
             body={placement.body ?? ""}
@@ -89,19 +91,29 @@ export function Placement({
   );
 }
 
-function renderSticker(placement: BillboardPlacement) {
+function renderSticker(placement: BillboardPlacement, rotationDeg: number | undefined) {
+  const cardStyle =
+    rotationDeg !== undefined
+      ? [styles.stickerCard, { transform: [{ rotate: `${rotationDeg}deg` }] }]
+      : styles.stickerCard;
   const asset = placement.stickerAsset;
   if (!asset) {
     return (
-      <View style={styles.stickerFallback}>
-        <Text style={styles.stickerFallbackText}>?</Text>
+      <View style={cardStyle}>
+        <View style={styles.stickerFallback}>
+          <Text style={styles.stickerFallbackText}>?</Text>
+        </View>
       </View>
     );
   }
   const uri = asset.pngBase64.startsWith("data:image")
     ? asset.pngBase64
     : `data:image/png;base64,${asset.pngBase64}`;
-  return <Image source={{ uri }} style={styles.sticker} contentFit="contain" />;
+  return (
+    <View style={cardStyle}>
+      <Image source={{ uri }} style={styles.sticker} contentFit="contain" />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -114,9 +126,19 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -PIN_OVERLAP,
   },
-  sticker: {
+  stickerCard: {
+    alignItems: "center",
+    backgroundColor: "#FAF6E8",
+    borderRadius: 8,
+    boxShadow: "0 2px 5px rgba(0, 0, 0, 0.25)",
     height: STICKER_SIZE,
+    justifyContent: "center",
+    padding: STICKER_CARD_PADDING,
     width: STICKER_SIZE,
+  },
+  sticker: {
+    height: STICKER_IMAGE_SIZE,
+    width: STICKER_IMAGE_SIZE,
   },
   stickerFallback: {
     alignItems: "center",
@@ -124,8 +146,9 @@ const styles = StyleSheet.create({
     borderColor: colors.paperEdge,
     borderRadius: 3,
     borderWidth: 1,
-    flex: 1,
+    height: STICKER_IMAGE_SIZE,
     justifyContent: "center",
+    width: STICKER_IMAGE_SIZE,
   },
   stickerFallbackText: {
     color: colors.ink,

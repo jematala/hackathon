@@ -78,7 +78,7 @@ function ensureSeeded(): void {
     id: SEED_BILLBOARD_ID,
     campusId: DEMO_CAMPUS_ID,
     authorId: DEMO_ADMIN_ID,
-    body: "Welcome to Campus Connect — pin a sticky note or sticker on this whiteboard.",
+    body: "Welcome to Jematala — pin a sticky note or sticker on this whiteboard.",
     lat: -33.9173,
     lng: 151.2313,
     status: "active",

@@ -1,13 +1,16 @@
-import type { BillboardPlacement } from "@repo/shared";
+import type { BillboardPlacement, SavedSticker, StickerAsset } from "@repo/shared";
 import { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 
+import { fonts } from "@/app/theme";
 import { setLocalRotation } from "@/lib/localPlacements";
 import { colors, expiresInLabel } from "@/lib/theme";
 
 import { AnchorNote } from "./AnchorNote";
+import { EditingSticker, type EditingStickerHandle } from "./EditingSticker";
 import { EditingSticky, type EditingStickyHandle } from "./EditingSticky";
 import { Placement } from "./Placement";
+import { StickerCollectionPicker } from "./StickerCollectionPicker";
 import { UsernamePill } from "./UsernamePill";
 
 const CANVAS_HEIGHT = 540;
@@ -33,64 +36,109 @@ type LocalBillboardPanelProps = {
   onClose: () => void;
 };
 
+type EditingState =
+  | { kind: "sticky_note"; body: string }
+  | { kind: "sticker"; asset: StickerAsset };
+
 export function LocalBillboardPanel({
   billboard,
   onAddPlacement,
   onClose,
 }: LocalBillboardPanelProps) {
-  const editingRef = useRef<EditingStickyHandle>(null);
+  const stickyRef = useRef<EditingStickyHandle>(null);
+  const stickerRef = useRef<EditingStickerHandle>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-  const [editingBody, setEditingBody] = useState<string | null>(null);
+  const [editing, setEditing] = useState<EditingState | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isEditing = editingBody !== null;
+  const isEditing = editing !== null;
 
   const onCanvasLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setCanvasSize({ width, height });
   };
 
-  const startEdit = () => {
+  const startNoteEdit = () => {
     if (canvasSize.width === 0) return;
-    setEditingBody("");
+    setEditing({ kind: "sticky_note", body: "" });
     setError(null);
   };
 
+  const startStickerEdit = () => {
+    if (canvasSize.width === 0) return;
+    setError(null);
+    setPickerOpen(true);
+  };
+
+  const onPickSticker = (saved: SavedSticker) => {
+    if (!saved.stickerAsset) return;
+    setPickerOpen(false);
+    setEditing({ kind: "sticker", asset: saved.stickerAsset });
+  };
+
   const cancelEdit = () => {
-    setEditingBody(null);
+    setEditing(null);
     setError(null);
   };
 
   const place = () => {
-    if (editingBody === null || !editingRef.current) return;
-    if (editingBody.trim().length === 0) {
-      setError("Write something on your note first.");
-      return;
-    }
-
-    const { centerX, centerY, rotationDeg } = editingRef.current.getState();
+    if (!editing) return;
     const { width, height } = canvasSize;
     if (width === 0 || height === 0) return;
 
+    if (editing.kind === "sticky_note") {
+      if (!stickyRef.current) return;
+      if (editing.body.trim().length === 0) {
+        setError("Write something on your note first.");
+        return;
+      }
+
+      const { centerX, centerY, rotationDeg } = stickyRef.current.getState();
+      const placementId = localUuid();
+      const placement: BillboardPlacement = {
+        id: placementId,
+        billboardId: billboard.id,
+        authorId: LOCAL_AUTHOR_ID,
+        authorUsername: LOCAL_AUTHOR_USERNAME,
+        kind: "sticky_note",
+        x: clamp(centerX / width, 0, 1),
+        y: clamp(centerY / height, 0, 1),
+        zIndex: billboard.placements.length,
+        stickerAsset: null,
+        body: editing.body.trim(),
+        status: "active",
+        createdAt: new Date().toISOString(),
+      };
+
+      setLocalRotation(placementId, rotationDeg);
+      onAddPlacement(placement);
+      setEditing(null);
+      setError(null);
+      return;
+    }
+
+    if (!stickerRef.current) return;
+    const { centerX, centerY, rotationDeg } = stickerRef.current.getState();
     const placementId = localUuid();
     const placement: BillboardPlacement = {
       id: placementId,
       billboardId: billboard.id,
       authorId: LOCAL_AUTHOR_ID,
       authorUsername: LOCAL_AUTHOR_USERNAME,
-      kind: "sticky_note",
+      kind: "sticker",
       x: clamp(centerX / width, 0, 1),
       y: clamp(centerY / height, 0, 1),
       zIndex: billboard.placements.length,
-      stickerAsset: null,
-      body: editingBody.trim(),
+      stickerAsset: editing.asset,
+      body: null,
       status: "active",
       createdAt: new Date().toISOString(),
     };
 
     setLocalRotation(placementId, rotationDeg);
     onAddPlacement(placement);
-    setEditingBody(null);
+    setEditing(null);
     setError(null);
   };
 
@@ -155,15 +203,24 @@ export function LocalBillboardPanel({
                 />
               ))}
 
-          {isEditing && canvasSize.width > 0 ? (
+          {editing?.kind === "sticky_note" && canvasSize.width > 0 ? (
             <EditingSticky
-              ref={editingRef}
+              ref={stickyRef}
               authorId={LOCAL_AUTHOR_ID}
-              body={editingBody}
-              onChangeBody={setEditingBody}
+              body={editing.body}
+              onChangeBody={(t) => setEditing({ kind: "sticky_note", body: t })}
               canvasWidth={canvasSize.width}
               canvasHeight={canvasSize.height}
               maxChars={STICKY_MAX_CHARS}
+            />
+          ) : null}
+
+          {editing?.kind === "sticker" && canvasSize.width > 0 ? (
+            <EditingSticker
+              ref={stickerRef}
+              asset={editing.asset}
+              canvasWidth={canvasSize.width}
+              canvasHeight={canvasSize.height}
             />
           ) : null}
         </View>
@@ -185,10 +242,21 @@ export function LocalBillboardPanel({
           </Pressable>
         </View>
       ) : (
-        <Pressable onPress={startEdit} style={styles.addButton}>
-          <Text style={styles.addButtonText}>+ Add a note</Text>
-        </Pressable>
+        <View style={styles.addRow}>
+          <Pressable onPress={startNoteEdit} style={styles.addButton}>
+            <Text style={styles.addButtonText}>+ Note</Text>
+          </Pressable>
+          <Pressable onPress={startStickerEdit} style={[styles.addButton, styles.addButtonAlt]}>
+            <Text style={[styles.addButtonText, styles.addButtonTextAlt]}>+ Sticker</Text>
+          </Pressable>
+        </View>
       )}
+
+      <StickerCollectionPicker
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={onPickSticker}
+      />
     </>
   );
 }
@@ -309,13 +377,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   cancelButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "#fff8e8",
+    borderColor: "#5f4a2d",
+    borderRadius: 8,
+    borderWidth: 2,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 20,
   },
   cancelText: {
-    color: colors.inkSoft,
-    fontSize: 18,
-    letterSpacing: 0.6,
+    color: "#2d2418",
+    fontFamily: fonts.family,
+    fontSize: 15,
+    fontWeight: "800",
   },
   placeButton: {
     alignItems: "center",
@@ -333,17 +408,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     letterSpacing: 0.6,
   },
+  addRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
   addButton: {
     alignItems: "center",
     backgroundColor: colors.sageDark,
     borderColor: colors.sageDarker,
     borderRadius: 14,
     borderWidth: 2,
+    flex: 1,
     paddingVertical: 14,
+  },
+  addButtonAlt: {
+    backgroundColor: colors.pageBgSoft,
   },
   addButtonText: {
     color: colors.creamText,
     fontSize: 18,
     letterSpacing: 0.6,
+  },
+  addButtonTextAlt: {
+    color: colors.sageDark,
   },
 });

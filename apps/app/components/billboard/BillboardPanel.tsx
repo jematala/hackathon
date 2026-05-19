@@ -1,3 +1,4 @@
+import type { SavedSticker, StickerAsset } from "@repo/shared";
 import { X } from "lucide-react-native";
 import { useRef, useState } from "react";
 import {
@@ -9,6 +10,7 @@ import {
   type LayoutChangeEvent,
 } from "react-native";
 
+import { fonts } from "@/app/theme";
 import { ApiError } from "@/lib/api/client";
 import { useBillboard, useCreatePlacement } from "@/lib/api/hooks";
 import { useDevUser } from "@/lib/devUser";
@@ -16,8 +18,10 @@ import { setLocalRotation } from "@/lib/localPlacements";
 import { colors, expiresInLabel } from "@/lib/theme";
 
 import { AnchorNote } from "./AnchorNote";
+import { EditingSticker, type EditingStickerHandle } from "./EditingSticker";
 import { EditingSticky, type EditingStickyHandle } from "./EditingSticky";
 import { Placement } from "./Placement";
+import { StickerCollectionPicker } from "./StickerCollectionPicker";
 import { UsernamePill } from "./UsernamePill";
 
 const CANVAS_HEIGHT = 540;
@@ -31,11 +35,16 @@ type BillboardPanelProps = {
   onClose?: () => void;
 };
 
+type EditingState =
+  | { kind: "sticky_note"; body: string }
+  | { kind: "sticker"; asset: StickerAsset };
+
 export function BillboardPanel({ id, onClose }: BillboardPanelProps) {
   const { user } = useDevUser();
   const billboard = useBillboard(id);
   const createPlacement = useCreatePlacement(id ?? "");
-  const editingRef = useRef<EditingStickyHandle>(null);
+  const stickyRef = useRef<EditingStickyHandle>(null);
+  const stickerRef = useRef<EditingStickerHandle>(null);
 
   const [canvasSize, setCanvasSize] = useState<{
     width: number;
@@ -44,7 +53,8 @@ export function BillboardPanel({ id, onClose }: BillboardPanelProps) {
     width: 0,
     height: 0,
   });
-  const [editing, setEditing] = useState<{ body: string } | null>(null);
+  const [editing, setEditing] = useState<EditingState | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isEditing = editing !== null;
@@ -59,49 +69,84 @@ export function BillboardPanel({ id, onClose }: BillboardPanelProps) {
     setError(null);
   };
 
-  const startEdit = () => {
+  const startNoteEdit = () => {
     if (canvasSize.width === 0) return;
-    setEditing({ body: "" });
+    setEditing({ kind: "sticky_note", body: "" });
     setError(null);
   };
 
-  const place = () => {
-    if (!editing || !editingRef.current) return;
-    if (editing.body.trim().length === 0) {
-      setError("Write something on your note first.");
-      return;
+  const startStickerEdit = () => {
+    if (canvasSize.width === 0) return;
+    setError(null);
+    setPickerOpen(true);
+  };
+
+  const onPickSticker = (saved: SavedSticker) => {
+    if (!saved.stickerAsset) return;
+    setPickerOpen(false);
+    setEditing({ kind: "sticker", asset: saved.stickerAsset });
+  };
+
+  const handlePlacementError = (err: unknown, fallback: string) => {
+    if (err instanceof ApiError) {
+      if (err.code === "placement_exists") {
+        setError("You've already pinned something here.");
+      } else if (err.code === "moderation_rejected") {
+        setError("Your post was rejected by moderation.");
+      } else if (err.code === "moderation_unavailable") {
+        setError("Moderation isn't available right now - can't pin this.");
+      } else {
+        setError(err.message);
+      }
+    } else if (err instanceof Error) {
+      console.error("[placement] unexpected error", err);
+      setError(`${fallback}: ${err.message}`);
+    } else {
+      setError(`${fallback}. Try again.`);
     }
-    const { centerX, centerY, rotationDeg } = editingRef.current.getState();
+  };
+
+  const place = () => {
+    if (!editing) return;
     const { width, height } = canvasSize;
     if (width === 0 || height === 0) return;
+
+    if (editing.kind === "sticky_note") {
+      if (!stickyRef.current) return;
+      if (editing.body.trim().length === 0) {
+        setError("Write something on your note first.");
+        return;
+      }
+      const { centerX, centerY, rotationDeg } = stickyRef.current.getState();
+      const x = clamp(centerX / width, 0, 1);
+      const y = clamp(centerY / height, 0, 1);
+      setError(null);
+      createPlacement.mutate(
+        { kind: "sticky_note", body: editing.body.trim(), x, y },
+        {
+          onSuccess: (data) => {
+            setLocalRotation(data.placement.id, rotationDeg);
+            setEditing(null);
+          },
+          onError: (err) => handlePlacementError(err, "Couldn't pin note"),
+        },
+      );
+      return;
+    }
+
+    if (!stickerRef.current) return;
+    const { centerX, centerY, rotationDeg } = stickerRef.current.getState();
     const x = clamp(centerX / width, 0, 1);
     const y = clamp(centerY / height, 0, 1);
     setError(null);
     createPlacement.mutate(
-      { kind: "sticky_note", body: editing.body.trim(), x, y },
+      { kind: "sticker", stickerAssetId: editing.asset.id, x, y },
       {
         onSuccess: (data) => {
           setLocalRotation(data.placement.id, rotationDeg);
           setEditing(null);
         },
-        onError: (err) => {
-          if (err instanceof ApiError) {
-            if (err.code === "placement_exists") {
-              setError("You've already pinned a note here.");
-            } else if (err.code === "moderation_rejected") {
-              setError("Your note was rejected by moderation.");
-            } else if (err.code === "moderation_unavailable") {
-              setError("Moderation isn't available right now - can't pin this note.");
-            } else {
-              setError(err.message);
-            }
-          } else if (err instanceof Error) {
-            console.error("[placement] unexpected error", err);
-            setError(`Couldn't pin note: ${err.message}`);
-          } else {
-            setError("Couldn't pin note. Try again.");
-          }
-        },
+        onError: (err) => handlePlacementError(err, "Couldn't pin sticker"),
       },
     );
   };
@@ -190,15 +235,24 @@ export function BillboardPanel({ id, onClose }: BillboardPanelProps) {
                 />
               ))}
 
-          {isEditing && canvasSize.width > 0 ? (
+          {editing?.kind === "sticky_note" && canvasSize.width > 0 ? (
             <EditingSticky
-              ref={editingRef}
+              ref={stickyRef}
               authorId={user.id}
               body={editing.body}
-              onChangeBody={(t) => setEditing({ body: t })}
+              onChangeBody={(t) => setEditing({ kind: "sticky_note", body: t })}
               canvasWidth={canvasSize.width}
               canvasHeight={canvasSize.height}
               maxChars={STICKY_MAX_CHARS}
+            />
+          ) : null}
+
+          {editing?.kind === "sticker" && canvasSize.width > 0 ? (
+            <EditingSticker
+              ref={stickerRef}
+              asset={editing.asset}
+              canvasWidth={canvasSize.width}
+              canvasHeight={canvasSize.height}
             />
           ) : null}
         </View>
@@ -234,10 +288,21 @@ export function BillboardPanel({ id, onClose }: BillboardPanelProps) {
           </Pressable>
         </View>
       ) : (
-        <Pressable onPress={startEdit} style={styles.addButton}>
-          <Text style={styles.addButtonText}>+ Add a note</Text>
-        </Pressable>
+        <View style={styles.addRow}>
+          <Pressable onPress={startNoteEdit} style={styles.addButton}>
+            <Text style={styles.addButtonText}>+ Note</Text>
+          </Pressable>
+          <Pressable onPress={startStickerEdit} style={[styles.addButton, styles.addButtonAlt]}>
+            <Text style={[styles.addButtonText, styles.addButtonTextAlt]}>+ Sticker</Text>
+          </Pressable>
+        </View>
       )}
+
+      <StickerCollectionPicker
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={onPickSticker}
+      />
     </>
   );
 }
@@ -361,13 +426,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   cancelButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "#fff8e8",
+    borderColor: "#5f4a2d",
+    borderRadius: 8,
+    borderWidth: 2,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 20,
   },
   cancelText: {
-    color: colors.inkSoft,
-    fontSize: 18,
-    letterSpacing: 0.6,
+    color: "#2d2418",
+    fontFamily: fonts.family,
+    fontSize: 15,
+    fontWeight: "800",
   },
   placeButton: {
     alignItems: "center",
@@ -391,17 +463,28 @@ const styles = StyleSheet.create({
   placeSpinner: {
     transform: [{ scale: 0.8 }],
   },
+  addRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
   addButton: {
     alignItems: "center",
     backgroundColor: colors.sageDark,
     borderColor: colors.sageDarker,
     borderRadius: 14,
     borderWidth: 2,
+    flex: 1,
     paddingVertical: 14,
+  },
+  addButtonAlt: {
+    backgroundColor: colors.pageBgSoft,
   },
   addButtonText: {
     color: colors.creamText,
     fontSize: 18,
     letterSpacing: 0.6,
+  },
+  addButtonTextAlt: {
+    color: colors.sageDark,
   },
 });

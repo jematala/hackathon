@@ -28,7 +28,7 @@ const EXAMPLE_BILLBOARD: LocalBillboard = {
   id: DEMO_BILLBOARD.id,
   authorId: "00000000-0000-4000-8000-000000000001",
   authorUsername: "admin",
-  body: "Welcome to Campus Connect - pin a sticky note or sticker on this whiteboard.",
+  body: "Welcome to Jematala - pin a sticky note or sticker on this whiteboard.",
   lat: DEMO_BILLBOARD.lat,
   lng: DEMO_BILLBOARD.lng,
   expiresAt: hoursFromNowIso(120),

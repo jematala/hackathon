@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { fonts } from "@/app/theme";
+import { useUserProfile } from "@/lib/userProfile";
 
 const HUD_BUTTON_SIZE = 100;
 const COLOR_FG = "#5b7559";
@@ -23,6 +24,11 @@ function makeXpRingUri(progress: number): string {
 }
 
 function ProfileButton() {
+  const { avatarUri } = useUserProfile();
+  const useDrawn = Boolean(avatarUri);
+  const source = avatarUri
+    ? { uri: avatarUri }
+    : require("@/assets/images/avatar.png");
   return (
     <View style={styles.leftSection}>
       <Text style={styles.levelLabel}>lv22</Text>
@@ -33,7 +39,10 @@ function ProfileButton() {
           onPress={() => router.push("/profile" as any)}
           style={({ pressed }) => [styles.profileButton, { opacity: pressed ? 0.7 : 1 }]}
         >
-          <Image source={require("@/assets/images/avatar.png")} style={styles.profileImage} />
+          <Image
+            source={source}
+            style={[styles.profileImage, useDrawn && styles.profileImageDrawn]}
+          />
         </Pressable>
       </View>
     </View>
@@ -127,6 +136,9 @@ const styles = StyleSheet.create({
     borderRadius: HUD_BUTTON_SIZE / 2 - 3,
     height: HUD_BUTTON_SIZE - 6,
     width: HUD_BUTTON_SIZE - 6,
+  },
+  profileImageDrawn: {
+    backgroundColor: "#faf7ef",
   },
   textButton: {
     alignItems: "center",

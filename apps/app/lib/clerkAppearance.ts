@@ -69,9 +69,7 @@ export const clerkAppearance = {
       letterSpacing: "1px",
     },
     headerTitle: {
-      fontFamily: FONT,
-      fontSize: "22px",
-      color: C.ink,
+      display: "none",
     },
     headerSubtitle: {
       fontFamily: FONT,
@@ -101,6 +99,13 @@ export const clerkAppearance = {
     footer: {
       background: "transparent",
       borderTop: `1px dashed ${C.paperEdge}`,
+      padding: "14px 0 0",
+      rowGap: "10px",
+      gap: "10px",
+    },
+    footerAction: {
+      margin: 0,
+      padding: 0,
     },
     dividerLine: { background: C.paperEdge },
     dividerText: { fontFamily: FONT, color: C.inkSofter, letterSpacing: "2px" },
@@ -152,6 +157,9 @@ export const AUTH_PAGE_CSS = `
     background: ${C.paper};
     border: 2px solid ${C.paperEdge};
     border-radius: 2px;
+    box-shadow:
+      4px 6px 18px rgba(62, 53, 40, 0.35),
+      1px 2px 5px rgba(62, 53, 40, 0.2);
   }
 
   .auth-pin {
@@ -161,6 +169,7 @@ export const AUTH_PAGE_CSS = `
     transform: translateX(-50%) rotate(-8deg);
     z-index: 2;
     pointer-events: none;
+    filter: drop-shadow(2px 3px 4px rgba(62, 53, 40, 0.45));
   }
 
   .auth-header {
@@ -199,6 +208,18 @@ export const AUTH_PAGE_CSS = `
   .cl-socialButtonsBlockButton:hover {
     border-color: ${C.sage} !important;
     background: ${C.paperSoft} !important;
+  }
+  .cl-footer {
+    gap: 10px !important;
+    row-gap: 10px !important;
+    padding: 14px 0 0 !important;
+  }
+  .cl-footer > * {
+    margin: 0 !important;
+  }
+  .cl-footerAction {
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   @media (max-width: 480px) {
