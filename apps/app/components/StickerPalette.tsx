@@ -1,12 +1,15 @@
-import { StyleSheet, Text, View } from "react-native";
-import { colors, fonts, pixelBorder, stickerPalette } from "@/app/theme";
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors, fonts, pixelBorder, stickerPalette } from '@/app/theme';
 
 type StickerPaletteProps = {
   selectedColor: string;
   onSelect: (color: string) => void;
 };
 
-export function StickerPalette({ selectedColor, onSelect }: StickerPaletteProps) {
+export function StickerPalette({
+  selectedColor,
+  onSelect,
+}: StickerPaletteProps) {
   return (
     <View style={styles.palette}>
       {stickerPalette.map((color) => (
@@ -18,7 +21,9 @@ export function StickerPalette({ selectedColor, onSelect }: StickerPaletteProps)
             selectedColor === color && styles.selected,
           ]}
         >
-          <View style={styles.hitArea} onPress={() => onSelect(color)} />
+          <Pressable onPress={() => onSelect(color)}>
+            <View style={styles.hitArea}></View>
+          </Pressable>
         </View>
       ))}
     </View>
@@ -27,9 +32,9 @@ export function StickerPalette({ selectedColor, onSelect }: StickerPaletteProps)
 
 const styles = StyleSheet.create({
   palette: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
-    justifyContent: "center",
+    justifyContent: 'center',
   },
   swatch: {
     borderRadius: 0,
@@ -43,7 +48,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
   hitArea: {
-    height: "100%",
-    width: "100%",
+    height: '100%',
+    width: '100%',
   },
 });
