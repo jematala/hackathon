@@ -87,7 +87,7 @@ const currentSydneyDate = sql`(timezone('Australia/Sydney', now()))::date`;
 const uuidPrimaryKey = (name = "id") =>
   uuid(name)
     .primaryKey()
-    .default(sql`app.uuidv7()`);
+    .default(sql`gen_random_uuid()`);
 
 export const users = appSchema.table(
   "users",

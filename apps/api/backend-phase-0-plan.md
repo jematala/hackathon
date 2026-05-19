@@ -14,8 +14,8 @@
 - POI picture storage: optional compressed 128x128 base64 PNG stored inline in the POI row.
 - User avatar storage: 64x64 pixel art base64 PNG stored in `app.users.avatar_base64`.
 - Admin role: `is_admin boolean` on `app.users`.
-- Primary keys: internal UUIDv7 values for all primary keys; Clerk user IDs are unique external auth identifiers stored on `app.users.clerk_user_id`.
-- UUIDv7 generation: `reset.sql` creates `app.uuidv7()` with `pgcrypto`; environments using `drizzle-kit push` need that helper installed before table creation because Drizzle table defaults call it.
+- Primary keys: internal UUIDv4 values for all primary keys; Clerk user IDs are unique external auth identifiers stored on `app.users.clerk_user_id`.
+- UUIDv4 generation: `reset.sql` and Drizzle table defaults call `gen_random_uuid()`, which is available on Supabase PostgreSQL 17.6.
 - Map provider: `react-native-leaflet-view` with OSM tiles; backend still exposes lat/lng and campus bounds/provider config.
 - Drizzle migrations: Drizzle Kit with `drizzle-kit push` for hackathon speed.
 - POI rotation, empty-billboard expiry, daily quests, and POI/day setup are scheduled later-phase behavior, but Phase 0 needs schema support and seed data.
@@ -94,7 +94,7 @@ Use `app` schema and PostGIS. The SQL reset and Drizzle schema should define the
 
 Identity:
 
-- `app.users`: UUIDv7 `id` primary key, unique `clerk_user_id`, username, display name, `avatar_base64`, `is_admin`, level, XP, streak fields, banned/deleted flags, timestamps. Do not reuse Clerk IDs as primary keys; map Clerk JWT `sub` to this row via `clerk_user_id`.
+- `app.users`: UUIDv4 `id` primary key, unique `clerk_user_id`, username, display name, `avatar_base64`, `is_admin`, level, XP, streak fields, banned/deleted flags, timestamps. Do not reuse Clerk IDs as primary keys; map Clerk JWT `sub` to this row via `clerk_user_id`.
 - `app.push_tokens`: optional Phase 0 table if quick; useful for Phase 3 push.
 
 Campus and POIs:

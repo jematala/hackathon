@@ -116,7 +116,7 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 
 - **Sticker storage:** base64 PNG blob — FE produces B64 string, sends to BE for moderation (B64 moderation via OpenAI)
 - **Admin role:** `is_admin` boolean column on `app.users`
-- **Primary keys:** internal UUIDv7 values for all primary keys; Clerk user IDs are stored as unique external auth identifiers on `app.users.clerk_user_id`
+- **Primary keys:** internal UUIDv4 values for all primary keys; Clerk user IDs are stored as unique external auth identifiers on `app.users.clerk_user_id`
 - **Map on mobile:** `react-native-leaflet-view` (pavel-corsaghin/react-native-leaflet)
 - **Drizzle migrations:** Drizzle Kit with `drizzle-kit push` for hackathon speed
 - **Billboard expiry:** scheduled Worker (soft-delete empty billboards at Sydney midnight; soft-delete all billboards after 5 days)

@@ -2,27 +2,6 @@ drop schema if exists app cascade;
 create schema app;
 
 create extension if not exists postgis with schema extensions;
-create extension if not exists pgcrypto with schema extensions;
-
-create or replace function app.uuidv7()
-returns uuid
-language sql
-volatile
-as $$
-  with value as (
-    select
-      floor(extract(epoch from clock_timestamp()) * 1000)::bigint as unix_ms,
-      extensions.gen_random_bytes(10) as rand
-  )
-  select (
-    lpad(to_hex(unix_ms), 12, '0')
-    || '7'
-    || substr(encode(rand, 'hex'), 1, 3)
-    || to_hex((get_byte(rand, 1) & 3) | 8)
-    || substr(encode(rand, 'hex'), 4, 15)
-  )::uuid
-  from value;
-$$;
 
 create type app.content_status as enum ('pending', 'active', 'hidden', 'removed', 'rejected');
 create type app.placement_kind as enum ('sticker', 'sticky_note');
@@ -43,7 +22,7 @@ create type app.moderation_action_type as enum ('hide', 'remove', 'warn', 'ban',
 create type app.push_platform as enum ('expo', 'ios', 'android', 'web');
 
 create table app.users (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   clerk_user_id text not null unique,
   username text not null unique,
   display_name text not null,
@@ -61,7 +40,7 @@ create table app.users (
 );
 
 create table app.push_tokens (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references app.users(id) on delete cascade,
   token text not null unique,
   platform app.push_platform not null default 'expo',
@@ -70,7 +49,7 @@ create table app.push_tokens (
 );
 
 create table app.campuses (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   name text not null,
   timezone text not null,
   center_lat double precision not null,
@@ -82,7 +61,7 @@ create table app.campuses (
 );
 
 create table app.pois (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   campus_id uuid not null references app.campuses(id) on delete cascade,
   title text not null,
   description text,
@@ -115,7 +94,7 @@ create table app.poi_visits (
 );
 
 create table app.billboards (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   campus_id uuid not null references app.campuses(id) on delete cascade,
   author_id uuid not null references app.users(id) on delete cascade,
   body text not null,
@@ -134,7 +113,7 @@ create table app.billboards (
 );
 
 create table app.sticker_assets (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references app.users(id) on delete cascade,
   png_base64 text not null,
   width integer not null default 64 check (width > 0),
@@ -147,7 +126,7 @@ create table app.sticker_assets (
 );
 
 create table app.billboard_placements (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   billboard_id uuid not null references app.billboards(id) on delete cascade,
   author_id uuid not null references app.users(id) on delete cascade,
   kind app.placement_kind not null,
@@ -178,7 +157,7 @@ create table app.billboard_placements (
 );
 
 create table app.saved_stickers (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references app.users(id) on delete cascade,
   kind app.saved_sticker_kind not null,
   sticker_asset_id uuid references app.sticker_assets(id) on delete cascade,
@@ -201,7 +180,7 @@ create table app.saved_stickers (
 );
 
 create table app.quest_templates (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   key text not null unique,
   trigger_type app.quest_trigger_type not null,
   title_template text not null,
@@ -214,7 +193,7 @@ create table app.quest_templates (
 );
 
 create table app.daily_quest_templates (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   key text not null unique,
   trigger_type app.quest_trigger_type not null,
   title_template text not null,
@@ -227,7 +206,7 @@ create table app.daily_quest_templates (
 );
 
 create table app.level_quest_sets (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   level integer not null check (level >= 1),
   template_id uuid not null references app.quest_templates(id) on delete restrict,
   target_count integer not null check (target_count > 0),
@@ -238,7 +217,7 @@ create table app.level_quest_sets (
 );
 
 create table app.daily_quest_pool (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   template_id uuid not null references app.daily_quest_templates(id) on delete restrict,
   target_count integer not null check (target_count > 0),
   xp_reward integer not null check (xp_reward >= 0),
@@ -247,7 +226,7 @@ create table app.daily_quest_pool (
 );
 
 create table app.daily_quest_assignments (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   campus_id uuid not null references app.campuses(id) on delete cascade,
   active_on date not null,
   daily_quest_pool_id uuid not null references app.daily_quest_pool(id) on delete restrict,
@@ -256,7 +235,7 @@ create table app.daily_quest_assignments (
 );
 
 create table app.user_quest_progress (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references app.users(id) on delete cascade,
   source app.quest_source not null,
   source_id uuid not null,
@@ -272,7 +251,7 @@ create table app.user_quest_progress (
 );
 
 create table app.perk_definitions (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   key text not null unique,
   name text not null,
   description text not null,
@@ -280,7 +259,7 @@ create table app.perk_definitions (
 );
 
 create table app.level_perks (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   level integer not null check (level >= 1),
   perk_id uuid not null references app.perk_definitions(id) on delete restrict,
   numeric_value integer,
@@ -298,7 +277,7 @@ create table app.user_perk_unlocks (
 );
 
 create table app.streak_reward_definitions (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   streak_days integer not null unique check (streak_days > 0),
   name text not null,
   reward jsonb not null,
@@ -307,7 +286,7 @@ create table app.streak_reward_definitions (
 );
 
 create table app.reports (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   reporter_id uuid not null references app.users(id) on delete cascade,
   target_type app.report_target_type not null,
   target_id uuid not null,
@@ -321,7 +300,7 @@ create table app.reports (
 );
 
 create table app.moderation_actions (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   report_id uuid references app.reports(id) on delete set null,
   admin_id uuid not null references app.users(id) on delete restrict,
   action app.moderation_action_type not null,
@@ -332,7 +311,7 @@ create table app.moderation_actions (
 );
 
 create table app.content_moderation_logs (
-  id uuid primary key default app.uuidv7(),
+  id uuid primary key default gen_random_uuid(),
   target_type app.content_moderation_target_type not null,
   target_id uuid not null,
   provider text not null default 'openai',
@@ -357,12 +336,12 @@ create index reports_status_idx on app.reports (status, created_at);
 
 insert into app.users (id, clerk_user_id, username, display_name, avatar_base64, is_admin)
 values
-  ('018f0000-0000-7000-8000-000000000001', 'clerk_demo_admin', 'admin', 'Demo Admin', null, true),
-  ('018f0000-0000-7000-8000-000000000002', 'clerk_demo_user', 'bluewren', 'Blue Wren', null, false);
+  ('00000000-0000-4000-8000-000000000001', 'clerk_demo_admin', 'admin', 'Demo Admin', null, true),
+  ('00000000-0000-4000-8000-000000000002', 'clerk_demo_user', 'bluewren', 'Blue Wren', null, false);
 
 insert into app.campuses (id, name, timezone, center_lat, center_lng, radius_meters, bounds)
 values (
-  '018f0000-0000-7000-8000-000000000100',
+  '00000000-0000-4000-8000-000000000100',
   'UNSW Kensington',
   'Australia/Sydney',
   -33.9173,
@@ -373,53 +352,53 @@ values (
 
 insert into app.pois (id, campus_id, title, description, location_point, lat, lng, created_by)
 values
-  ('018f0000-0000-7000-8000-000000000201', '018f0000-0000-7000-8000-000000000100', 'Main Library', 'A busy study landmark near the centre of campus.', st_setsrid(st_makepoint(151.2313, -33.9173), 4326)::geography, -33.9173, 151.2313, '018f0000-0000-7000-8000-000000000001'),
-  ('018f0000-0000-7000-8000-000000000202', '018f0000-0000-7000-8000-000000000100', 'Basser Steps', 'A classic meeting spot between upper and lower campus.', st_setsrid(st_makepoint(151.2298, -33.9179), 4326)::geography, -33.9179, 151.2298, '018f0000-0000-7000-8000-000000000001'),
-  ('018f0000-0000-7000-8000-000000000203', '018f0000-0000-7000-8000-000000000100', 'Quadrangle Lawn', 'Open green space for quick quest stops.', st_setsrid(st_makepoint(151.2334, -33.9170), 4326)::geography, -33.9170, 151.2334, '018f0000-0000-7000-8000-000000000001'),
-  ('018f0000-0000-7000-8000-000000000204', '018f0000-0000-7000-8000-000000000100', 'Red Centre', 'A bright landmark for art, design, and engineering students.', st_setsrid(st_makepoint(151.2306, -33.9161), 4326)::geography, -33.9161, 151.2306, '018f0000-0000-7000-8000-000000000001'),
-  ('018f0000-0000-7000-8000-000000000205', '018f0000-0000-7000-8000-000000000100', 'Village Green', 'A broad outdoor hub for lunch breaks and quick meetups.', st_setsrid(st_makepoint(151.2345, -33.9152), 4326)::geography, -33.9152, 151.2345, '018f0000-0000-7000-8000-000000000001'),
-  ('018f0000-0000-7000-8000-000000000206', '018f0000-0000-7000-8000-000000000100', 'Science Theatre', 'A lower-campus lecture landmark with steady student traffic.', st_setsrid(st_makepoint(151.2291, -33.9192), 4326)::geography, -33.9192, 151.2291, '018f0000-0000-7000-8000-000000000001');
+  ('00000000-0000-4000-8000-000000000201', '00000000-0000-4000-8000-000000000100', 'Main Library', 'A busy study landmark near the centre of campus.', st_setsrid(st_makepoint(151.2313, -33.9173), 4326)::geography, -33.9173, 151.2313, '00000000-0000-4000-8000-000000000001'),
+  ('00000000-0000-4000-8000-000000000202', '00000000-0000-4000-8000-000000000100', 'Basser Steps', 'A classic meeting spot between upper and lower campus.', st_setsrid(st_makepoint(151.2298, -33.9179), 4326)::geography, -33.9179, 151.2298, '00000000-0000-4000-8000-000000000001'),
+  ('00000000-0000-4000-8000-000000000203', '00000000-0000-4000-8000-000000000100', 'Quadrangle Lawn', 'Open green space for quick quest stops.', st_setsrid(st_makepoint(151.2334, -33.9170), 4326)::geography, -33.9170, 151.2334, '00000000-0000-4000-8000-000000000001'),
+  ('00000000-0000-4000-8000-000000000204', '00000000-0000-4000-8000-000000000100', 'Red Centre', 'A bright landmark for art, design, and engineering students.', st_setsrid(st_makepoint(151.2306, -33.9161), 4326)::geography, -33.9161, 151.2306, '00000000-0000-4000-8000-000000000001'),
+  ('00000000-0000-4000-8000-000000000205', '00000000-0000-4000-8000-000000000100', 'Village Green', 'A broad outdoor hub for lunch breaks and quick meetups.', st_setsrid(st_makepoint(151.2345, -33.9152), 4326)::geography, -33.9152, 151.2345, '00000000-0000-4000-8000-000000000001'),
+  ('00000000-0000-4000-8000-000000000206', '00000000-0000-4000-8000-000000000100', 'Science Theatre', 'A lower-campus lecture landmark with steady student traffic.', st_setsrid(st_makepoint(151.2291, -33.9192), 4326)::geography, -33.9192, 151.2291, '00000000-0000-4000-8000-000000000001');
 
 insert into app.poi_daily_activations (campus_id, poi_id, active_on)
-select '018f0000-0000-7000-8000-000000000100', id, (timezone('Australia/Sydney', now()))::date
+select '00000000-0000-4000-8000-000000000100', id, (timezone('Australia/Sydney', now()))::date
 from app.pois
 order by random()
 limit 5;
 
 insert into app.quest_templates (id, key, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
 values
-  ('018f0000-0000-7000-8000-000000000301', 'visit_pois', 'visit_pois', 'Visit {target} new POIs', 'Discover {target} campus landmarks you have not visited before.', 1, 5, 50),
-  ('018f0000-0000-7000-8000-000000000302', 'leave_billboards', 'leave_billboards', 'Leave {target} billboards', 'Post {target} notes around campus.', 1, 5, 50),
-  ('018f0000-0000-7000-8000-000000000303', 'place_stickers', 'place_stickers', 'Place {target} stickers', 'Reply to billboards with {target} sticker placements.', 1, 6, 50),
-  ('018f0000-0000-7000-8000-000000000304', 'receive_replies', 'receive_replies', 'Receive {target} replies', 'Have other students reply to your billboards {target} times.', 1, 5, 75),
-  ('018f0000-0000-7000-8000-000000000305', 'save_stickers', 'save_stickers', 'Save {target} stickers', 'Save {target} stickers or sticky notes to your collection.', 1, 4, 40);
+  ('00000000-0000-4000-8000-000000000301', 'visit_pois', 'visit_pois', 'Visit {target} new POIs', 'Discover {target} campus landmarks you have not visited before.', 1, 5, 50),
+  ('00000000-0000-4000-8000-000000000302', 'leave_billboards', 'leave_billboards', 'Leave {target} billboards', 'Post {target} notes around campus.', 1, 5, 50),
+  ('00000000-0000-4000-8000-000000000303', 'place_stickers', 'place_stickers', 'Place {target} stickers', 'Reply to billboards with {target} sticker placements.', 1, 6, 50),
+  ('00000000-0000-4000-8000-000000000304', 'receive_replies', 'receive_replies', 'Receive {target} replies', 'Have other students reply to your billboards {target} times.', 1, 5, 75),
+  ('00000000-0000-4000-8000-000000000305', 'save_stickers', 'save_stickers', 'Save {target} stickers', 'Save {target} stickers or sticky notes to your collection.', 1, 4, 40);
 
 insert into app.daily_quest_templates (id, key, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
 values
-  ('018f0000-0000-7000-8000-000000000401', 'daily_explorer', 'visit_pois', 'Daily wander', 'Visit {target} active POIs today.', 1, 3, 30),
-  ('018f0000-0000-7000-8000-000000000402', 'daily_note', 'leave_billboards', 'Campus bulletin', 'Leave {target} billboard today.', 1, 2, 25),
-  ('018f0000-0000-7000-8000-000000000403', 'daily_sticker', 'place_stickers', 'Sticker hello', 'Place {target} stickers on billboards today.', 1, 3, 30),
-  ('018f0000-0000-7000-8000-000000000404', 'daily_save', 'save_stickers', 'Pocket a favourite', 'Save {target} sticker or sticky note today.', 1, 2, 25),
-  ('018f0000-0000-7000-8000-000000000405', 'daily_replies', 'receive_replies', 'Start a conversation', 'Receive {target} replies on your billboards today.', 1, 2, 35);
+  ('00000000-0000-4000-8000-000000000401', 'daily_explorer', 'visit_pois', 'Daily wander', 'Visit {target} active POIs today.', 1, 3, 30),
+  ('00000000-0000-4000-8000-000000000402', 'daily_note', 'leave_billboards', 'Campus bulletin', 'Leave {target} billboard today.', 1, 2, 25),
+  ('00000000-0000-4000-8000-000000000403', 'daily_sticker', 'place_stickers', 'Sticker hello', 'Place {target} stickers on billboards today.', 1, 3, 30),
+  ('00000000-0000-4000-8000-000000000404', 'daily_save', 'save_stickers', 'Pocket a favourite', 'Save {target} sticker or sticky note today.', 1, 2, 25),
+  ('00000000-0000-4000-8000-000000000405', 'daily_replies', 'receive_replies', 'Start a conversation', 'Receive {target} replies on your billboards today.', 1, 2, 35);
 
 insert into app.level_quest_sets (id, level, template_id, target_count, xp_reward, sort_order)
 values
-  ('018f0000-0000-7000-8000-000000000501', 1, '018f0000-0000-7000-8000-000000000301', 1, 40, 1),
-  ('018f0000-0000-7000-8000-000000000502', 1, '018f0000-0000-7000-8000-000000000302', 1, 40, 2),
-  ('018f0000-0000-7000-8000-000000000503', 2, '018f0000-0000-7000-8000-000000000303', 2, 60, 1),
-  ('018f0000-0000-7000-8000-000000000504', 2, '018f0000-0000-7000-8000-000000000305', 1, 40, 2),
-  ('018f0000-0000-7000-8000-000000000505', 3, '018f0000-0000-7000-8000-000000000304', 2, 80, 1);
+  ('00000000-0000-4000-8000-000000000501', 1, '00000000-0000-4000-8000-000000000301', 1, 40, 1),
+  ('00000000-0000-4000-8000-000000000502', 1, '00000000-0000-4000-8000-000000000302', 1, 40, 2),
+  ('00000000-0000-4000-8000-000000000503', 2, '00000000-0000-4000-8000-000000000303', 2, 60, 1),
+  ('00000000-0000-4000-8000-000000000504', 2, '00000000-0000-4000-8000-000000000305', 1, 40, 2),
+  ('00000000-0000-4000-8000-000000000505', 3, '00000000-0000-4000-8000-000000000304', 2, 80, 1);
 
 insert into app.daily_quest_pool (id, template_id, target_count, xp_reward)
 values
-  ('018f0000-0000-7000-8000-000000000601', '018f0000-0000-7000-8000-000000000401', 1, 25),
-  ('018f0000-0000-7000-8000-000000000602', '018f0000-0000-7000-8000-000000000401', 2, 35),
-  ('018f0000-0000-7000-8000-000000000603', '018f0000-0000-7000-8000-000000000402', 1, 25),
-  ('018f0000-0000-7000-8000-000000000604', '018f0000-0000-7000-8000-000000000403', 2, 30),
-  ('018f0000-0000-7000-8000-000000000605', '018f0000-0000-7000-8000-000000000404', 1, 25);
+  ('00000000-0000-4000-8000-000000000601', '00000000-0000-4000-8000-000000000401', 1, 25),
+  ('00000000-0000-4000-8000-000000000602', '00000000-0000-4000-8000-000000000401', 2, 35),
+  ('00000000-0000-4000-8000-000000000603', '00000000-0000-4000-8000-000000000402', 1, 25),
+  ('00000000-0000-4000-8000-000000000604', '00000000-0000-4000-8000-000000000403', 2, 30),
+  ('00000000-0000-4000-8000-000000000605', '00000000-0000-4000-8000-000000000404', 1, 25);
 
 insert into app.daily_quest_assignments (id, campus_id, active_on, daily_quest_pool_id)
-select '018f0000-0000-7000-8000-000000000701', '018f0000-0000-7000-8000-000000000100', (timezone('Australia/Sydney', now()))::date, id
+select '00000000-0000-4000-8000-000000000701', '00000000-0000-4000-8000-000000000100', (timezone('Australia/Sydney', now()))::date, id
 from app.daily_quest_pool
 where active
 order by random()
@@ -427,24 +406,24 @@ limit 1;
 
 insert into app.perk_definitions (id, key, name, description)
 values
-  ('018f0000-0000-7000-8000-000000000801', 'daily_billboard_limit', 'Daily billboard limit', 'Maximum billboards a user can post per calendar day.'),
-  ('018f0000-0000-7000-8000-000000000802', 'sticker_slots', 'Sticker slots', 'Saved sticker and sticky note collection capacity.'),
-  ('018f0000-0000-7000-8000-000000000803', 'note_signature', 'Note signature', 'Cosmetic signature on notes and stickers.'),
-  ('018f0000-0000-7000-8000-000000000804', 'note_border_flair', 'Note border flair', 'Cosmetic border treatment for notes.'),
-  ('018f0000-0000-7000-8000-000000000805', 'palette_expansion', 'Palette expansion', 'Additional sticker colour palette.');
+  ('00000000-0000-4000-8000-000000000801', 'daily_billboard_limit', 'Daily billboard limit', 'Maximum billboards a user can post per calendar day.'),
+  ('00000000-0000-4000-8000-000000000802', 'sticker_slots', 'Sticker slots', 'Saved sticker and sticky note collection capacity.'),
+  ('00000000-0000-4000-8000-000000000803', 'note_signature', 'Note signature', 'Cosmetic signature on notes and stickers.'),
+  ('00000000-0000-4000-8000-000000000804', 'note_border_flair', 'Note border flair', 'Cosmetic border treatment for notes.'),
+  ('00000000-0000-4000-8000-000000000805', 'palette_expansion', 'Palette expansion', 'Additional sticker colour palette.');
 
 insert into app.level_perks (id, level, perk_id, numeric_value, metadata)
 values
-  ('018f0000-0000-7000-8000-000000000901', 1, '018f0000-0000-7000-8000-000000000801', 10, null),
-  ('018f0000-0000-7000-8000-000000000902', 1, '018f0000-0000-7000-8000-000000000802', 10, null),
-  ('018f0000-0000-7000-8000-000000000903', 3, '018f0000-0000-7000-8000-000000000802', 12, null),
-  ('018f0000-0000-7000-8000-000000000904', 4, '018f0000-0000-7000-8000-000000000803', null, '{"enabled":true}'::jsonb),
-  ('018f0000-0000-7000-8000-000000000905', 6, '018f0000-0000-7000-8000-000000000804', null, '{"enabled":true}'::jsonb),
-  ('018f0000-0000-7000-8000-000000000906', 7, '018f0000-0000-7000-8000-000000000802', 14, null),
-  ('018f0000-0000-7000-8000-000000000907', 9, '018f0000-0000-7000-8000-000000000805', null, '{"palette":"extended"}'::jsonb),
-  ('018f0000-0000-7000-8000-000000000908', 10, '018f0000-0000-7000-8000-000000000802', 20, null);
+  ('00000000-0000-4000-8000-000000000901', 1, '00000000-0000-4000-8000-000000000801', 10, null),
+  ('00000000-0000-4000-8000-000000000902', 1, '00000000-0000-4000-8000-000000000802', 10, null),
+  ('00000000-0000-4000-8000-000000000903', 3, '00000000-0000-4000-8000-000000000802', 12, null),
+  ('00000000-0000-4000-8000-000000000904', 4, '00000000-0000-4000-8000-000000000803', null, '{"enabled":true}'::jsonb),
+  ('00000000-0000-4000-8000-000000000905', 6, '00000000-0000-4000-8000-000000000804', null, '{"enabled":true}'::jsonb),
+  ('00000000-0000-4000-8000-000000000906', 7, '00000000-0000-4000-8000-000000000802', 14, null),
+  ('00000000-0000-4000-8000-000000000907', 9, '00000000-0000-4000-8000-000000000805', null, '{"palette":"extended"}'::jsonb),
+  ('00000000-0000-4000-8000-000000000908', 10, '00000000-0000-4000-8000-000000000802', 20, null);
 
 insert into app.streak_reward_definitions (id, streak_days, name, reward)
 values
-  ('018f0000-0000-7000-8000-000000000a01', 3, 'Three day trail', '{"xpMultiplier":1.1}'::jsonb),
-  ('018f0000-0000-7000-8000-000000000a02', 7, 'Weekly wanderer', '{"cosmetic":"leaf_badge"}'::jsonb);
+  ('00000000-0000-4000-8000-000000000a01', 3, 'Three day trail', '{"xpMultiplier":1.1}'::jsonb),
+  ('00000000-0000-4000-8000-000000000a02', 7, 'Weekly wanderer', '{"cosmetic":"leaf_badge"}'::jsonb);

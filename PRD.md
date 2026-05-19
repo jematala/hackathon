@@ -156,7 +156,7 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 
 - Public usernames displayed on notes/stickers (incentivises good behaviour)
 - Auth via Clerk with social login (Google, Apple)
-- Product data uses internal UUIDv7 user IDs; Clerk user IDs are stored only as unique auth-provider identifiers for account lookup
+- Product data uses internal UUIDv4 user IDs; Clerk user IDs are stored only as unique auth-provider identifiers for account lookup
 - No anonymous posting
 - On sign-up, users draw a 64×64 pixel art avatar that represents them on the map
 
@@ -220,7 +220,7 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 
 | Question                         | Decision                               |
 | -------------------------------- | -------------------------------------- |
-| Primary key format               | **UUIDv7** for internal primary keys; Clerk IDs are unique auth-provider identifiers, not primary keys |
+| Primary key format               | **UUIDv4** for internal primary keys; Clerk IDs are unique auth-provider identifiers, not primary keys |
 | POI geofence trigger radius      | **30m**                                |
 | Map provider                     | **react-native-leaflet-view** + OSM    |
 | Sticker storage format           | **base64 PNG**                         |
