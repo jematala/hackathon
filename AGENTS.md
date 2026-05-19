@@ -41,6 +41,19 @@ bun --cwd apps/app wrangler deploy          # static SPA via CF Workers assets
 - Shared package subpath export: `@repo/shared/events`
 - Path aliases in `tsconfig.base.json`: `@repo/db` → `packages/db/src`, `@repo/shared` → `packages/shared/src`
 - Wrangler configs use `wrangler.jsonc` (not `.toml`), schema at `node_modules/wrangler/config-schema.json`
+- DB uses **PostGIS** — `packages/db/supabase/reset.sql` creates the `app` schema and enables the extension
+- Shared package exports domain schemas via `@repo/shared` and subpaths such as `@repo/shared/poi`, `@repo/shared/billboard`, `@repo/shared/quest`, and `@repo/shared/user`
+- Node 25, Bun latest (pinned via mise)
+- `bun.lock` is checked in; CI uses `--frozen-lockfile`
+- **Drizzle ORM** for Postgres queries (not Prisma)
+- **Maps**: `react-native-leaflet-view` + OSM
+- **Icons**: `lucide-react-native`, `@expo/vector-icons`, and `expo-symbols` all available
+- **HTTP client**: `@tanstack/react-query` for data fetching in the app
+- **Animations**: `react-native-reanimated` + `react-native-gesture-handler` available
+- **Content moderation**: OpenAI Moderation API (called from API worker)
+- **Push**: Expo Push Notifications
+- **Expo 54**, **React 19.1**, **React Native 0.81**, new architecture enabled
+- **react-compiler** enabled in `app.json` (`experiments.reactCompiler: true`)
 
 ## Stack quirks
 

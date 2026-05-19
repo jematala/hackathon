@@ -38,7 +38,7 @@ bun install
 bun run dev:app
 ```
 
-`apps/app` is an Expo Router app. The web build is static SPA output, and dynamic routes such as `/events/[id]` are handled by Expo Router in the client.
+`apps/app` is an Expo Router app. The web build is static SPA output, and product routes are handled by Expo Router in the client.
 
 ## Running The API
 
