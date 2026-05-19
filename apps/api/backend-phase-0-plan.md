@@ -70,7 +70,7 @@ Stickers and placements:
 Quests and progress:
 
 - `GET /api/quests`: current user's generated level quests and daily quest with progress.
-- `POST /api/quests/:id/claim`: explicit reward claim.
+- `POST /api/quests/:id/claim`: explicit reward claim where `:id` is the user's quest progress row id. The route must fail if the quest is incomplete, not claimable, already claimed, or not owned by the current user.
 - `GET /api/users/me/progress`: level, XP, streak, capacities, and stats.
 - `GET /api/users/me/perks`: unlocked perks and next-level perks, or include this in `/api/users/me/progress`.
 

@@ -60,6 +60,7 @@ export const dailyQuestSchema = questBaseSchema.extend({
 export const questSchema = z.discriminatedUnion("source", [levelQuestSchema, dailyQuestSchema]);
 
 const questProgressBaseSchema = z.object({
+  id: idSchema,
   progressCount: z.number().int().min(0),
   targetCount: z.number().int().positive(),
   completedAt: isoDateTimeSchema.nullable(),
@@ -85,8 +86,21 @@ export const listQuestsResponseSchema = z.object({
   streak: z.number().int().min(0),
 });
 
-export const claimQuestInputSchema = z.object({
-  source: questSourceSchema,
+export const claimQuestParamsSchema = z.object({
+  id: idSchema,
+});
+
+export const claimQuestInputSchema = z.object({}).strict();
+
+export const claimQuestErrorCodeSchema = z.enum([
+  "quest_not_found",
+  "quest_not_claimable",
+  "quest_already_claimed",
+]);
+
+export const claimQuestErrorResponseSchema = z.object({
+  error: claimQuestErrorCodeSchema,
+  message: z.string().min(1),
 });
 
 export const claimQuestResponseSchema = z.object({
@@ -108,5 +122,8 @@ export type LevelQuestProgress = z.infer<typeof levelQuestProgressSchema>;
 export type DailyQuestProgress = z.infer<typeof dailyQuestProgressSchema>;
 export type QuestProgress = z.infer<typeof questProgressSchema>;
 export type ListQuestsResponse = z.infer<typeof listQuestsResponseSchema>;
+export type ClaimQuestParams = z.infer<typeof claimQuestParamsSchema>;
 export type ClaimQuestInput = z.infer<typeof claimQuestInputSchema>;
+export type ClaimQuestErrorCode = z.infer<typeof claimQuestErrorCodeSchema>;
+export type ClaimQuestErrorResponse = z.infer<typeof claimQuestErrorResponseSchema>;
 export type ClaimQuestResponse = z.infer<typeof claimQuestResponseSchema>;
