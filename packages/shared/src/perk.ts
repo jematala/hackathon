@@ -3,7 +3,6 @@ import { z } from "zod";
 import { idSchema, isoDateTimeSchema } from "./common";
 
 export const perkKeySchema = z.enum([
-  "max_concurrent_billboards",
   "daily_billboard_limit",
   "sticker_slots",
   "note_signature",
@@ -27,6 +26,7 @@ export const levelPerkSchema = z.object({
 });
 
 export const unlockedPerkSchema = z.object({
+  levelPerkId: idSchema,
   perk: perkSchema,
   sourceLevel: z.number().int().positive(),
   unlockedAt: isoDateTimeSchema,

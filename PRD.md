@@ -6,7 +6,7 @@ A location-based social exploration game for UNSW students.
 
 ## 1. Overview
 
-Mobile app where students discover geofenced Points of Interest (POIs) around UNSW Kensington campus, leave billboard notes, and reply with pixel-art stickers. Progression via quests and levelling unlocks cosmetic perks and capacity upgrades.
+Mobile app where students discover geofenced Points of Interest (POIs) around UNSW Kensington campus, leave billboard notes, and reply with pixel-art stickers. Progression via quests and levelling unlocks cosmetic perks and sticker collection capacity upgrades.
 
 **Core loop:** Explore campus → discover POIs → leave/read notes → reply with stickers → complete quests → level up → unlock perks → explore more.
 
@@ -61,9 +61,9 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 
 ## 4. Points of Interest (POIs)
 
-- **5–10 concurrent POIs** placed by developers
+- **5–10 concurrent POIs** selected daily from seeded/admin-created POIs
 - POIs are visually distinct from notes (e.g. glowing markers vs. note icons)
-- **Rotation:** every 24 hours, some POIs disappear and new ones appear
+- **Rotation:** every 24 hours, a scheduled job randomly selects active POIs from the POI table
 - **First visit** to a POI — on an individual user basis — advances quest progress, assuming the user has a relevant quest (daily or level-based). Visiting gives no direct XP.
 - Visited POIs are recorded to prevent repeat quest progress from the same POI
 - Optional picture: compressed 128×128 base64 PNG image (pixel-art icon or photo)
@@ -75,7 +75,7 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 ### 5.1 Billboards (text notes)
 
 - Placed by users at their current real-world location
-- **Limit:** 3 concurrent notes at a time (scales with level, max 10/day)
+- **Limit:** max 10 billboards per user per Sydney calendar day; no per-user concurrent billboard cap
 - Always display a **username pill** above them
 - Take up ~60% of viewport height when expanded
 - Passed through OpenAI Moderation API before publishing
@@ -101,8 +101,9 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 
 ### 5.4 Expiry
 
-- 24-hour period means a **calendar day** (midnight → 11:59pm), not a rolling window
+- 24-hour period means a **Sydney calendar day** (midnight → 11:59pm Australia/Sydney), not a rolling window
 - If a billboard receives **no placements by end of day**, it soft-deletes at midnight
+- All billboards have a hard maximum lifetime of **5 days**, after which they soft-delete regardless of placements
 - The entire billboard (all placements) soft-deletes together
 - Saved stickers/sticky notes persist in the user's collection regardless
 
@@ -128,7 +129,8 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 
 ### 6.2 Daily quests & streaks
 
-- Daily quests rotate each day, separate from the main quest tree (pool of ~5 curated daily quests)
+- Daily quests rotate each Sydney calendar day, separate from the main quest tree
+- Daily quest templates and the curated daily quest pool are seeded data; a scheduled job randomly chooses the active daily quest from that pool
 - Completing the daily quest maintains the streak
 - Streaks grant bonus rewards (cosmetics, XP multipliers)
 - Push notification each day to remind users
@@ -137,16 +139,16 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 
 | Level    | Perk                                                     |
 | -------- | -------------------------------------------------------- |
-| 1 (base) | 3 concurrent notes, 10 sticker slots                     |
-| 2        | +1 concurrent note (4 total)                             |
+| 1 (base) | 10 billboards/day, 10 sticker slots                      |
+| 2        | No new perk                                              |
 | 3        | +2 sticker slots (12 total)                              |
 | 4        | Cosmetic: signature on notes/stickers                    |
-| 5        | +1 concurrent note (5 total)                             |
+| 5        | No new perk                                              |
 | 6        | Note border flair                                        |
 | 7        | +2 sticker slots (14 total)                              |
-| 8        | +1 concurrent note (6 total)                             |
+| 8        | No new perk                                              |
 | 9        | Unique sticker colour palette expansion                  |
-| 10       | Maxed: 10 concurrent notes, 20 sticker slots, all flairs |
+| 10       | Maxed: 20 sticker slots, all flairs                      |
 
 ---
 
@@ -154,6 +156,7 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 
 - Public usernames displayed on notes/stickers (incentivises good behaviour)
 - Auth via Clerk with social login (Google, Apple)
+- Product data uses internal UUIDv7 user IDs; Clerk user IDs are stored only as unique auth-provider identifiers for account lookup
 - No anonymous posting
 - On sign-up, users draw a 64×64 pixel art avatar that represents them on the map
 
@@ -178,7 +181,7 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 
 - View reported content with context
 - Take action: hide, remove, warn user, ban user
-- Soft-delete model: hidden content is retained in DB
+- Soft-delete model: `hidden_at` tracks moderation visibility actions, while `deleted_at` tracks lifecycle/owner/expiry removal from active product surfaces
 - Create/edit POIs: name, description, lat/lng (or map click), optional picture upload (128×128 compressed base64)
 
 ### 9.3 Analytics dashboard
@@ -217,11 +220,12 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 
 | Question                         | Decision                               |
 | -------------------------------- | -------------------------------------- |
+| Primary key format               | **UUIDv7** for internal primary keys; Clerk IDs are unique auth-provider identifiers, not primary keys |
 | POI geofence trigger radius      | **30m**                                |
 | Map provider                     | **react-native-leaflet-view** + OSM    |
 | Sticker storage format           | **base64 PNG**                         |
 | Quest system                     | **Parameterised templates** (visit N POIs, leave N notes, place N stickers, receive N replies, save N stickers) with per-level randomised values |
-| Daily quest variety              | **Fixed pool of ~5** curated daily quests that rotate |
+| Daily quest variety              | **Seeded pool of ~5** curated daily quests; one is randomly assigned per Sydney calendar day |
 | Push notification timing         | **Morning (8–9am)**                    |
 | POI picture format               | **Compressed 128×128 base64 PNG**     |
 | User avatar format               | **64×64 pixel art, drawn on sign-up, stored as base64 PNG** |

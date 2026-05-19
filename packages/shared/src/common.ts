@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const idSchema = z.string().min(1);
+export const idSchema = z
+  .string()
+  .uuid()
+  .refine(
+    (value) => value[14] === "7" && ["8", "9", "a", "b"].includes(value[19].toLowerCase()),
+    "Expected a UUIDv7 identifier.",
+  );
 export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const isoDateTimeSchema = z.string().datetime();
 export const latitudeSchema = z.number().min(-90).max(90);

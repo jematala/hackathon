@@ -51,7 +51,7 @@
 - [ ] **BE1** — Billboard API: `GET /api/billboards`, `GET /api/billboards/:id`, `POST /api/billboards` (create + moderation), `DELETE /api/billboards/:id`
 - [ ] **BE1** — Sticker/Placement API: `POST /api/billboards/:id/placements`, `GET /api/users/me/stickers`
 - [ ] **BE2** — OpenAI Moderation API integration (`apps/api/src/services/moderation.ts`)
-- [ ] **BE2** — Quest/levelling API: `GET /api/quests`, `POST /api/quests/:id/complete`, `GET /api/users/me/progress`, level-up logic
+- [ ] **BE2** — Quest/levelling API: `GET /api/quests`, `POST /api/quests/:id/claim`, `GET /api/users/me/progress`, level-up logic
 
 ---
 
@@ -87,7 +87,7 @@
 - [ ] **BE2** — Analytics query endpoints: DAU, popular POIs, note volume, abuse metrics
 - [ ] **FE1** — Admin panel screens: reported content list with context, action buttons, soft-delete indicators, POI creation form (name, description, lat/lng, picture upload)
 - [ ] **FE1** — Analytics dashboard (simple stats grid)
-- [ ] **FE2** — Polish: error states, loading skeletons, empty states, edge cases (24h expiry, 3-note limit, 1-placement/billboard limit)
+- [ ] **FE2** — Polish: error states, loading skeletons, empty states, edge cases (Sydney-day posting limit, 5-day billboard expiry, 1-placement/billboard limit)
 - [ ] **FE2** — Pull-to-refresh on map + billboard screen
 
 ---
@@ -116,14 +116,15 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 
 - **Sticker storage:** base64 PNG blob — FE produces B64 string, sends to BE for moderation (B64 moderation via OpenAI)
 - **Admin role:** `is_admin` boolean column on `app.users`
+- **Primary keys:** internal UUIDv7 values for all primary keys; Clerk user IDs are stored as unique external auth identifiers on `app.users.clerk_user_id`
 - **Map on mobile:** `react-native-leaflet-view` (pavel-corsaghin/react-native-leaflet)
 - **Drizzle migrations:** Drizzle Kit with `drizzle-kit push` for hackathon speed
-- **POI rotation:** scheduled Worker (cron trigger)
-- **24h expiry:** scheduled Worker (soft-delete expired billboards)
-- **Daily quests / POIs:** managed via admin panel — POST endpoints for creating daily quests, POIs, etc.
+- **Billboard expiry:** scheduled Worker (soft-delete empty billboards at Sydney midnight; soft-delete all billboards after 5 days)
+- **Daily quests:** seeded templates/pool; scheduled Worker randomly assigns one active daily quest per Sydney calendar day
+- **POI rotation:** seeded/admin-created POI table; scheduled Worker randomly activates the daily POI set
 - **POI geofence radius:** 30m
 - **Quest system:** parameterised templates (visit N POIs, leave N notes, place N stickers, receive N replies, save N stickers) with per-level randomised values and tier progression
-- **Daily quest pool:** 5 curated daily quests that rotate
+- **Daily quest pool:** 5 curated seeded daily quests; one randomly rotates in each Sydney calendar day
 - **Push notification timing:** 8–9am daily quest reminder
 - **POI picture:** compressed 128×128 base64 PNG (stored inline in DB)
-- **User avatar:** 64×64 pixel art drawn on sign-up, stored as base64 PNG in `users.avatar` column
+- **User avatar:** 64×64 pixel art drawn on sign-up, stored as base64 PNG in `users.avatar_base64` column

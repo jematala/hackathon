@@ -29,7 +29,6 @@ export const userProgressSchema = z.object({
   xp: z.number().int().min(0),
   dailyStreak: z.number().int().min(0),
   capacities: z.object({
-    maxConcurrentBillboards: z.number().int().positive(),
     dailyBillboardLimit: z.number().int().positive(),
     stickerSlots: z.number().int().positive(),
   }),

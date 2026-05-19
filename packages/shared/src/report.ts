@@ -4,6 +4,11 @@ import { idSchema, isoDateTimeSchema } from "./common";
 import { userProfileSchema } from "./user";
 
 export const reportTargetTypeSchema = z.enum(["billboard", "placement", "user"]);
+export const contentModerationTargetTypeSchema = z.enum([
+  "billboard",
+  "placement",
+  "sticker_asset",
+]);
 export const reportReasonSchema = z.enum([
   "spam",
   "harassment",
@@ -64,12 +69,24 @@ export const moderationActionSchema = z.object({
   createdAt: isoDateTimeSchema,
 });
 
+export const contentModerationLogSchema = z.object({
+  id: idSchema,
+  targetType: contentModerationTargetTypeSchema,
+  targetId: idSchema,
+  provider: z.string().min(1),
+  flagged: z.boolean(),
+  categories: z.record(z.string(), z.unknown()).nullable(),
+  scores: z.record(z.string(), z.unknown()).nullable(),
+  createdAt: isoDateTimeSchema,
+});
+
 export const adminReportActionResponseSchema = z.object({
   report: reportSchema,
   action: moderationActionSchema,
 });
 
 export type ReportTargetType = z.infer<typeof reportTargetTypeSchema>;
+export type ContentModerationTargetType = z.infer<typeof contentModerationTargetTypeSchema>;
 export type ReportReason = z.infer<typeof reportReasonSchema>;
 export type ReportStatus = z.infer<typeof reportStatusSchema>;
 export type ModerationActionType = z.infer<typeof moderationActionTypeSchema>;
@@ -80,4 +97,5 @@ export type ListAdminReportsInput = z.infer<typeof listAdminReportsInputSchema>;
 export type ListAdminReportsResponse = z.infer<typeof listAdminReportsResponseSchema>;
 export type AdminReportActionInput = z.infer<typeof adminReportActionInputSchema>;
 export type ModerationAction = z.infer<typeof moderationActionSchema>;
+export type ContentModerationLog = z.infer<typeof contentModerationLogSchema>;
 export type AdminReportActionResponse = z.infer<typeof adminReportActionResponseSchema>;
