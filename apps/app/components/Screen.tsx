@@ -12,7 +12,7 @@ export function Screen({ children }: PropsWithChildren) {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#FEEED5",
     flex: 1,
   },
   content: {

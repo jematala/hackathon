@@ -7,8 +7,8 @@ export function Card({ children }: PropsWithChildren) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#e5e7eb",
+    backgroundColor: "#FFF5E6",
+    borderColor: "#B17833",
     borderRadius: 8,
     borderWidth: 1,
     gap: 12,

@@ -23,7 +23,7 @@ export function Button({ label, style, ...props }: ButtonProps) {
 const styles = StyleSheet.create({
   button: {
     alignItems: "center",
-    backgroundColor: "#111827",
+    backgroundColor: "#5b7559",
     borderRadius: 8,
     minHeight: 44,
     justifyContent: "center",
@@ -33,8 +33,8 @@ const styles = StyleSheet.create({
     opacity: 0.82,
   },
   label: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "700",
+    color: "#FEEED5",
+    fontFamily: "Jersey10",
+    fontSize: 18,
   },
 });
