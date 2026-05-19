@@ -54,7 +54,7 @@ The temp database schema is intentionally resettable while the product schema is
 
 ```sh
 set -a
-source /home/risu/.ghr/github.com/jematala/hackathon/.env
+source .env
 set +a
 bun --cwd packages/db run reset:local
 ```
