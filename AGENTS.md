@@ -1,5 +1,7 @@
 # Agents
 
+> Agents must refer to [`CONTRIBUTING.md`](./CONTRIBUTING.md) for commit practices, conventions, and getting-started instructions.
+
 ## Commands
 
 ```sh
