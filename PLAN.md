@@ -28,10 +28,10 @@
 
 ## Phase 1a — Foundation: Backend
 
-- [ ] **BE2** — Set up Clerk JWKS verification middleware in `apps/api/src/middleware/auth.ts`
-- [ ] **BE2** — Set up Drizzle driver + Supabase connection in `apps/api/src/db.ts`
-- [ ] **BE2** — User profile API: avatar upload (base64 PNG) + `PATCH /api/users/me/avatar`
-- [ ] **BE2** — Restructure `apps/api/src/index.ts` — split into route modules (`/pois`, `/billboards`, `/stickers`, `/quests`, `/users`, `/admin`)
+- [x] **BE2** — Set up Clerk JWKS verification middleware in `apps/api/src/middleware/auth.ts`
+- [x] **BE2** — Set up Drizzle driver + Supabase connection in `apps/api/src/db.ts`
+- [x] **BE2** — User profile API: avatar upload (base64 PNG) + `PATCH /api/users/me/avatar`
+- [x] **BE2** — Restructure `apps/api/src/index.ts` — split into route modules (`/pois`, `/billboards`, `/stickers`, `/quests`, `/users`, `/admin`)
 
 ---
 
@@ -49,11 +49,11 @@
 
 ## Phase 1b — Core API & DB Wiring
 
-- [ ] **BE1** — POI API: `GET /api/pois` (list active), `GET /api/pois/:id`, `POST /api/pois` (admin — includes optional picture field), `POST /api/pois/:id/visit`
-- [ ] **BE1** — Billboard API: `GET /api/billboards`, `GET /api/billboards/:id`, `POST /api/billboards` (create + moderation), `DELETE /api/billboards/:id`
-- [ ] **BE1** — Sticker/Placement API: `POST /api/billboards/:id/placements`, `GET /api/users/me/stickers`
-- [ ] **BE2** — OpenAI Moderation API integration (`apps/api/src/services/moderation.ts`)
-- [ ] **BE2** — Quest/levelling API: `GET /api/quests`, `POST /api/quests/:id/claim`, `GET /api/users/me/progress`, level-up logic
+- [x] **BE1** — POI API: `GET /api/pois` (list active), `GET /api/pois/:id`, `POST /api/pois` (admin — includes optional picture field), `POST /api/pois/:id/visit`
+- [x] **BE1** — Billboard API: `GET /api/billboards`, `GET /api/billboards/:id`, `POST /api/billboards` (create + moderation), `DELETE /api/billboards/:id`
+- [x] **BE1** — Sticker/Placement API: `POST /api/billboards/:id/placements`, `GET /api/users/me/stickers`
+- [x] **BE2** — OpenAI Moderation API integration (`apps/api/src/services/moderation.ts`)
+- [x] **BE2** — Quest/levelling API: `GET /api/quests`, `POST /api/quests/:id/claim`, `GET /api/users/me/progress`, level-up logic
 
 ---
 
@@ -71,10 +71,10 @@
 
 ## Phase 3 — Progression, Profile & Real-time
 
-- [ ] **BE1** — Daily quest rotation logic + streak tracking
-- [ ] **BE1** — User profile API: `GET /api/users/:id`, `PATCH /api/users/me`
-- [ ] **BE2** — Durable Object: WebSocket handler, Postgres connection, broadcast on mutations
-- [ ] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
+- [x] **BE1** — Daily quest rotation logic + streak tracking
+- [x] **BE1** — User profile API: `GET /api/users/:id`, `PATCH /api/users/me`
+- [x] **BE2** — Durable Object: WebSocket handler, Postgres connection, broadcast on mutations
+- [x] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
 - [ ] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars
 - [ ] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited)
 - [ ] **FE1** — Level-up celebration animation/overlay
@@ -85,7 +85,7 @@
 
 ## Phase 4 — Admin, Reporting & Polish
 
-- [ ] **BE2** — Reporting API: `POST /api/reports`, `GET /api/admin/reports`, `POST /api/admin/reports/:id/action`
+- [x] **BE2** — Reporting API: `POST /api/reports`, `GET /api/admin/reports`, `POST /api/admin/reports/:id/action`
 - [ ] **BE2** — Analytics query endpoints: DAU, popular POIs, note volume, abuse metrics
 - [ ] **FE1** — Admin panel screens: reported content list with context, action buttons, soft-delete indicators, POI creation form (name, description, lat/lng, picture upload)
 - [ ] **FE1** — Analytics dashboard (simple stats grid)

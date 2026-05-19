@@ -3,10 +3,28 @@
   "name": "jematala-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-18",
+  "compatibility_flags": ["nodejs_compat"],
   "routes": [
     {
       "pattern": "jematala.takuk.me/api/*",
       "zone_name": "takuk.me",
     },
   ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CAMPUS_REALTIME_ROOM",
+        "class_name": "CampusRealtimeRoomDO",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["CampusRealtimeRoomDO"],
+    },
+  ],
+  "triggers": {
+    "crons": ["0 21 * * *", "*/30 * * * *"],
+  },
 }
