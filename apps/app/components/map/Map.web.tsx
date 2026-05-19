@@ -2,7 +2,11 @@ import { Asset } from 'expo-asset';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { UNSW_CENTER, DEMO_POIS } from '@/constants/coordinates';
-import { createPOIIcon, createUserAvatarIcon } from './markers';
+import {
+  createPOIMarker,
+  createUserAvatarMarker,
+  toLeafletIcon,
+} from './markers';
 
 const TILE_URL =
   'https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=0f64302472524b558aa92ebe1c088f04';
@@ -11,7 +15,7 @@ const TILE_ATTR =
 
 type MapHandle = { invalidateSize: () => void };
 
-export const Map = forwardRef<MapHandle>(function Map(_props, ref) {
+export default forwardRef<MapHandle>(function MapWeb(_props, ref) {
   const containerRef = useRef<View | null>(null);
   const mapRef = useRef<{
     invalidateSize: () => void;
@@ -50,7 +54,7 @@ export const Map = forwardRef<MapHandle>(function Map(_props, ref) {
 
       for (const poi of DEMO_POIS) {
         L.marker([poi.lat, poi.lng], {
-          icon: createPOIIcon(poi.title),
+          icon: toLeafletIcon(createPOIMarker(poi.title)),
         })
           .addTo(map)
           .bindPopup(`<strong>${poi.title}</strong><br/>${poi.description}`);
@@ -60,7 +64,7 @@ export const Map = forwardRef<MapHandle>(function Map(_props, ref) {
         require('@/assets/images/avatar.png'),
       ).uri;
       L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
-        icon: createUserAvatarIcon(avatarUrl),
+        icon: toLeafletIcon(createUserAvatarMarker(avatarUrl)),
       }).addTo(map);
 
       mapRef.current = map;

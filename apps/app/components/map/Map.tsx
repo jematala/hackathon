@@ -1,17 +1,12 @@
+import { forwardRef } from 'react';
 import { Platform } from 'react-native';
-import { Map as MapNative } from './Map.native';
-import { Map as MapWeb } from './Map.web';
+import MapNative from './Map.native';
+import MapWeb from './Map.web';
 
-interface MapProps {
-  mapRef: React.RefObject<{
-    invalidateSize: () => void;
-  } | null>;
-}
-
-export default function Map({ mapRef }: MapProps) {
+export default forwardRef<{ invalidateSize: () => void }>(function Map(_props, ref) {
   if (Platform.OS !== 'web') {
     return <MapNative />;
   } else {
-    return <MapWeb ref={mapRef} />;
+    return <MapWeb ref={ref} />;
   }
-}
+})
