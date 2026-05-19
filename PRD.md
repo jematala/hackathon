@@ -75,7 +75,7 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 ### 5.1 Billboards (text notes)
 
 - Placed by users at their current real-world location
-- **Limit:** max 10 billboards per user per Sydney calendar day; no per-user concurrent billboard cap
+- **Limit:** 1 billboard per user per Sydney calendar day for the MVP; no per-user concurrent billboard cap. The schema can support future daily cap increases up to 10/day if progression needs it.
 - Always display a **username pill** above them
 - Take up ~60% of viewport height when expanded
 - Passed through OpenAI Moderation API before publishing
@@ -139,7 +139,7 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 
 | Level    | Perk                                                     |
 | -------- | -------------------------------------------------------- |
-| 1 (base) | 10 billboards/day, 10 sticker slots                      |
+| 1 (base) | 1 billboard/day, 10 sticker slots                        |
 | 2        | No new perk                                              |
 | 3        | +2 sticker slots (12 total)                              |
 | 4        | Cosmetic: signature on notes/stickers                    |

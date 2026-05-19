@@ -406,7 +406,7 @@ limit 1;
 
 insert into app.perk_definitions (id, key, name, description)
 values
-  ('00000000-0000-4000-8000-000000000801', 'daily_billboard_limit', 'Daily billboard limit', 'Maximum billboards a user can post per calendar day.'),
+  ('00000000-0000-4000-8000-000000000801', 'daily_billboard_limit', 'Daily billboard limit', 'Billboards a user can post per calendar day.'),
   ('00000000-0000-4000-8000-000000000802', 'sticker_slots', 'Sticker slots', 'Saved sticker and sticky note collection capacity.'),
   ('00000000-0000-4000-8000-000000000803', 'note_signature', 'Note signature', 'Cosmetic signature on notes and stickers.'),
   ('00000000-0000-4000-8000-000000000804', 'note_border_flair', 'Note border flair', 'Cosmetic border treatment for notes.'),
@@ -414,7 +414,7 @@ values
 
 insert into app.level_perks (id, level, perk_id, numeric_value, metadata)
 values
-  ('00000000-0000-4000-8000-000000000901', 1, '00000000-0000-4000-8000-000000000801', 10, null),
+  ('00000000-0000-4000-8000-000000000901', 1, '00000000-0000-4000-8000-000000000801', 1, null),
   ('00000000-0000-4000-8000-000000000902', 1, '00000000-0000-4000-8000-000000000802', 10, null),
   ('00000000-0000-4000-8000-000000000903', 3, '00000000-0000-4000-8000-000000000802', 12, null),
   ('00000000-0000-4000-8000-000000000904', 4, '00000000-0000-4000-8000-000000000803', null, '{"enabled":true}'::jsonb),

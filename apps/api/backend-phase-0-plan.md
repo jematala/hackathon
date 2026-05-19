@@ -22,7 +22,7 @@
 - Quest system: parameterised templates such as `visit_pois`, `leave_billboards`, `place_stickers`, `receive_replies`, and `save_stickers`, with generated per-level values.
 - Daily quests: fixed curated seeded pool of about 5 templates; a scheduled job randomly assigns one per Sydney calendar day.
 - POIs: seeded/admin-created table; a scheduled job randomly activates the daily POI set from that table.
-- Billboard limits: no per-user concurrent billboard cap; enforce only the per-user Sydney calendar-day posting limit.
+- Billboard limits: no per-user concurrent billboard cap; enforce the MVP limit of 1 billboard per user per Sydney calendar day. Keep the capacity modeled so future progression can raise the cap up to 10/day.
 - Billboard expiry: empty billboards soft-delete at Sydney midnight, and every billboard soft-deletes after a hard maximum lifetime of 5 days.
 - Quests are explicitly claimed: progress can become complete/claimable, and rewards are applied by a claim route.
 
@@ -106,7 +106,7 @@ Campus and POIs:
 
 Billboards and placements:
 
-- `app.billboards`: campus id, author id, text body, location point, status, moderation fields, expires/deleted timestamps. Track enough timestamps to enforce the PRD max of 10 billboards per Sydney calendar day and the 5-day maximum lifetime.
+- `app.billboards`: campus id, author id, text body, location point, status, moderation fields, expires/deleted timestamps. Track enough timestamps to enforce the MVP limit of 1 billboard per Sydney calendar day and the 5-day maximum lifetime.
 - `app.billboard_placements`: billboard id, author id, kind `sticker | sticky_note`, x/y, z index, sticker asset ref or text body, status, moderation fields. Unique `(billboard_id, author_id)`.
 
 Stickers and collection:
@@ -123,7 +123,7 @@ Quests and perks:
 - `app.daily_quest_assignments`: date/campus selected daily quest(s), so every user sees the same daily rotation.
 - `app.user_quest_progress`: user id, quest source/type, quest instance id, progress count, completed_at, claimable_at, claimed_at, claimed XP.
 - `app.perk_definitions`: catalog of perks such as note capacity increase, sticker slot increase, note signature, note border flair, palette expansion.
-- `app.level_perks`: maps each level to one or more perk definitions plus any numeric value, e.g. `daily_billboard_limit = 10`.
+- `app.level_perks`: maps each level to one or more perk definitions plus any numeric value, e.g. `daily_billboard_limit = 1`.
 - `app.user_perk_unlocks`: records perks unlocked when a user reaches a level, useful for profile display, analytics, and future manual grants.
 - `app.streak_reward_definitions`: optional catalog for daily streak bonus rewards such as cosmetics or XP multipliers. This can stay lightly modeled in Phase 0 but keeps the PRD streak reward path open.
 
@@ -179,7 +179,7 @@ Model expiry and caps from the PRD explicitly:
 
 - Billboard day-based expiry uses the Australia/Sydney calendar. At the scheduled Sydney midnight job, only billboards with no placements are soft-deleted.
 - All billboards also have a hard 5-day maximum lifetime and are soft-deleted with their placements after that point.
-- Note limits include the PRD's max of 10 billboards per Sydney calendar day, with no per-user concurrent billboard cap.
+- Note limits include the PRD's MVP limit of 1 billboard per Sydney calendar day, with no per-user concurrent billboard cap. The modeled capacity can support future progression up to 10/day.
 - Keep `hidden_at` separate from `deleted_at`: `hidden_at` is a moderation visibility action, while `deleted_at` is lifecycle, owner, or expiry removal from active product surfaces.
 
 ## Later Phase Notes
