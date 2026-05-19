@@ -268,8 +268,16 @@ billboardsRoute.post(
       incrementQuestProgress(db, authUser.id, "leave_billboards"),
     ]);
 
+    if (replacedBillboardId) {
+      await broadcastRealtime(c.env, {
+        billboardId: replacedBillboardId,
+        campusId: input.campusId,
+        kind: "billboard_deleted",
+      });
+    }
+
     await broadcastRealtime(c.env, {
-      billboardId,
+      billboard: billboardSummary(billboard),
       campusId: input.campusId,
       kind: "billboard_created",
     });
@@ -421,7 +429,7 @@ billboardsRoute.post(
       billboardId: id.data,
       campusId: billboard.campusId,
       kind: "placement_created",
-      placementId,
+      placement: placementResponse(placement),
     });
 
     return c.json(

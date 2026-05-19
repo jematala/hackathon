@@ -1,22 +1,23 @@
+import type { BillboardPlacement, BillboardSummary } from "@repo/shared";
+
 import type { Env } from "../types";
 
 export type RealtimeEvent =
   | {
+      billboard: BillboardSummary;
       campusId: string;
-      kind: "billboard_created" | "billboard_deleted";
+      kind: "billboard_created";
+    }
+  | {
       billboardId: string;
+      campusId: string;
+      kind: "billboard_deleted";
     }
   | {
       billboardId: string;
       campusId: string;
       kind: "placement_created";
-      placementId: string;
-    }
-  | {
-      campusId: string;
-      kind: "poi_visited";
-      poiId: string;
-      userId: string;
+      placement: BillboardPlacement;
     };
 
 export function realtimeStub(env: Env, campusId: string) {
