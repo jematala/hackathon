@@ -2,8 +2,6 @@
   "name": "@repo/api",
   "type": "module",
   "scripts": {
-    "sync-env": "bun run scripts/sync-env.ts",
-    "predev": "bun run sync-env",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "build": "wrangler deploy --dry-run",

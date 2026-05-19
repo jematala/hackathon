@@ -26,9 +26,7 @@ function makeXpRingUri(progress: number): string {
 function ProfileButton() {
   const { avatarUri } = useUserProfile();
   const useDrawn = Boolean(avatarUri);
-  const source = avatarUri
-    ? { uri: avatarUri }
-    : require("@/assets/images/avatar.png");
+  const source = avatarUri ? { uri: avatarUri } : require("@/assets/images/avatar.png");
   return (
     <View style={styles.leftSection}>
       <Text style={styles.levelLabel}>lv22</Text>

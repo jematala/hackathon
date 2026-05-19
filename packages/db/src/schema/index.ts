@@ -544,6 +544,40 @@ export const streakRewardDefinitions = appSchema.table(
   ],
 );
 
+export const signatures = appSchema.table(
+  "signatures",
+  {
+    id: uuidPrimaryKey(),
+    key: text("key").notNull().unique(),
+    name: text("name").notNull(),
+    assetBase64: text("asset_base64").notNull(),
+    streakDayRequired: integer("streak_day_required").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt,
+  },
+  (table) => [check("signatures_streak_day_check", sql`${table.streakDayRequired} > 0`)],
+);
+
+export const userSignatures = appSchema.table(
+  "user_signatures",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    signatureId: uuid("signature_id")
+      .notNull()
+      .references(() => signatures.id, { onDelete: "cascade" }),
+    unlockedAt: timestamp("unlocked_at", { withTimezone: true }).notNull().defaultNow(),
+    isEquipped: boolean("is_equipped").notNull().default(false),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.signatureId] }),
+    uniqueIndex("user_signatures_one_equipped_idx")
+      .on(table.userId)
+      .where(sql`${table.isEquipped}`),
+  ],
+);
+
 export const reports = appSchema.table(
   "reports",
   {

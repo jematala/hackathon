@@ -2,17 +2,21 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 
-import { requireRealtimeAuth } from "./middleware/auth";
+import { getDb } from "./db";
+import { requireAuth } from "./middleware/auth";
 import { billboardsRoute } from "./routes/billboards";
 import { moderation } from "./routes/moderation";
 import { poisRoute } from "./routes/pois";
 import { questsRoute } from "./routes/quests";
 import { reportsRoute } from "./routes/reports";
+import { signaturesRoute } from "./routes/signatures";
 import { stickersRoute } from "./routes/stickers";
 import { usersRoute } from "./routes/users";
 import { CampusRealtimeRoomDO } from "./realtime/campus-room";
 import { realtimeStub } from "./services/realtime";
-import type { AppBindings } from "./types";
+import { ensureDailyRotations, expireBillboards } from "./services/rotations";
+import { resetBrokenStreaks } from "./services/streaks";
+import type { AppBindings, Env } from "./types";
 
 export { CampusRealtimeRoomDO };
 
@@ -31,7 +35,7 @@ app.get("/api/health", (c) => {
   });
 });
 
-app.get("/api/realtime", requireRealtimeAuth, async (c) => {
+app.get("/api/realtime", requireAuth, async (c) => {
   const campusId = c.req.query("campusId") ?? "unsw";
   const stub = realtimeStub(c.env, campusId);
 
@@ -45,6 +49,7 @@ app.route("/api", billboardsRoute);
 app.route("/api", stickersRoute);
 app.route("/api", questsRoute);
 app.route("/api", reportsRoute);
+app.route("/api", signaturesRoute);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
@@ -60,4 +65,11 @@ app.onError((error, c) => {
 
 export default {
   fetch: app.fetch,
+  async scheduled(_event: ScheduledEvent, env: Env) {
+    const db = getDb(env);
+
+    await ensureDailyRotations(db);
+    await expireBillboards(db);
+    await resetBrokenStreaks(db);
+  },
 };

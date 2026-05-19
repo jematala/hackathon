@@ -108,29 +108,15 @@ export default function CreateAvatarScreen() {
           onPress={() => setMode("draw")}
           style={[styles.tab, mode === "draw" && styles.tabActive]}
         >
-          <Palette
-            color={mode === "draw" ? colors.white : colors.primaryDark}
-            size={16}
-          />
-          <Text
-            style={[styles.tabLabel, mode === "draw" && styles.tabLabelActive]}
-          >
-            draw
-          </Text>
+          <Palette color={mode === "draw" ? colors.white : colors.primaryDark} size={16} />
+          <Text style={[styles.tabLabel, mode === "draw" && styles.tabLabelActive]}>draw</Text>
         </Pressable>
         <Pressable
           onPress={() => setMode("upload")}
           style={[styles.tab, mode === "upload" && styles.tabActive]}
         >
-          <ImageUp
-            color={mode === "upload" ? colors.white : colors.primaryDark}
-            size={16}
-          />
-          <Text
-            style={[styles.tabLabel, mode === "upload" && styles.tabLabelActive]}
-          >
-            upload
-          </Text>
+          <ImageUp color={mode === "upload" ? colors.white : colors.primaryDark} size={16} />
+          <Text style={[styles.tabLabel, mode === "upload" && styles.tabLabelActive]}>upload</Text>
         </Pressable>
       </View>
 
@@ -158,9 +144,7 @@ export default function CreateAvatarScreen() {
             </Text>
           </Pressable>
 
-          <Text style={styles.uploadHint}>
-            stored as a base64 png on your profile. max 2MB.
-          </Text>
+          <Text style={styles.uploadHint}>stored as a base64 png on your profile. max 2MB.</Text>
 
           {uploadStatus ? (
             <Text

@@ -94,10 +94,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
     const useDrawn = Boolean(avatarUri);
     userMarkerRef.current = L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
-      icon: createUserAvatarIcon(
-        avatarUri ?? fallbackUrl,
-        useDrawn ? DRAWN_AVATAR_BG : undefined,
-      ),
+      icon: createUserAvatarIcon(avatarUri ?? fallbackUrl, useDrawn ? DRAWN_AVATAR_BG : undefined),
     }).addTo(map);
 
     mapRef.current = map;
@@ -116,10 +113,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
     const useDrawn = Boolean(avatarUri);
     userMarkerRef.current.setIcon(
-      createUserAvatarIcon(
-        avatarUri ?? fallbackUrl,
-        useDrawn ? DRAWN_AVATAR_BG : undefined,
-      ),
+      createUserAvatarIcon(avatarUri ?? fallbackUrl, useDrawn ? DRAWN_AVATAR_BG : undefined),
     );
   }, [avatarUri]);
 

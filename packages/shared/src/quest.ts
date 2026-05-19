@@ -61,12 +61,12 @@ export const questSchema = z.discriminatedUnion("source", [levelQuestSchema, dai
 
 export const streakRewardSchema = z.discriminatedUnion("type", [
   z.object({
-    type: z.literal("xp_multiplier"),
-    multiplier: z.number().gt(1).max(3),
+    type: z.literal("signature"),
+    signatureKey: z.string().min(1),
   }),
   z.object({
-    type: z.literal("cosmetic"),
-    cosmeticKey: z.string().min(1),
+    type: z.literal("capacity_billboard"),
+    amount: z.number().int().positive(),
   }),
 ]);
 

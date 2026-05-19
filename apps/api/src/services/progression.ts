@@ -34,38 +34,20 @@ export async function ensureQuestProgress(db: Database, userId: string) {
     from app.users
     join app.level_quest_sets on level_quest_sets.level = users.level
     where users.id = ${userId}
-    on conflict do nothing
+    on conflict (user_id, source, source_id) do nothing
   `);
 
   await db.execute(sql`
-    with campus_day as (
-      select
-        id as campus_id,
-        (timezone(timezone, now()))::date as active_on
-      from app.campuses
-      order by created_at
-      limit 1
-    ),
-    selected_daily as (
-      select
-        daily_quest_pool.id,
-        daily_quest_pool.target_count,
-        campus_day.active_on
-      from campus_day
-      cross join lateral (
-        select id, target_count
-        from app.daily_quest_pool
-        where active
-        order by md5(
-          id::text || ':' || campus_day.campus_id::text || ':' || campus_day.active_on::text
-        )
-        limit 1
-      ) daily_quest_pool
-    )
-    insert into app.user_quest_progress (user_id, source, source_id, active_on, target_count)
-    select ${userId}, 'daily_quest', id, active_on, target_count
-    from selected_daily
-    on conflict do nothing
+    insert into app.user_quest_progress (user_id, source, source_id, target_count)
+    select
+      ${userId},
+      'daily_quest',
+      daily_quest_assignments.id,
+      daily_quest_pool.target_count
+    from app.daily_quest_assignments
+    join app.daily_quest_pool on daily_quest_pool.id = daily_quest_assignments.daily_quest_pool_id
+    where daily_quest_assignments.active_on = (timezone('Australia/Sydney', now()))::date
+    on conflict (user_id, source, source_id) do nothing
   `);
 }
 
@@ -89,18 +71,16 @@ export async function incrementQuestProgress(
         and user_quest_progress.source_id = level_quest_sets.id
       left join app.quest_templates
         on level_quest_sets.template_id = quest_templates.id
-      left join app.daily_quest_pool
+      left join app.daily_quest_assignments
         on user_quest_progress.source = 'daily_quest'
-        and user_quest_progress.source_id = daily_quest_pool.id
+        and user_quest_progress.source_id = daily_quest_assignments.id
+      left join app.daily_quest_pool
+        on daily_quest_assignments.daily_quest_pool_id = daily_quest_pool.id
       left join app.daily_quest_templates
         on daily_quest_pool.template_id = daily_quest_templates.id
       where
         user_quest_progress.user_id = ${userId}
         and user_quest_progress.claimed_at is null
-        and (
-          user_quest_progress.source = 'level_quest'
-          or user_quest_progress.active_on = (timezone('Australia/Sydney', now()))::date
-        )
         and coalesce(quest_templates.trigger_type, daily_quest_templates.trigger_type) = ${triggerType}
     )
     update app.user_quest_progress
@@ -141,21 +121,53 @@ export async function getUserCapacities(db: Database, userId: string) {
       select level
       from app.users
       where id = ${userId}
+    ),
+    level_caps as (
+      select
+        perk_definitions.key,
+        max(level_perks.numeric_value) as cap
+      from app.level_perks
+      join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+      cross join user_level
+      where
+        level_perks.level >= 1
+        and level_perks.level <= user_level.level
+      group by perk_definitions.key
+    ),
+    streak_deltas as (
+      select
+        perk_definitions.key,
+        coalesce(sum(level_perks.numeric_value), 0) as delta
+      from app.level_perks
+      join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+      join app.user_perk_unlocks
+        on user_perk_unlocks.level_perk_id = level_perks.id
+        and user_perk_unlocks.user_id = ${userId}
+      where level_perks.level = 0
+      group by perk_definitions.key
     )
     select
-      max(level_perks.numeric_value) filter (
-        where perk_definitions.key = 'max_concurrent_billboards'
+      coalesce(
+        (select cap from level_caps where key = 'max_concurrent_billboards'),
+        0
+      ) + coalesce(
+        (select delta from streak_deltas where key = 'max_concurrent_billboards'),
+        0
       ) as "maxConcurrentBillboards",
-      max(level_perks.numeric_value) filter (
-        where perk_definitions.key = 'daily_billboard_limit'
+      coalesce(
+        (select cap from level_caps where key = 'daily_billboard_limit'),
+        0
+      ) + coalesce(
+        (select delta from streak_deltas where key = 'daily_billboard_limit'),
+        0
       ) as "dailyBillboardLimit",
-      max(level_perks.numeric_value) filter (
-        where perk_definitions.key = 'sticker_slots'
+      coalesce(
+        (select cap from level_caps where key = 'sticker_slots'),
+        0
+      ) + coalesce(
+        (select delta from streak_deltas where key = 'sticker_slots'),
+        0
       ) as "stickerSlots"
-    from app.level_perks
-    join app.perk_definitions on perk_definitions.id = level_perks.perk_id
-    cross join user_level
-    where level_perks.level <= user_level.level
   `);
 
   const capacities = rows[0];
@@ -231,4 +243,58 @@ export function applyQuestTemplate(template: string, targetCount: number) {
 
 export function rowDateTime(value: unknown) {
   return isoDateTime(value as Date | string);
+}
+
+type StreakRewardJson = {
+  rewards: Array<
+    { type: "signature"; signatureKey: string } | { type: "capacity_billboard"; amount: number }
+  >;
+};
+
+export async function applyStreakMilestoneUnlocks(
+  db: Database,
+  userId: string,
+  currentStreak: number,
+) {
+  const rewardRows = await db.execute<{ streakDays: number; reward: StreakRewardJson }>(sql`
+    select streak_days as "streakDays", reward
+    from app.streak_reward_definitions
+    where active and streak_days = ${currentStreak}
+  `);
+
+  for (const row of rewardRows) {
+    for (const reward of row.reward.rewards) {
+      if (reward.type === "signature") {
+        await db.execute(sql`
+          insert into app.user_signatures (user_id, signature_id, is_equipped)
+          select ${userId}, signatures.id, false
+          from app.signatures
+          where signatures.key = ${reward.signatureKey}
+          on conflict (user_id, signature_id) do nothing
+        `);
+      } else if (reward.type === "capacity_billboard") {
+        // Streak-derived capacity perks are stored at level=0 in app.level_perks
+        // with metadata.source='streak'. The unique (level, perk_id) means there's
+        // exactly one canonical streak-billboard row in the table; each user who
+        // crosses day-14 links to it via user_perk_unlocks.
+        await db.execute(sql`
+          insert into app.level_perks (level, perk_id, numeric_value, metadata)
+          select 0, id, ${reward.amount},
+            jsonb_build_object('source', 'streak', 'streakDay', ${row.streakDays})
+          from app.perk_definitions
+          where key = 'max_concurrent_billboards'
+          on conflict (level, perk_id) do nothing
+        `);
+        await db.execute(sql`
+          insert into app.user_perk_unlocks (user_id, level_perk_id, source_level)
+          select ${userId}, level_perks.id, 0
+          from app.level_perks
+          join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+          where level_perks.level = 0
+            and perk_definitions.key = 'max_concurrent_billboards'
+          on conflict (user_id, level_perk_id) do nothing
+        `);
+      }
+    }
+  }
 }

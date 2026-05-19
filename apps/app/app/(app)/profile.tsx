@@ -338,9 +338,7 @@ export default function ProfileScreen() {
         >
           <Pressable onPress={(e) => e.stopPropagation()} style={styles.modalCard}>
             <Text style={styles.modalTitle}>edit username</Text>
-            <Text style={styles.modalHint}>
-              this is shown on your billboards and stickers.
-            </Text>
+            <Text style={styles.modalHint}>this is shown on your billboards and stickers.</Text>
             <View style={styles.modalInputRow}>
               <Text style={styles.modalAt}>@</Text>
               <TextInput
