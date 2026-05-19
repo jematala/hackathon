@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { DottingRef } from "dotting";
+import { fonts } from "@/app/theme";
 import { PixelCanvas } from "@/components/PixelCanvas";
 
 const STICKER_SIZE = 64;
@@ -85,16 +86,19 @@ export function CreateStickerPanel({ onClose }: CreateStickerPanelProps) {
 
     const payload = prepareStickerUpload(ref.current);
     preparedStickerRef.current = payload;
-    setSubmitStatus(payload ? `Ready to send ${payload.filename}` : "Could not prepare sticker.");
+    setSubmitStatus(
+      payload
+        ? `Ready to send ${payload.filename}`
+        : "Could not prepare sticker.",
+    );
   }, []);
 
   return (
     <View style={styles.panel}>
       <View style={styles.header}>
         <View style={styles.heading}>
-          <Text style={styles.eyebrow}>Pixel art</Text>
           <Text style={styles.title}>Sticker Maker</Text>
-          <Text style={styles.subtitle}>Draw a 64x64 sticker for your profile</Text>
+          <Text style={styles.subtitle}>Draw a 64x64 sticker to post!</Text>
         </View>
 
         {onClose ? (
@@ -134,21 +138,33 @@ export function CreateStickerPanel({ onClose }: CreateStickerPanelProps) {
       </View>
 
       <View style={styles.actions}>
-        <Pressable style={styles.actionButton} onPress={() => ref.current?.clear()}>
+        <Pressable
+          style={styles.actionButton}
+          onPress={() => ref.current?.clear()}
+        >
           <Text style={styles.actionLabel}>Clear</Text>
         </Pressable>
         <Pressable
           style={[styles.actionButton, styles.actionButtonPrimary]}
           onPress={handleDownload}
         >
-          <Text style={[styles.actionLabel, styles.actionLabelPrimary]}>Download</Text>
+          <Text style={[styles.actionLabel, styles.actionLabelPrimary]}>
+            Download
+          </Text>
         </Pressable>
-        <Pressable style={[styles.actionButton, styles.actionButtonSubmit]} onPress={handleSubmit}>
-          <Text style={[styles.actionLabel, styles.actionLabelSubmit]}>Submit</Text>
+        <Pressable
+          style={[styles.actionButton, styles.actionButtonSubmit]}
+          onPress={handleSubmit}
+        >
+          <Text style={[styles.actionLabel, styles.actionLabelSubmit]}>
+            Submit
+          </Text>
         </Pressable>
       </View>
 
-      {submitStatus ? <Text style={styles.submitStatus}>{submitStatus}</Text> : null}
+      {submitStatus ? (
+        <Text style={styles.submitStatus}>{submitStatus}</Text>
+      ) : null}
     </View>
   );
 }
@@ -179,17 +195,20 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     color: "#2f6b42",
+    fontFamily: fonts.family,
     fontSize: 13,
     fontWeight: "700",
     textTransform: "uppercase",
   },
   title: {
     color: "#2d2418",
+    fontFamily: fonts.family,
     fontSize: 26,
     fontWeight: "800",
   },
   subtitle: {
     color: "#69563f",
+    fontFamily: fonts.family,
     fontSize: 15,
     lineHeight: 21,
   },
@@ -205,6 +224,7 @@ const styles = StyleSheet.create({
   },
   closeText: {
     color: "#2d2418",
+    fontFamily: fonts.family,
     fontSize: 20,
     fontWeight: "800",
     lineHeight: 22,
@@ -226,6 +246,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: "#3d3224",
+    fontFamily: fonts.family,
     fontSize: 13,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -285,6 +306,7 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     color: "#2d2418",
+    fontFamily: fonts.family,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -296,6 +318,7 @@ const styles = StyleSheet.create({
   },
   submitStatus: {
     color: "#3d3224",
+    fontFamily: fonts.family,
     fontSize: 13,
     fontWeight: "700",
     textAlign: "center",
