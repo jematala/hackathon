@@ -6,7 +6,7 @@ export default function QuestsScreen() {
   return (
     <Screen>
       <Text style={styles.title}>Quests</Text>
-      <Text style={styles.subtitle}>Quests coming soon</Text>
+      <Text style={styles.subtitle}>Coming soon...</Text>
     </Screen>
   );
 }
@@ -16,13 +16,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontFamily: fonts.family,
     fontSize: 34,
-    textAlign: "center",
     fontWeight: "700",
   },
   subtitle: {
     color: colors.textSecondary,
     fontFamily: fonts.family,
     fontSize: 18,
-    textAlign: "center",
   },
 });

@@ -60,7 +60,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)/sign-in" />
           <Stack.Screen name="(auth)/sign-up" />
-          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(app)" />
           <Stack.Screen name="avatar/create" />
           <Stack.Screen name="billboard/[id]" />
           <Stack.Screen name="events/index" />
