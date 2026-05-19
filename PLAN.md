@@ -60,12 +60,12 @@
 ## Phase 2 — Frontend Features
 
 - [x] **FE1** — Map: show POI markers with distinct glowing style
-- [ ] **FE1** — Map: show billboard markers with note icon style
+- [X] **FE1** — Map: show billboard markers with note icon style
 - [x] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
 - [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger
-- [ ] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
-- [ ] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
-- [ ] **FE2** — Sticky note composer: text input, preview as sticky note, post to billboard
+- [X] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
+- [X] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
+- [X] **FE2** — Sticky note composer: text input, preview as sticky note, post to billboard
 
 ---
 
@@ -76,7 +76,7 @@
 - [x] **BE2** — Durable Object: WebSocket handler, Postgres connection, broadcast on mutations
 - [ ] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
 - [ ] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars
-- [ ] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited)
+- [x] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited)
 - [ ] **FE1** — Level-up celebration animation/overlay
 - [ ] **FE2** — WebSocket connection in app: connect to DO, listen for updates, refresh displayed data
 - [ ] **FE2** — Saved stickers/sticky notes collection screen: browse, select, reuse
@@ -91,6 +91,7 @@
 - [ ] **FE1** — Analytics dashboard (simple stats grid)
 - [ ] **FE2** — Polish: error states, loading skeletons, empty states, edge cases (concurrent billboard replacement, Sydney-day posting limit, 24h inactive billboard expiry, 5-day billboard expiry, 1-placement/billboard limit)
 - [ ] **FE2** — Pull-to-refresh on map + billboard screen
+- [ ] **FE1** — Auth page polish: tighten Clerk footer gap between "Don't have an account? Sign up" and "Secured by Clerk" branding on `sign-in.web.tsx` / `sign-up.web.tsx` (CSS overrides in `lib/clerkAppearance.ts`; pending visual verification in browser)
 
 ---
 
