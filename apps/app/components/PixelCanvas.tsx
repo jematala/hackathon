@@ -8,7 +8,7 @@ function makeInitData() {
     Array.from({ length: GRID }, (_, columnIndex) => ({
       rowIndex,
       columnIndex,
-      color: "#ffffff",
+      color: "",
     })),
   );
 }
@@ -38,10 +38,14 @@ export const PixelCanvas = forwardRef<DottingRef, PixelCanvasProps>(function Pix
       maxRowCount={GRID}
       isGridVisible={false}
       initAutoScale={false}
-      defaultPixelColor="#ffffff"
-      backgroundColor="#ffffff"
+      defaultPixelColor="transparent"
+      backgroundColor="transparent"
       initLayers={initLayers}
-      style={{ border: "solid 1px black", padding: "none", margin: "none" }}
+      style={{
+        border: "none",
+        padding: "none",
+        margin: "none",
+      }}
     />
   );
 });
