@@ -1,9 +1,11 @@
-import { useFonts } from "expo-font";
+import { ClerkProvider } from "@clerk/expo";
+import { Jersey10_400Regular, useFonts } from "@expo-google-fonts/jersey-10";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 
@@ -32,30 +34,36 @@ const MAP_STYLES = `
   .user-avatar-marker { background: none; border: none; }
 `;
 
-function AuthGate({ children }: { children: React.ReactNode }) {
-  const segments = useSegments();
-  const router = useRouter();
-  const [signedIn] = useState(true);
-
-  useEffect(() => {
-    const inAuthGroup = segments[0] === ("auth" as string);
-    if (!signedIn && !inAuthGroup) {
-      router.replace("/auth" as any);
-    } else if (signedIn && inAuthGroup) {
-      router.replace("/map" as any);
-    }
-  }, [signedIn, segments, router]);
-
-  return children;
-}
-
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
-  const [fontsLoaded] = useFonts({
-    Jersey10: require("@/assets/fonts/Jersey10-Regular.ttf"),
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = LEAFLET_CSS;
+    document.head.appendChild(link);
+
+    const style = document.createElement("style");
+    style.textContent = MAP_STYLES;
+    document.head.appendChild(style);
+
+    return () => {
+      document.head.removeChild(link);
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  const [loaded, error] = useFonts({
+    Jersey10_400Regular,
   });
 
-  if (!fontsLoaded) {
+  if (error) {
+    throw error;
+  }
+
+  if (!loaded) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#5b7559" />
@@ -63,20 +71,35 @@ export default function RootLayout() {
     );
   }
 
+  const tokenCache = {
+    async getToken(key: string) {
+      return SecureStore.getItemAsync(key);
+    },
+    async saveToken(key: string, value: string) {
+      return SecureStore.setItemAsync(key, value);
+    },
+  };
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <link rel="stylesheet" href={LEAFLET_CSS} />
-      <style>{MAP_STYLES}</style>
-      <AuthGate>
+    <ClerkProvider
+      tokenCache={tokenCache}
+      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+    >
+      <QueryClientProvider client={queryClient}>
         <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)/sign-in" />
+          <Stack.Screen name="(auth)/sign-up" />
           <Stack.Screen name="(app)" />
-          <Stack.Screen name="auth" />
           <Stack.Screen name="avatar/create" />
           <Stack.Screen name="billboard/[id]" />
+          <Stack.Screen name="events/index" />
+          <Stack.Screen name="events/[id]" />
+          <Stack.Screen name="index" />
+          <Stack.Screen name="profile/[userId]" />
         </Stack>
-      </AuthGate>
-      <StatusBar style="dark" />
-    </QueryClientProvider>
+        <StatusBar style="dark" />
+      </QueryClientProvider>
+    </ClerkProvider>
   );
 }
 

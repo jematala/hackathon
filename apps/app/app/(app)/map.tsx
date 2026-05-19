@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { LayoutChangeEvent, StyleSheet, View } from "react-native";
 
+import Map from "@/components/map/Map";
 import { CanvasModal } from "@/components/CanvasModal";
-import { Map } from "@/components/map/Map";
 import { MapHUD } from "@/components/map/MapHUD";
 
 export default function MapScreen() {
