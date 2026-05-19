@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
+import { colors, fonts, pixelBorder } from "@/app/theme";
 
 type TextFieldProps = {
   label: string;
@@ -8,7 +9,11 @@ export function TextField({ label, style, ...props }: TextFieldProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput autoCapitalize="none" style={[styles.input, style]} {...props} />
+      <TextInput
+        autoCapitalize="none"
+        style={[styles.input, style]}
+        {...props}
+      />
     </View>
   );
 }
@@ -18,18 +23,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    color: "#374151",
-    fontSize: 14,
+    color: colors.text,
+    fontSize: fonts.sizes.sm,
     fontWeight: "700",
+    fontFamily: fonts.family,
   },
   input: {
-    backgroundColor: "#ffffff",
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    borderWidth: 1,
-    color: "#111827",
-    fontSize: 16,
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: 0,
+    borderWidth: 2,
+    color: colors.text,
+    fontSize: fonts.sizes.md,
     minHeight: 44,
     paddingHorizontal: 12,
+    fontFamily: fonts.family,
   },
 });

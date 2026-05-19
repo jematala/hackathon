@@ -1,13 +1,12 @@
-import { StyleSheet, View, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { colors, fonts, pixelBorder } from "@/app/theme";
 
-type PixelGridProps = {
+type StickerGridProps = {
   grid: string[];
   gridSize: number;
-  onCellPress: (index: number) => void;
 };
 
-export function PixelGrid({ grid, gridSize, onCellPress }: PixelGridProps) {
+export function StickerGrid({ grid, gridSize }: StickerGridProps) {
   const cellSize = Math.floor(256 / gridSize);
 
   const rows = [];
@@ -26,9 +25,7 @@ export function PixelGrid({ grid, gridSize, onCellPress }: PixelGridProps) {
               width: cellSize,
             },
           ]}
-        >
-          <View style={styles.hitArea} onTouchEnd={() => onCellPress(index)} />
-        </View>
+        />
       );
     }
     rows.push(
@@ -44,13 +41,11 @@ export function PixelGrid({ grid, gridSize, onCellPress }: PixelGridProps) {
 const styles = StyleSheet.create({
   grid: {
     flexDirection: "column",
+    ...pixelBorder,
+    overflow: "hidden",
   },
   row: {
     flexDirection: "row",
   },
   cell: {},
-  hitArea: {
-    height: "100%",
-    width: "100%",
-  },
 });

@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/expo";
 import { Redirect } from "expo-router";
-import { Text, View } from "react-native";
+import { ThemedText } from "@/components/ThemedText";
+import { View } from "react-native";
 
 export default function HomeScreen() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -8,7 +9,7 @@ export default function HomeScreen() {
   if (!isLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text>Loading...</Text>
+        <ThemedText type="default">Loading...</ThemedText>
       </View>
     );
   }

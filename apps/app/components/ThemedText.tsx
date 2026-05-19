@@ -1,10 +1,9 @@
 import type { PropsWithChildren } from "react";
 import { StyleSheet, Text, type TextProps } from "react-native";
-
-import { colors } from "@/app/theme";
+import { colors, fonts } from "@/app/theme";
 
 type ThemedTextProps = TextProps & {
-  type?: "title" | "link" | "default";
+  type?: "title" | "link" | "default" | "heading";
 };
 
 export function ThemedText({
@@ -19,6 +18,7 @@ export function ThemedText({
         styles.default,
         type === "title" && styles.title,
         type === "link" && styles.link,
+        type === "heading" && styles.heading,
         style,
       ]}
       {...props}
@@ -31,16 +31,25 @@ export function ThemedText({
 const styles = StyleSheet.create({
   default: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: fonts.sizes.md,
+    fontFamily: fonts.family,
   },
   title: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: fonts.sizes.title,
     fontWeight: "700",
+    fontFamily: fonts.family,
   },
   link: {
     color: colors.primary,
-    fontSize: 16,
+    fontSize: fonts.sizes.md,
     fontWeight: "600",
+    fontFamily: fonts.family,
+  },
+  heading: {
+    color: colors.text,
+    fontSize: fonts.sizes.heading,
+    fontWeight: "700",
+    fontFamily: fonts.family,
   },
 });

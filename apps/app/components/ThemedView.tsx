@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from "react";
 import { StyleSheet, View, type ViewProps } from "react-native";
-
 import { colors } from "@/app/theme";
 
 export function ThemedView({ style, children, ...props }: PropsWithChildren<ViewProps>) {

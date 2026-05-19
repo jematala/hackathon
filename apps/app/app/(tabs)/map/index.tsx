@@ -17,6 +17,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family,
     fontSize: 34,
     textAlign: "center",
+    fontWeight: "700",
   },
   subtitle: {
     color: colors.textSecondary,
