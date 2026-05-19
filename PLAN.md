@@ -20,6 +20,8 @@
 - [ ] **BE1** — Delete old `events`-related code from `packages/shared/src/events.ts`
 - [x] **All 4** — Agree on sticker storage format (base64 PNG), admin role mechanism (is_admin), map provider for mobile (react-native-leaflet-view), quest system (parameterised templates), daily quest pool (~5), push timing (8–9am)
 
+- [x] **All 4** — Document commit practice: update PLAN.md before each commit (`CONTRIBUTING.md`)
+
 > **Dependency edge:** Everything else depends on the shared schemas and DB schema.
 
 ---
