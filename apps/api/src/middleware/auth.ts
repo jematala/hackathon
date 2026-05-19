@@ -14,6 +14,10 @@ type ClerkClaims = Record<string, unknown> & {
   username?: string;
 };
 
+type AuthOptions = {
+  allowQueryToken?: boolean;
+};
+
 let cachedClerkClient: ClerkClient | undefined;
 let cachedPublishableKey: string | undefined;
 let cachedSecretKey: string | undefined;
@@ -24,6 +28,10 @@ function getToken(authorization: string | undefined, queryToken: string | undefi
   }
 
   return queryToken;
+}
+
+function hasAuthMaterial(request: Request, token: string | undefined) {
+  return Boolean(token || request.headers.get("cookie"));
 }
 
 function clerkClientForEnv(env: Env) {
@@ -121,42 +129,78 @@ async function upsertAuthUser(env: Env, payload: ClerkClaims): Promise<AuthUser>
   }
 
   const db = getDb(env);
-  const rows = await db.execute<AuthUser>(sql`
-    insert into app.users (clerk_user_id, username, display_name)
-    values (${payload.sub}, ${usernameFromClaims(payload)}, ${displayNameFromClaims(payload)})
-    on conflict (clerk_user_id) do update
-      set updated_at = now()
-    returning
-      id,
-      clerk_user_id as "clerkUserId",
-      username,
-      display_name as "displayName",
-      is_admin as "isAdmin"
-  `);
+  const rows = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(74291013)`);
+
+    return tx.execute<AuthUser>(sql`
+      insert into app.users (clerk_user_id, username, display_name, is_admin)
+      values (
+        ${payload.sub},
+        ${usernameFromClaims(payload)},
+        ${displayNameFromClaims(payload)},
+        not exists (select 1 from app.users where deleted_at is null)
+      )
+      on conflict (clerk_user_id) do update
+        set updated_at = now()
+      returning
+        id,
+        clerk_user_id as "clerkUserId",
+        username,
+        display_name as "displayName",
+        is_admin as "isAdmin"
+    `);
+  });
 
   const user = rows[0];
   if (!user) {
     throw new Error("Failed to resolve authenticated user.");
   }
 
+  await db.execute(sql`
+    insert into app.user_perk_unlocks (user_id, level_perk_id, source_level)
+    select ${user.id}, level_perks.id, level_perks.level
+    from app.level_perks
+    where level_perks.level <= (select level from app.users where id = ${user.id})
+    on conflict (user_id, level_perk_id) do nothing
+  `);
+
   return user;
 }
 
-export const requireAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
-  const token = getToken(c.req.header("authorization"), c.req.query("token"));
-  const payload = await resolveAuthClaims(c.env, c.req.raw, token);
+function authMiddleware(options: AuthOptions = {}): MiddlewareHandler<AppBindings> {
+  return async (c, next) => {
+    const token = getToken(
+      c.req.header("authorization"),
+      options.allowQueryToken ? c.req.query("token") : undefined,
+    );
 
-  if (!payload) {
-    unauthorized();
-  }
+    if (!hasAuthMaterial(c.req.raw, token)) {
+      unauthorized();
+    }
 
-  c.set("authUser", await upsertAuthUser(c.env, payload));
+    const payload = await resolveAuthClaims(c.env, c.req.raw, token);
 
-  await next();
-};
+    if (!payload) {
+      unauthorized();
+    }
+
+    c.set("authUser", await upsertAuthUser(c.env, payload));
+
+    await next();
+  };
+}
+
+export const requireAuth = authMiddleware();
+export const requireRealtimeAuth = authMiddleware({ allowQueryToken: true });
 
 export const optionalAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
-  const token = getToken(c.req.header("authorization"), c.req.query("token"));
+  const token = getToken(c.req.header("authorization"), undefined);
+
+  if (!hasAuthMaterial(c.req.raw, token)) {
+    await next();
+    return;
+  }
+
   const payload = await resolveAuthClaims(c.env, c.req.raw, token);
 
   if (payload) {
