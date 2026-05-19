@@ -12,11 +12,11 @@
 
 - Sticker storage: base64 PNG blob produced by FE and stored by BE.
 - POI picture storage: optional compressed 128x128 base64 PNG stored inline in the POI row.
-- User avatar storage: 64x64 pixel art base64 PNG stored on the user row.
+- User avatar storage: 64x64 pixel art base64 PNG stored in `app.users.avatar`.
 - Admin role: `is_admin boolean` on `app.users`.
-- Map provider: `react-native-leaflet-view`; backend still exposes lat/lng and campus bounds/provider config.
+- Map provider: `react-native-leaflet-view` with OSM tiles; backend still exposes lat/lng and campus bounds/provider config.
 - Drizzle migrations: Drizzle Kit with `drizzle-kit push` for hackathon speed.
-- POI rotation, 24h billboard expiry, daily quests, and POI/day setup are scheduled/admin-driven later-phase behavior, but Phase 0 needs schema support.
+- POI rotation, empty-billboard expiry, daily quests, and POI/day setup are scheduled/admin-driven later-phase behavior, but Phase 0 needs schema support.
 - Quest system: parameterised templates such as `visit_pois`, `leave_billboards`, `place_stickers`, `receive_replies`, and `save_stickers`, with generated per-level values.
 - Daily quests: fixed curated pool of about 5 templates that rotate.
 - Quests are explicitly claimed: progress can become complete/claimable, and rewards are applied by a claim route.
@@ -89,7 +89,7 @@ Use `app` schema and PostGIS. The SQL reset and Drizzle schema should define the
 
 Identity:
 
-- `app.users`: Clerk id primary key, username, display name, `avatar_base64`, `is_admin`, level, XP, streak fields, banned/deleted flags, timestamps.
+- `app.users`: Clerk id primary key, username, display name, `avatar`, `is_admin`, level, XP, streak fields, banned/deleted flags, timestamps.
 - `app.push_tokens`: optional Phase 0 table if quick; useful for Phase 3 push.
 
 Campus and POIs:
@@ -101,12 +101,12 @@ Campus and POIs:
 
 Billboards and placements:
 
-- `app.billboards`: campus id, author id, text body, location point, status, moderation fields, expires/deleted timestamps.
+- `app.billboards`: campus id, author id, text body, location point, status, moderation fields, expires/deleted timestamps. Track enough timestamps to enforce both the concurrent-note capacity and the PRD max of 10 billboards per calendar day.
 - `app.billboard_placements`: billboard id, author id, kind `sticker | sticky_note`, x/y, z index, sticker asset ref or text body, status, moderation fields. Unique `(billboard_id, author_id)`.
 
 Stickers and collection:
 
-- `app.sticker_assets`: owner id, base64 PNG data, width/height, palette metadata, moderation/status fields.
+- `app.sticker_assets`: owner id, base64 PNG data, width/height, palette metadata, moderation/status fields for OpenAI image moderation.
 - `app.saved_stickers`: user collection rows pointing to sticker assets or saved sticky-note text, with capacity enforced in API.
 
 Quests and perks:
@@ -119,6 +119,7 @@ Quests and perks:
 - `app.perk_definitions`: catalog of perks such as note capacity increase, sticker slot increase, note signature, note border flair, palette expansion.
 - `app.level_perks`: maps each level to one or more perk definitions plus any numeric value, e.g. `max_concurrent_billboards = 4`.
 - `app.user_perk_unlocks`: records perks unlocked when a user reaches a level, useful for profile display, analytics, and future manual grants.
+- `app.streak_reward_definitions`: optional catalog for daily streak bonus rewards such as cosmetics or XP multipliers. This can stay lightly modeled in Phase 0 but keeps the PRD streak reward path open.
 
 Safety/admin:
 
@@ -165,7 +166,13 @@ Model perks as data, not hardcoded conditionals:
 - `perk_definitions` names the capability, e.g. `max_concurrent_billboards`, `sticker_slots`, `note_signature`, `note_border_flair`, `palette_expansion`.
 - `level_perks` expresses the PRD table from levels 1-10.
 - `user_perk_unlocks` is written when level-up happens after quest claims. The app can render unlocked perks from this table and next perks from `level_perks`.
-- Derived capacities such as max concurrent notes and sticker slots should be returned in `userProgressSchema` so the frontend does not recalculate perk math.
+- Derived capacities such as max concurrent notes, daily note limit, and sticker slots should be returned in `userProgressSchema` so the frontend does not recalculate perk math.
+
+Model expiry and caps from the PRD explicitly:
+
+- Billboard expiry is calendar-day based. At the scheduled midnight job, only billboards with no placements are soft-deleted.
+- If an empty billboard expires, the billboard row is soft-deleted; if future rules delete non-empty billboards, placements should be hidden with the parent.
+- Note limits include both concurrent active billboards from level perks and the PRD's max of 10 billboards per calendar day.
 
 ## Later Phase Notes
 
