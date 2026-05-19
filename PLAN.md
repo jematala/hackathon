@@ -74,7 +74,7 @@
 - [x] **BE1** — Daily quest rotation logic + streak tracking
 - [x] **BE1** — User profile API: `GET /api/users/:id`, `PATCH /api/users/me`
 - [x] **BE2** — Durable Object: WebSocket handler, Postgres connection, broadcast on mutations
-- [x] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
+- [ ] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
 - [ ] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars
 - [ ] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited)
 - [ ] **FE1** — Level-up celebration animation/overlay
@@ -123,12 +123,12 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 - **Drizzle migrations:** Drizzle Kit with `drizzle-kit push` for hackathon speed
 - **Billboard limits:** concurrent active cap starts at 3 and scales with level; posting at the cap soft-deletes the user's oldest active billboard before publishing the new one
 - **Billboard daily limit:** separate Sydney calendar-day posting cap; seeded as concurrent + 1 and capped at 10/day
-- **Billboard expiry:** scheduled Worker (soft-delete billboards with no placements after 24 hours; soft-delete all billboards after 5 days)
-- **Daily quests:** seeded templates/pool; scheduled Worker randomly assigns one active daily quest per Sydney calendar day
-- **POI rotation:** seeded/admin-created POI table; scheduled Worker randomly activates the daily POI set
+- **Billboard expiry:** derived from `empty_expires_at`/`expires_at` in active queries (empty billboards disappear after 24 hours; all billboards disappear after 5 days)
+- **Daily quests:** seeded templates/pool; active quest is deterministically selected from the Sydney calendar day
+- **POI rotation:** seeded/admin-created POI table; active POI set is deterministically selected from the campus calendar day
 - **POI geofence radius:** 30m
 - **Quest system:** parameterised templates (visit N POIs, leave N notes, place N stickers, receive N replies, save N stickers) with per-level randomised values and tier progression
-- **Daily quest pool:** 5 curated seeded daily quests; one randomly rotates in each Sydney calendar day
-- **Push notification timing:** 8–9am daily quest reminder
+- **Daily quest pool:** 5 curated seeded daily quests; one rotates each Sydney calendar day
+- **Push notification timing:** 8–9am daily quest reminder when push is enabled
 - **POI picture:** compressed 128×128 base64 PNG (stored inline in DB)
 - **User avatar:** 64×64 pixel art drawn on sign-up, stored as base64 PNG in `users.avatar_base64` column
