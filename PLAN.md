@@ -35,11 +35,11 @@
 
 ## Phase 1a — Foundation: Frontend
 
-- [ ] **FE1** — Replace app navigation: drop `/events` screens, add `/map`, `/billboard/[id]`, `/profile`, `/quests`, `/studio` routes
+- [x] **FE1** — Drop `/events` screens, add `/map`, `/profile`, `/quests` routes (no `/billboard` or `/studio` yet)
 - [ ] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks
 - [ ] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
-- [ ] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
-- [ ] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
+- [x] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
+- [x] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
 - [ ] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
 - [ ] **FE2** — Build map overlay components: POI popup, billboard marker callout
 
@@ -57,9 +57,9 @@
 
 ## Phase 2 — Frontend Features
 
-- [ ] **FE1** — Map: show POI markers with distinct glowing style
+- [x] **FE1** — Map: show POI markers with distinct glowing style
 - [ ] **FE1** — Map: show billboard markers with note icon style
-- [ ] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
+- [x] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
 - [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger
 - [ ] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
 - [ ] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
@@ -138,7 +138,7 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 |----------|-------|
 | Provider | Thunderforest (Neighbourhood) |
 | URL | `https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=…` |
-| CSS filter | `sepia(0.6) saturate(0.5) brightness(1.05)` |
+| CSS filter | `sepia(0.3) saturate(0.8) brightness(0.8) contrast(150%)` |
 | Pixel filter | `image-rendering: pixelated` |
 | Center | UNSW Kensington (-33.917, 151.231) |
 | Default zoom | 18 |
@@ -157,7 +157,7 @@ components/map/
 
 ```
 app/
-├── _layout.tsx          ← Auth skeleton (sign-in gate)
+├── _layout.tsx          ← Auth skeleton (sign-in gate), font loading, Leaflet CSS + map styles
 ├── (app)/
 │   ├── _layout.tsx      ← Stack navigator
 │   ├── index.tsx        ← Redirect / → /map
@@ -170,11 +170,11 @@ app/
 
 ### Components
 
-**Map.tsx** — Creates Leaflet map in a `useEffect` ref. Adds Stamen Watercolor tile layer with CSS filter injection. Renders POI markers (glowing billboard divIcon) and user avatar marker (64×64 placeholder SVG). Handles resize and cleanup.
+**Map.tsx** — Creates Leaflet map in a `useEffect` ref. Adds Thunderforest Neighbourhood tiles with CSS filter injection (sepia + saturation + brightness + contrast). Renders POI markers (wooden billboard divIcon) and user avatar marker (profile image with circular border + downward pointer triangle for location). Handles resize and cleanup. Avatar URL resolved via `expo-asset` (`Asset.fromModule`).
 
-**markers.ts** — `createPOIIcon(title)` returns `L.divIcon` with small wooden billboard shape + golden glow box-shadow. `createUserAvatarIcon()` returns 64×64 pixel-art sprout SVG placeholder (replaced by drawn avatar later).
+**markers.ts** — `createPOIIcon(title)` returns `L.divIcon` with small wooden billboard SVG. `createUserAvatarIcon(imageUrl)` returns avatar circle (profile image, `#5b7559` border) with a CSS triangle pointer at the bottom.
 
-**MapHUD.tsx** — Floating bottom bar (~20px from bottom edge). Profile button (bottom-left), Quests + Studio buttons (bottom-right cluster). Webfishing-style: 56×56px, forest green `#4a7c59`, 3px darker border `#2d4a36`, rounded corners 12px, pixel shadow.
+**MapHUD.tsx** — Floating bottom bar (~20px from bottom, `absolute` positioning). Left section: profile picture (100×100) with elevation shadow, SVG data-URI XP progress ring (`#4A90D9`, 72%), and "lv22" level indicator (Jersey10, `#ffedd6`, 36px). Right section: "Quests" + "Studio" text buttons (forest green `#5b7559`, rounded 8px, Jersey10, `#ffedd6`).
 
 ### Demo Data
 
@@ -192,7 +192,6 @@ Hardcoded in `constants/coordinates.ts`:
 ### Maps Backlog (post-hackathon)
 
 - Swap renderer to `react-native-leaflet-view` for mobile
-- Replace placeholder avatar SVG with drawn 64×64 user avatar
 - Wire POI data to live API
 - POI discovery toast on geofence enter
 - Real-time updates via Durable Object WebSocket

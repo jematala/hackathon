@@ -29,35 +29,20 @@ function ProfileButton() {
         <Image source={{ uri: makeXpRingUri(0.72) }} style={styles.xpRing} />
         <Pressable
           onPress={() => router.push("/profile" as any)}
-          style={({ pressed }) => [
-            styles.profileButton,
-            { opacity: pressed ? 0.7 : 1 },
-          ]}
+          style={({ pressed }) => [styles.profileButton, { opacity: pressed ? 0.7 : 1 }]}
         >
-          <Image
-            source={require("@/assets/images/avatar.png")}
-            style={styles.profileImage}
-          />
+          <Image source={require("@/assets/images/avatar.png")} style={styles.profileImage} />
         </Pressable>
       </View>
     </View>
   );
 }
 
-function TextButton({
-  label,
-  onPress,
-}: {
-  label: string;
-  onPress: () => void;
-}) {
+function TextButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.textButton,
-        { opacity: pressed ? 0.7 : 1 },
-      ]}
+      style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.7 : 1 }]}
     >
       <Text style={styles.textLabel}>{label}</Text>
     </Pressable>
@@ -69,10 +54,7 @@ export function MapHUD() {
     <View style={styles.container}>
       <ProfileButton />
       <View style={styles.rightCluster}>
-        <TextButton
-          label="Quests"
-          onPress={() => router.push("/quests" as any)}
-        />
+        <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
         <View style={{ width: 10 }} />
         <TextButton label="Studio" onPress={() => {}} />
       </View>
