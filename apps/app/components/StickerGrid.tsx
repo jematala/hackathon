@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from "react-native";
-import { colors, fonts, pixelBorder } from "@/app/theme";
+import { StyleSheet, View } from "react-native";
+import { pixelBorder } from "@/app/theme";
 
 type StickerGridProps = {
   grid: string[];

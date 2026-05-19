@@ -1,5 +1,4 @@
-import { StyleSheet, View, Text } from "react-native";
-import { colors, fonts, pixelBorder } from "@/app/theme";
+import { StyleSheet, View } from "react-native";
 
 type PixelGridProps = {
   grid: string[];
