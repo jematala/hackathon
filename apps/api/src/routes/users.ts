@@ -3,6 +3,7 @@ import {
   getUserProgressResponseSchema,
   getUserResponseSchema,
   idSchema,
+  listUserPerksResponseSchema,
   updateAvatarInputSchema,
   updateCurrentUserInputSchema,
   updateCurrentUserResponseSchema,
@@ -53,12 +54,6 @@ type PerkRow = {
 };
 
 export const usersRoute = new Hono<AppBindings>();
-
-// Expo push registration is disabled until push credentials and UX are finalized.
-// const registerPushTokenInputSchema = z.object({
-//   platform: z.enum(["android", "expo", "ios", "web"]).default("expo"),
-//   token: z.string().min(1),
-// });
 
 usersRoute.get("/users/me", requireAuth, async (c) => {
   const user = await loadUser(c.env, getAuthUser(c).id);
@@ -135,26 +130,6 @@ usersRoute.patch(
   },
 );
 
-// usersRoute.post(
-//   "/users/me/push-tokens",
-//   requireAuth,
-//   zValidator("json", registerPushTokenInputSchema),
-//   async (c) => {
-//     const authUser = getAuthUser(c);
-//     const input = c.req.valid("json");
-//     const db = getDb(c.env);
-//
-//     await db.execute(sql`
-//       insert into app.push_tokens (user_id, token, platform)
-//       values (${authUser.id}, ${input.token}, ${input.platform})
-//       on conflict (token) do update
-//         set user_id = excluded.user_id, platform = excluded.platform, revoked_at = null
-//     `);
-//
-//     return c.json({ registered: true });
-//   },
-// );
-
 usersRoute.get("/users/me/progress", requireAuth, async (c) => {
   const authUser = getAuthUser(c);
   const db = getDb(c.env);
@@ -191,6 +166,18 @@ usersRoute.get("/users/me/progress", requireAuth, async (c) => {
             and hidden_at is null
             and status = 'active'
             and expires_at > now()
+            and (
+              empty_expires_at > now()
+              or exists (
+                select 1
+                from app.billboard_placements
+                where
+                  billboard_placements.billboard_id = billboards.id
+                  and billboard_placements.deleted_at is null
+                  and billboard_placements.hidden_at is null
+                  and billboard_placements.status = 'active'
+              )
+            )
         ) as "activeBillboards",
         (
           select count(*)::int
@@ -240,10 +227,12 @@ usersRoute.get("/users/me/perks", requireAuth, async (c) => {
     loadNextPerks(db, user.level),
   ]);
 
-  return c.json({
-    next: next.map(levelPerk),
-    unlocked: unlocked.map(unlockedPerk),
-  });
+  return c.json(
+    listUserPerksResponseSchema.parse({
+      next: next.map(levelPerk),
+      unlocked: unlocked.map(unlockedPerk),
+    }),
+  );
 });
 
 usersRoute.get("/users/:id", async (c) => {
@@ -430,20 +419,23 @@ export async function loadQuestRows(db: ReturnType<typeof getDb>, userId: string
       ) as description,
       level_quest_sets.level,
       level_quest_sets.sort_order as "sortOrder",
-      daily_quest_assignments.active_on as "activeOn"
+      user_quest_progress.active_on as "activeOn"
     from app.user_quest_progress
     left join app.level_quest_sets
       on user_quest_progress.source = 'level_quest'
       and user_quest_progress.source_id = level_quest_sets.id
     left join app.quest_templates on quest_templates.id = level_quest_sets.template_id
-    left join app.daily_quest_assignments
-      on user_quest_progress.source = 'daily_quest'
-      and user_quest_progress.source_id = daily_quest_assignments.id
     left join app.daily_quest_pool
-      on daily_quest_pool.id = daily_quest_assignments.daily_quest_pool_id
+      on user_quest_progress.source = 'daily_quest'
+      and user_quest_progress.source_id = daily_quest_pool.id
     left join app.daily_quest_templates
       on daily_quest_templates.id = daily_quest_pool.template_id
-    where user_quest_progress.user_id = ${userId}
+    where
+      user_quest_progress.user_id = ${userId}
+      and (
+        user_quest_progress.source = 'level_quest'
+        or user_quest_progress.active_on = (timezone('Australia/Sydney', now()))::date
+      )
     order by user_quest_progress.source, level_quest_sets.sort_order nulls last
   `);
 

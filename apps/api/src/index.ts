@@ -2,8 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 
-import { getDb } from "./db";
-import { requireAuth } from "./middleware/auth";
+import { requireRealtimeAuth } from "./middleware/auth";
 import { billboardsRoute } from "./routes/billboards";
 import { poisRoute } from "./routes/pois";
 import { questsRoute } from "./routes/quests";
@@ -12,8 +11,7 @@ import { stickersRoute } from "./routes/stickers";
 import { usersRoute } from "./routes/users";
 import { CampusRealtimeRoomDO } from "./realtime/campus-room";
 import { realtimeStub } from "./services/realtime";
-import { ensureDailyRotations, expireBillboards } from "./services/rotations";
-import type { AppBindings, Env } from "./types";
+import type { AppBindings } from "./types";
 
 export { CampusRealtimeRoomDO };
 
@@ -31,7 +29,7 @@ app.get("/api/health", (c) => {
   });
 });
 
-app.get("/api/realtime", requireAuth, async (c) => {
+app.get("/api/realtime", requireRealtimeAuth, async (c) => {
   const campusId = c.req.query("campusId") ?? "unsw";
   const stub = realtimeStub(c.env, campusId);
 
@@ -59,15 +57,4 @@ app.onError((error, c) => {
 
 export default {
   fetch: app.fetch,
-  async scheduled(_event: ScheduledEvent, env: Env) {
-    const db = getDb(env);
-
-    await ensureDailyRotations(db);
-    await expireBillboards(db);
-
-    // Expo push reminders are disabled until push credentials and UX are finalized.
-    // if (isSydneyReminderWindow()) {
-    //   await sendDailyQuestReminder(env, db);
-    // }
-  },
 };
