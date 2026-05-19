@@ -22,7 +22,7 @@ Mobile app where students discover geofenced Points of Interest (POIs) around UN
 | Database                    | PostgreSQL + PostGIS on Supabase (no RLS)                                 |
 | ORM                         | Drizzle                                                                   |
 | Auth                        | Clerk (social login only — Google, Apple)                                 |
-| Maps                        | Leaflet + OSM (provider TBD)                                              |
+| Maps                        | react-native-leaflet-view + OSM                                           |
 | Content moderation          | OpenAI Moderation API                                                     |
 | Real-time transport         | WebSockets via Durable Objects                                            |
 | Push notifications          | Expo Push Notifications                                                   |
@@ -53,8 +53,9 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 - 2D top-down map centered on UNSW Kensington campus
 - User sees: their own location dot, POI markers, and billboard notes
 - **No other users are visible** on the map — anonymity of presence
-- POI geofence radius: ~20–50m (TBD, tuned during playtesting)
-- Map provider decision deferred — Leaflet + OSM as starting assumption
+- POI geofence radius: 30m (tuned during playtesting if needed)
+- Map provider: react-native-leaflet-view with OSM tiles
+- User represented on map by a 64×64 pixel art avatar drawn at sign-up
 
 ---
 
@@ -65,6 +66,7 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 - **Rotation:** every 24 hours, some POIs disappear and new ones appear
 - **First visit** to a POI — on an individual user basis — advances quest progress, assuming the user has a relevant quest (daily or level-based). Visiting gives no direct XP.
 - Visited POIs are recorded to prevent repeat quest progress from the same POI
+- Optional picture: compressed 128×128 base64 PNG image (pixel-art icon or photo)
 
 ---
 
@@ -80,7 +82,7 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 
 ### 5.2 Stickers & Sticky Notes (placements on billboards)
 
-- **Stickers:** 64×64 pixel art canvas, fixed 8-colour palette, drawn in-app
+- **Stickers:** 64×64 pixel art canvas, fixed 8-colour palette, drawn in-app, stored as base64 PNG
 - **Sticky notes:** text replies (look like sticky notes)
 - **1 placement per user per billboard** (unlimited placements total across billboards)
 - There is no threading — you cannot reply to another user's sticker/sticky note, only place on the billboard itself
@@ -108,24 +110,25 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 
 ## 6. Progression
 
-### 6.1 Quests (milestone-based)
+### 6.1 Quests (parameterised, tier-based)
 
 A **quest** is a specific objective. Completing it awards XP. **Quests are the only way to earn XP** — visiting POIs, leaving notes, and receiving replies only matter for XP insofar as they complete quest objectives.
 
-Main quest examples:
+Quests are **parameterised templates** rather than fixed one-time objectives. Each quest type has a randomised numeric value per tier:
 
-- Visit your first POI
-- Leave your first billboard
-- Receive your first sticker reply
-- Save a sticker to your collection
-- Reply to 5 different billboards
-- Visit 3 POIs in one day
+| Quest type                | Description                          |
+| ------------------------- | ------------------------------------ |
+| Visit N new POIs          | Discover N previously unvisited POIs |
+| Leave N billboards        | Post N text notes                    |
+| Place N stickers          | Place N sticker replies              |
+| Receive N sticker replies | Get N stickers on your billboards    |
+| Save N stickers           | Save N stickers to your collection   |
 
-**Levelling:** complete all quests in a tier → level up. Higher tiers require more quests.
+**Levelling:** each level tier generates a new set of quests with randomised values appropriate to the tier. Higher tiers require more quests per level and use larger value ranges. Completing all quests in a tier awards a level-up.
 
 ### 6.2 Daily quests & streaks
 
-- Daily quests rotate each day, separate from the main quest tree
+- Daily quests rotate each day, separate from the main quest tree (pool of ~5 curated daily quests)
 - Completing the daily quest maintains the streak
 - Streaks grant bonus rewards (cosmetics, XP multipliers)
 - Push notification each day to remind users
@@ -152,13 +155,14 @@ Main quest examples:
 - Public usernames displayed on notes/stickers (incentivises good behaviour)
 - Auth via Clerk with social login (Google, Apple)
 - No anonymous posting
+- On sign-up, users draw a 64×64 pixel art avatar that represents them on the map
 
 ---
 
 ## 8. Real-time & Notifications
 
 - **WebSockets via Durable Objects** for live updates: new notes, new sticker placements, POI rotations appear instantly without a refresh
-- **Push notifications:** daily quest reminder, reply received, new POI nearby
+- **Push notifications:** daily quest reminder (8–9am), reply received, new POI nearby
 - The Durable Object handles all WebSocket connections, broadcasts changes to connected clients, and performs mutations needed for real-time features so results are immediately visible
 
 ---
@@ -175,6 +179,7 @@ Main quest examples:
 - View reported content with context
 - Take action: hide, remove, warn user, ban user
 - Soft-delete model: hidden content is retained in DB
+- Create/edit POIs: name, description, lat/lng (or map click), optional picture upload (128×128 compressed base64)
 
 ### 9.3 Analytics dashboard
 
@@ -199,7 +204,7 @@ Main quest examples:
 
 ### 10.2 Layout & Interaction
 
-- Map is the primary navigation surface
+- Map is the primary navigation surface; user's 64×64 avatar replaces a standard location dot
 - Billboard expanded view: ~60vh overlay on mobile
 - Username pills float above billboards (always visible) and stickers (visible on tap)
 - POI markers are visually distinct from billboard markers
@@ -208,11 +213,15 @@ Main quest examples:
 
 ---
 
-## 11. Open Questions / TBD
+## 11. Key Decisions
 
-- POI geofence trigger radius (20m, 30m, 50m?)
-- Map provider final decision (Leaflet vs. `react-native-maps` with OSM tiles)
-- Sticker storage format (base64 PNG, SVG path data, custom binary grid?)
-- Initial quest pool — list of ~20 quests to start
-- Daily quest variety — initial rotation pool
-- Push notification timing (morning? evening? configurable?)
+| Question                         | Decision                               |
+| -------------------------------- | -------------------------------------- |
+| POI geofence trigger radius      | **30m**                                |
+| Map provider                     | **react-native-leaflet-view** + OSM    |
+| Sticker storage format           | **base64 PNG**                         |
+| Quest system                     | **Parameterised templates** (visit N POIs, leave N notes, place N stickers, receive N replies, save N stickers) with per-level randomised values |
+| Daily quest variety              | **Fixed pool of ~5** curated daily quests that rotate |
+| Push notification timing         | **Morning (8–9am)**                    |
+| POI picture format               | **Compressed 128×128 base64 PNG**     |
+| User avatar format               | **64×64 pixel art, drawn on sign-up, stored as base64 PNG** |

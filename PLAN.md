@@ -14,11 +14,11 @@
 ## Phase 0 — Domain Alignment & Data Model (Everyone, together first)
 
 - [ ] **All 4** — Whiteboard the domain model: User, POI, Billboard, Placement (Sticker/StickyNote), Quest, DailyQuest, UserProgress, Report
-- [ ] **BE1** — Write `packages/db/supabase/reset.sql` with all real tables
-- [ ] **BE1** — Write Drizzle schema in `packages/db/src/schema/`
-- [ ] **BE1** — Write shared Zod schemas in `packages/shared/src/` (poi, billboard, sticker, quest, user, report)
+- [ ] **BE1** — Write `packages/db/supabase/reset.sql` with all real tables (POIs include picture column, users include avatar + is_admin columns)
+- [ ] **BE1** — Write Drizzle schema in `packages/db/src/schema/` (POI: picture field; User: avatar field)
+- [ ] **BE1** — Write shared Zod schemas in `packages/shared/src/` (poi includes optional picture, user includes avatar)
 - [ ] **BE1** — Delete old `events`-related code from `packages/shared/src/events.ts`
-- [ ] **All 4** — Agree on sticker storage format, admin role mechanism, map provider for mobile
+- [x] **All 4** — Agree on sticker storage format (base64 PNG), admin role mechanism (is_admin), map provider for mobile (react-native-leaflet-view), quest system (parameterised templates), daily quest pool (~5), push timing (8–9am)
 
 > **Dependency edge:** Everything else depends on the shared schemas and DB schema.
 
@@ -28,6 +28,7 @@
 
 - [ ] **BE2** — Set up Clerk JWKS verification middleware in `apps/api/src/middleware/auth.ts`
 - [ ] **BE2** — Set up Drizzle driver + Supabase connection in `apps/api/src/db.ts`
+- [ ] **BE2** — User profile API: avatar upload (base64 PNG) + `PATCH /api/users/me/avatar`
 - [ ] **BE2** — Restructure `apps/api/src/index.ts` — split into route modules (`/pois`, `/billboards`, `/stickers`, `/quests`, `/users`, `/admin`)
 
 ---
@@ -36,6 +37,7 @@
 
 - [ ] **FE1** — Replace app navigation: drop `/events` screens, add `/map`, `/billboard/[id]`, `/profile`, `/quests`, `/studio` routes
 - [ ] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks
+- [ ] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
 - [ ] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
 - [ ] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
 - [ ] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
@@ -45,7 +47,7 @@
 
 ## Phase 1b — Core API & DB Wiring
 
-- [ ] **BE1** — POI API: `GET /api/pois` (list active), `GET /api/pois/:id`, `POST /api/pois` (admin), `POST /api/pois/:id/visit`
+- [ ] **BE1** — POI API: `GET /api/pois` (list active), `GET /api/pois/:id`, `POST /api/pois` (admin — includes optional picture field), `POST /api/pois/:id/visit`
 - [ ] **BE1** — Billboard API: `GET /api/billboards`, `GET /api/billboards/:id`, `POST /api/billboards` (create + moderation), `DELETE /api/billboards/:id`
 - [ ] **BE1** — Sticker/Placement API: `POST /api/billboards/:id/placements`, `GET /api/users/me/stickers`
 - [ ] **BE2** — OpenAI Moderation API integration (`apps/api/src/services/moderation.ts`)
@@ -57,7 +59,7 @@
 
 - [ ] **FE1** — Map: show POI markers with distinct glowing style
 - [ ] **FE1** — Map: show billboard markers with note icon style
-- [ ] **FE1** — Map: show user's current location dot
+- [ ] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
 - [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger
 - [ ] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
 - [ ] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
@@ -83,7 +85,7 @@
 
 - [ ] **BE2** — Reporting API: `POST /api/reports`, `GET /api/admin/reports`, `POST /api/admin/reports/:id/action`
 - [ ] **BE2** — Analytics query endpoints: DAU, popular POIs, note volume, abuse metrics
-- [ ] **FE1** — Admin panel screens: reported content list with context, action buttons, soft-delete indicators
+- [ ] **FE1** — Admin panel screens: reported content list with context, action buttons, soft-delete indicators, POI creation form (name, description, lat/lng, picture upload)
 - [ ] **FE1** — Analytics dashboard (simple stats grid)
 - [ ] **FE2** — Polish: error states, loading skeletons, empty states, edge cases (24h expiry, 3-note limit, 1-placement/billboard limit)
 - [ ] **FE2** — Pull-to-refresh on map + billboard screen
@@ -119,3 +121,9 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 - **POI rotation:** scheduled Worker (cron trigger)
 - **24h expiry:** scheduled Worker (soft-delete expired billboards)
 - **Daily quests / POIs:** managed via admin panel — POST endpoints for creating daily quests, POIs, etc.
+- **POI geofence radius:** 30m
+- **Quest system:** parameterised templates (visit N POIs, leave N notes, place N stickers, receive N replies, save N stickers) with per-level randomised values and tier progression
+- **Daily quest pool:** 5 curated daily quests that rotate
+- **Push notification timing:** 8–9am daily quest reminder
+- **POI picture:** compressed 128×128 base64 PNG (stored inline in DB)
+- **User avatar:** 64×64 pixel art drawn on sign-up, stored as base64 PNG in `users.avatar` column
