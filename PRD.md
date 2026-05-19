@@ -44,8 +44,8 @@ Mobile app where students discover geofenced Points of Interest (POIs) around UN
 - **5–10 concurrent POIs** placed by developers
 - POIs are visually distinct from notes (e.g. glowing markers vs. note icons)
 - **Rotation:** every 24 hours, some POIs disappear and new ones appear
-- **First visit** to a POI awards XP
-- Visited POIs are recorded to prevent repeat XP farming
+- **First visit** to a POI — on an individual user basis — advances quest progress, assuming the user has a relevant quest (daily or level-based). Visiting gives no direct XP.
+- Visited POIs are recorded to prevent repeat quest progress from the same POI
 
 ---
 
@@ -89,7 +89,7 @@ Mobile app where students discover geofenced Points of Interest (POIs) around UN
 
 ### 6.1 Quests (milestone-based)
 
-A **quest** is a specific objective. Completing it awards XP.
+A **quest** is a specific objective. Completing it awards XP. **Quests are the only way to earn XP** — visiting POIs, leaving notes, and receiving replies only matter for XP insofar as they complete quest objectives.
 
 Main quest examples:
 - Visit your first POI
