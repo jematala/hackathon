@@ -59,14 +59,15 @@ Mobile app where students discover geofenced Points of Interest (POIs) around UN
 - Take up ~60% of viewport height when expanded
 - Passed through OpenAI Moderation API before publishing
 
-### 5.2 Stickers & Sticky Notes (replies)
+### 5.2 Stickers & Sticky Notes (placements on billboards)
 
 - **Stickers:** 64×64 pixel art canvas, fixed 8-colour palette, drawn in-app
 - **Sticky notes:** text replies (look like sticky notes)
-- **1 reply per user per billboard** (unlimited replies total across billboards)
-- Cannot reply to a sticker with the same sticker
+- **1 placement per user per billboard** (unlimited placements total across billboards)
+- There is no threading — you cannot reply to another user's sticker/sticky note, only place on the billboard itself
+- Later placements have **higher z-level** (appear on top of earlier ones)
 - Tapping a sticker reveals a **username pill** above it
-- Stickers can be **saved to a collection** and reused in other conversations
+- Stickers can be **saved to a collection** and reused on other billboards
 - Sticky notes can also be saved and reused like stickers
 
 ### 5.3 Moderation flow
@@ -79,8 +80,9 @@ Mobile app where students discover geofenced Points of Interest (POIs) around UN
 
 ### 5.4 Expiry
 
-- If a billboard receives **no replies for 24 hours**, it soft-deletes
-- The entire thread (billboard + all replies) soft-deletes together
+- 24-hour period means a **calendar day** (midnight → 11:59pm), not a rolling window
+- If a billboard receives **no placements by end of day**, it soft-deletes at midnight
+- The entire billboard (all placements) soft-deletes together
 - Saved stickers/sticky notes persist in the user's collection regardless
 
 ---
