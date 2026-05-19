@@ -175,21 +175,6 @@ export const pois = appSchema.table(
   ],
 );
 
-export const poiDailyActivations = appSchema.table(
-  "poi_daily_activations",
-  {
-    campusId: uuid("campus_id")
-      .notNull()
-      .references(() => campuses.id, { onDelete: "cascade" }),
-    poiId: uuid("poi_id")
-      .notNull()
-      .references(() => pois.id, { onDelete: "cascade" }),
-    activeOn: date("active_on").notNull(),
-    createdAt,
-  },
-  (table) => [primaryKey({ columns: [table.campusId, table.poiId, table.activeOn] })],
-);
-
 export const poiVisits = appSchema.table(
   "poi_visits",
   {
@@ -304,7 +289,9 @@ export const billboardPlacements = appSchema.table(
     updatedAt,
   },
   (table) => [
-    uniqueIndex("billboard_placements_one_per_user_idx").on(table.billboardId, table.authorId),
+    uniqueIndex("billboard_placements_one_per_user_idx")
+      .on(table.billboardId, table.authorId)
+      .where(sql`${table.deletedAt} is null`),
     index("billboard_placements_billboard_idx").on(table.billboardId, table.zIndex),
     check("billboard_placements_x_check", sql`${table.x} >= 0 and ${table.x} <= 1`),
     check("billboard_placements_y_check", sql`${table.y} >= 0 and ${table.y} <= 1`),
@@ -445,24 +432,6 @@ export const dailyQuestPool = appSchema.table(
   ],
 );
 
-export const dailyQuestAssignments = appSchema.table(
-  "daily_quest_assignments",
-  {
-    id: uuidPrimaryKey(),
-    campusId: uuid("campus_id")
-      .notNull()
-      .references(() => campuses.id, { onDelete: "cascade" }),
-    activeOn: date("active_on").notNull(),
-    dailyQuestPoolId: uuid("daily_quest_pool_id")
-      .notNull()
-      .references(() => dailyQuestPool.id, { onDelete: "restrict" }),
-    createdAt,
-  },
-  (table) => [
-    uniqueIndex("daily_quest_assignments_campus_day_idx").on(table.campusId, table.activeOn),
-  ],
-);
-
 export const userQuestProgress = appSchema.table(
   "user_quest_progress",
   {
@@ -472,6 +441,7 @@ export const userQuestProgress = appSchema.table(
       .references(() => users.id, { onDelete: "cascade" }),
     source: questSourceEnum("source").notNull(),
     sourceId: uuid("source_id").notNull(),
+    activeOn: date("active_on"),
     progressCount: integer("progress_count").notNull().default(0),
     targetCount: integer("target_count").notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -482,8 +452,26 @@ export const userQuestProgress = appSchema.table(
     updatedAt,
   },
   (table) => [
-    uniqueIndex("user_quest_progress_unique_idx").on(table.userId, table.source, table.sourceId),
+    uniqueIndex("user_quest_progress_level_unique_idx")
+      .on(table.userId, table.source, table.sourceId)
+      .where(sql`${table.activeOn} is null`),
+    uniqueIndex("user_quest_progress_daily_unique_idx")
+      .on(table.userId, table.source, table.sourceId, table.activeOn)
+      .where(sql`${table.activeOn} is not null`),
     index("user_quest_progress_user_idx").on(table.userId),
+    check(
+      "user_quest_progress_active_on_check",
+      sql`
+        (
+          ${table.source} = 'daily_quest'
+          and ${table.activeOn} is not null
+        )
+        or (
+          ${table.source} = 'level_quest'
+          and ${table.activeOn} is null
+        )
+      `,
+    ),
     check("user_quest_progress_progress_count_check", sql`${table.progressCount} >= 0`),
     check("user_quest_progress_target_count_check", sql`${table.targetCount} > 0`),
     check(
