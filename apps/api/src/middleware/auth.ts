@@ -1,16 +1,15 @@
-import { createClerkClient, type ClerkClient } from "@clerk/backend";
 import { sql } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 
 import { getDb } from "../db";
 import { unauthorized } from "../http";
 import type { AppBindings, AuthUser, Env } from "../types";
 
-type ClerkClaims = Record<string, unknown> & {
+type ClerkClaims = JWTPayload & {
   email?: string;
   given_name?: string;
   name?: string;
-  sub?: string;
   username?: string;
 };
 
@@ -19,52 +18,84 @@ type AuthOptions = {
   resolveUser?: boolean;
 };
 
-let cachedClerkClient: ClerkClient | undefined;
-let cachedPublishableKey: string | undefined;
-let cachedSecretKey: string | undefined;
+let cachedJwks: ReturnType<typeof createRemoteJWKSet> | undefined;
+let cachedJwksUrl: string | undefined;
 
-function getToken(authorization: string | undefined, queryToken: string | undefined) {
+function getAuthorizationToken(authorization: string | undefined) {
   if (authorization?.startsWith("Bearer ")) {
     return authorization.slice("Bearer ".length);
   }
 
-  return queryToken;
+  return undefined;
 }
 
-function hasAuthMaterial(request: Request, token: string | undefined) {
-  return Boolean(token || request.headers.get("cookie"));
+function getCookieToken(request: Request) {
+  const cookie = request.headers.get("cookie");
+  if (!cookie) {
+    return undefined;
+  }
+
+  for (const pair of cookie.split(";")) {
+    const [rawName, ...rawValue] = pair.trim().split("=");
+    if (rawName === "__session") {
+      return decodeURIComponent(rawValue.join("="));
+    }
+  }
+
+  return undefined;
 }
 
-function clerkClientForEnv(env: Env) {
-  if (!env.CLERK_SECRET_KEY || !env.CLERK_PUBLISHABLE_KEY) {
-    throw new Error("CLERK_SECRET_KEY and CLERK_PUBLISHABLE_KEY are not configured.");
-  }
-
-  if (
-    !cachedClerkClient ||
-    cachedSecretKey !== env.CLERK_SECRET_KEY ||
-    cachedPublishableKey !== env.CLERK_PUBLISHABLE_KEY
-  ) {
-    cachedClerkClient = createClerkClient({
-      publishableKey: env.CLERK_PUBLISHABLE_KEY,
-      secretKey: env.CLERK_SECRET_KEY,
-    });
-    cachedPublishableKey = env.CLERK_PUBLISHABLE_KEY;
-    cachedSecretKey = env.CLERK_SECRET_KEY;
-  }
-
-  return cachedClerkClient;
+function getToken(request: Request, queryToken: string | undefined) {
+  return (
+    getAuthorizationToken(request.headers.get("authorization") ?? undefined) ??
+    queryToken ??
+    getCookieToken(request)
+  );
 }
 
-function requestWithQueryToken(request: Request, token: string | undefined) {
-  if (!token || request.headers.has("authorization")) {
-    return request;
+function hasAuthMaterial(token: string | undefined) {
+  return Boolean(token);
+}
+
+function decodePublishableKey(publishableKey: string) {
+  const match = publishableKey.match(/^pk_(?:test|live)_(.+)$/);
+  if (!match) {
+    throw new Error("CLERK_PUBLISHABLE_KEY is not a valid Clerk publishable key.");
   }
 
-  const headers = new Headers(request.headers);
-  headers.set("authorization", `Bearer ${token}`);
+  const encoded = match[1];
+  const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  return atob(padded).split("$")[0];
+}
 
-  return new Request(request, { headers });
+function clerkIssuerFromPublishableKey(publishableKey: string) {
+  const frontendApi = decodePublishableKey(publishableKey);
+  const baseUrl =
+    frontendApi.startsWith("http://") || frontendApi.startsWith("https://")
+      ? frontendApi
+      : `https://${frontendApi}`;
+
+  return new URL(baseUrl).origin;
+}
+
+function authConfigForEnv(env: Env) {
+  if (!env.CLERK_PUBLISHABLE_KEY) {
+    throw new Error("CLERK_PUBLISHABLE_KEY is not configured.");
+  }
+
+  const issuer = clerkIssuerFromPublishableKey(env.CLERK_PUBLISHABLE_KEY);
+  const jwksUrl =
+    env.CLERK_JWKS_URL?.trim() || new URL("/.well-known/jwks.json", issuer).toString();
+
+  let jwks = cachedJwks;
+  if (!jwks || cachedJwksUrl !== jwksUrl) {
+    jwks = createRemoteJWKSet(new URL(jwksUrl));
+    cachedJwks = jwks;
+    cachedJwksUrl = jwksUrl;
+  }
+
+  return { issuer, jwks };
 }
 
 function usernameFromClaims(payload: ClerkClaims) {
@@ -96,32 +127,22 @@ function displayNameFromClaims(payload: ClerkClaims) {
   return usernameFromClaims(payload);
 }
 
-async function resolveAuthClaims(
-  env: Env,
-  request: Request,
-  token?: string,
-): Promise<ClerkClaims | null> {
-  const state = await clerkClientForEnv(env).authenticateRequest(
-    requestWithQueryToken(request, token),
-    {
-      acceptsToken: "session_token",
-    },
-  );
-
-  if (!state.isAuthenticated) {
+async function resolveAuthClaims(env: Env, token: string | undefined): Promise<ClerkClaims | null> {
+  if (!token) {
     return null;
   }
 
-  const auth = state.toAuth();
+  const { issuer, jwks } = authConfigForEnv(env);
+  const { payload } = await jwtVerify(token, jwks, {
+    algorithms: ["RS256"],
+    issuer,
+  }).catch(() => ({ payload: null }));
 
-  if (!auth.userId) {
+  if (!payload?.sub) {
     return null;
   }
 
-  return {
-    ...auth.sessionClaims,
-    sub: auth.userId,
-  };
+  return payload as ClerkClaims;
 }
 
 async function upsertAuthUser(env: Env, payload: ClerkClaims): Promise<AuthUser> {
@@ -173,16 +194,13 @@ function authMiddleware({
   resolveUser = true,
 }: AuthOptions = {}): MiddlewareHandler<AppBindings> {
   return async (c, next) => {
-    const token = getToken(
-      c.req.header("authorization"),
-      allowQueryToken ? c.req.query("token") : undefined,
-    );
+    const token = getToken(c.req.raw, allowQueryToken ? c.req.query("token") : undefined);
 
-    if (!hasAuthMaterial(c.req.raw, token)) {
+    if (!hasAuthMaterial(token)) {
       unauthorized();
     }
 
-    const payload = await resolveAuthClaims(c.env, c.req.raw, token);
+    const payload = await resolveAuthClaims(c.env, token);
 
     if (!payload) {
       unauthorized();
@@ -200,14 +218,14 @@ export const requireAuth = authMiddleware();
 export const requireRealtimeAuth = authMiddleware({ allowQueryToken: true, resolveUser: false });
 
 export const optionalAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
-  const token = getToken(c.req.header("authorization"), undefined);
+  const token = getToken(c.req.raw, undefined);
 
-  if (!hasAuthMaterial(c.req.raw, token)) {
+  if (!hasAuthMaterial(token)) {
     await next();
     return;
   }
 
-  const payload = await resolveAuthClaims(c.env, c.req.raw, token);
+  const payload = await resolveAuthClaims(c.env, token);
 
   if (payload) {
     c.set("authUser", await upsertAuthUser(c.env, payload));

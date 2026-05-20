@@ -136,7 +136,6 @@ The deploy workflow runs on pushes to `main` and via `workflow_dispatch`. Config
 - `SUPABASE_SECRET_KEY`
 - `SUPABASE_POOLER_DATABASE_URL`
 - `CLERK_PUBLISHABLE_KEY`
-- `CLERK_SECRET_KEY`
 - `OPENAI_API_KEY`
 
 The Cloudflare API token needs permission to deploy Workers, apply Durable Object migrations, write Worker secrets, and configure Worker routes. The API Worker deploy reads `apps/api/wrangler.jsonc`, so the `CAMPUS_REALTIME_ROOM` Durable Object binding, migration, and cron triggers are applied by the deploy run. Secrets are synced immediately after the API Worker exists.
