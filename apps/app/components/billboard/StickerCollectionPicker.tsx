@@ -35,7 +35,7 @@ export function StickerCollectionPicker({
 
   const goCreate = () => {
     onClose();
-    router.push("/create");
+    router.push("/studio" as any);
   };
 
   return (
