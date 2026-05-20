@@ -3,9 +3,10 @@ import L from "leaflet";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
-import { DEMO_POIS, UNSW_CENTER } from "@/constants/coordinates";
+import { UNSW_CENTER } from "@/constants/coordinates";
 import { useUserProfile } from "@/lib/userProfile";
 
+import type { MapPoint, MapPoi } from "./Map";
 import { createBillboardIcon, createPOIIcon, createUserAvatarIcon } from "./markers";
 
 const DRAWN_AVATAR_BG = "#faf7ef";
@@ -18,23 +19,13 @@ const TILE_ATTR =
 type MapHandle = { invalidateSize: () => void };
 
 type MapProps = {
-  exampleBillboard: {
-    id: string;
-    title: string;
-    lat: number;
-    lng: number;
-  };
-  billboards: Array<{
-    id: string;
-    title: string;
-    lat: number;
-    lng: number;
-  }>;
+  billboards: MapPoint[];
   onBillboardPress?: (id: string) => void;
+  pois: MapPoi[];
 };
 
 export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
-  { billboards, exampleBillboard, onBillboardPress },
+  { billboards, onBillboardPress, pois },
   ref,
 ) {
   const containerRef = useRef<View | null>(null);
@@ -69,19 +60,15 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
       maxNativeZoom: 21,
     }).addTo(map);
 
-    for (const poi of DEMO_POIS) {
+    for (const poi of pois) {
       L.marker([poi.lat, poi.lng], {
         icon: createPOIIcon(poi.title),
       })
         .addTo(map)
-        .bindPopup(`<strong>${poi.title}</strong><br/>${poi.description}`);
+        .bindPopup(
+          `<strong>${escapeHtml(poi.title)}</strong><br/>${escapeHtml(poi.description ?? "")}`,
+        );
     }
-
-    L.marker([exampleBillboard.lat, exampleBillboard.lng], {
-      icon: createBillboardIcon(exampleBillboard.title),
-    })
-      .addTo(map)
-      .on("click", () => onBillboardPress?.(exampleBillboard.id));
 
     for (const billboard of billboards) {
       L.marker([billboard.lat, billboard.lng], {
@@ -104,7 +91,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
       mapRef.current = null;
       userMarkerRef.current = null;
     };
-  }, [avatarUri, billboards, exampleBillboard, onBillboardPress]);
+  }, [avatarUri, billboards, onBillboardPress, pois]);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -121,6 +108,23 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
 });
 
 export default Map;
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return "&#39;";
+    }
+  });
+}
 
 const styles = StyleSheet.create({
   container: {

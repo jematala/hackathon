@@ -4,7 +4,9 @@ import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
 // Import Marker alongside Map from the library
 import { Camera, Map as MapLibre, Marker } from "@maplibre/maplibre-react-native";
 
-import { UNSW_CENTER, DEMO_POIS } from "@/constants/coordinates";
+import { UNSW_CENTER } from "@/constants/coordinates";
+
+import type { MapPoi, MapProps } from "./Map";
 
 const THUNDERFOREST_API_KEY = process.env.EXPO_PUBLIC_THUNDERFOREST_KEY ?? "YOUR_API_KEY_HERE";
 
@@ -34,20 +36,15 @@ const MAP_STYLE: any = JSON.stringify({
   ],
 });
 
-type POI = (typeof DEMO_POIS)[number];
-
 interface POIMarkerProps {
-  poi: POI & { coordinate?: [number, number]; lng?: number; lat?: number };
+  poi: MapPoi;
   isSelected: boolean;
   onPress: () => void;
 }
 
 function POIMarker({ poi, isSelected, onPress }: POIMarkerProps) {
-  // Gracefully adapt to whatever coordinate layout DEMO_POIS uses
-  const coordinate = poi.coordinate || [poi.lng ?? 0, poi.lat ?? 0];
-
   return (
-    <Marker lngLat={coordinate} anchor="bottom">
+    <Marker lngLat={[poi.lng, poi.lat]} anchor="bottom">
       <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
         <View style={poiStyles.markerContainer}>
           <View style={poiStyles.topCircle} />
@@ -61,6 +58,31 @@ function POIMarker({ poi, isSelected, onPress }: POIMarkerProps) {
           {/* Base Platform Bar (x=0, y=28, w=32, h=4) */}
           <View style={poiStyles.baseBar} />
         </View>
+      </TouchableOpacity>
+    </Marker>
+  );
+}
+
+function BillboardMarker({
+  lat,
+  lng,
+  onPress,
+  title,
+}: {
+  lat: number;
+  lng: number;
+  onPress: () => void;
+  title: string;
+}) {
+  return (
+    <Marker lngLat={[lng, lat]} anchor="bottom">
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+        <View style={billboardStyles.marker}>
+          <Text style={billboardStyles.text} numberOfLines={1}>
+            {title.slice(0, 2)}
+          </Text>
+        </View>
+        <View style={billboardStyles.pin} />
       </TouchableOpacity>
     </Marker>
   );
@@ -86,8 +108,11 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
   );
 }
 
-export default forwardRef<{ invalidateSize: () => void }>(function Map(_props, _ref) {
-  const [selectedPOI, setSelectedPOI] = useState<POI | null>(null);
+export default forwardRef<{ invalidateSize: () => void }, MapProps>(function Map(
+  { billboards, onBillboardPress, pois },
+  _ref,
+) {
+  const [selectedPOI, setSelectedPOI] = useState<MapPoi | null>(null);
 
   const userAvatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
 
@@ -100,12 +125,22 @@ export default forwardRef<{ invalidateSize: () => void }>(function Map(_props, _
             zoom: 18,
           }}
         />
-        {DEMO_POIS.map((poi) => (
+        {pois.map((poi) => (
           <POIMarker
-            key={poi.title}
+            key={poi.id}
             poi={poi}
-            isSelected={selectedPOI?.title === poi.title}
-            onPress={() => setSelectedPOI((prev) => (prev?.title === poi.title ? null : poi))}
+            isSelected={selectedPOI?.id === poi.id}
+            onPress={() => setSelectedPOI((prev) => (prev?.id === poi.id ? null : poi))}
+          />
+        ))}
+
+        {billboards.map((billboard) => (
+          <BillboardMarker
+            key={billboard.id}
+            lat={billboard.lat}
+            lng={billboard.lng}
+            title={billboard.title}
+            onPress={() => onBillboardPress?.(billboard.id)}
           />
         ))}
 
@@ -130,7 +165,7 @@ export default forwardRef<{ invalidateSize: () => void }>(function Map(_props, _
                 <Text style={styles.calloutDismiss}>✕</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.calloutDescription}>{selectedPOI.description}</Text>
+            <Text style={styles.calloutDescription}>{selectedPOI.description ?? ""}</Text>
           </View>
         </View>
       )}
@@ -225,6 +260,31 @@ const avatarStyles = StyleSheet.create({
     borderRightColor: "transparent",
     borderTopColor: "#5b7559",
     marginTop: -3,
+  },
+});
+
+const billboardStyles = StyleSheet.create({
+  marker: {
+    width: 34,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F7D978",
+    borderColor: "#6A401A",
+    borderRadius: 3,
+    borderWidth: 2,
+  },
+  pin: {
+    alignSelf: "center",
+    backgroundColor: "#6A401A",
+    height: 9,
+    marginTop: -1,
+    width: 4,
+  },
+  text: {
+    color: "#6A401A",
+    fontFamily: "Jersey10",
+    fontSize: 14,
   },
 });
 
