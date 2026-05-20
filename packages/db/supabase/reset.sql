@@ -85,6 +85,14 @@ create table app.poi_visits (
   primary key (user_id, poi_id)
 );
 
+create table app.poi_daily_activations (
+  campus_id uuid not null references app.campuses(id) on delete cascade,
+  poi_id uuid not null references app.pois(id) on delete cascade,
+  active_on date not null,
+  created_at timestamptz not null default now(),
+  primary key (campus_id, poi_id, active_on)
+);
+
 create table app.billboards (
   id uuid primary key default gen_random_uuid(),
   campus_id uuid not null references app.campuses(id) on delete cascade,
@@ -215,6 +223,15 @@ create table app.daily_quest_pool (
   xp_reward integer not null check (xp_reward >= 0),
   active boolean not null default true,
   created_at timestamptz not null default now()
+);
+
+create table app.daily_quest_assignments (
+  id uuid primary key default gen_random_uuid(),
+  campus_id uuid not null references app.campuses(id) on delete cascade,
+  active_on date not null,
+  daily_quest_pool_id uuid not null references app.daily_quest_pool(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  unique (campus_id, active_on)
 );
 
 create table app.user_quest_progress (

@@ -11,7 +11,6 @@ import { Hono } from "hono";
 import { getDb } from "../db";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import { applyStreakMilestoneUnlocks } from "../services/progression";
-import { ensureDailyRotations } from "../services/rotations";
 import type { AppBindings } from "../types";
 import { loadQuestRows, loadUser } from "./users";
 
@@ -27,8 +26,6 @@ export const questsRoute = new Hono<AppBindings>();
 questsRoute.get("/quests", requireAuth, async (c) => {
   const db = getDb(c.env);
   const authUser = getAuthUser(c);
-
-  await ensureDailyRotations(db);
 
   const user = await loadUser(c.env, authUser.id);
   const quests = await loadQuestRows(db, authUser.id);
