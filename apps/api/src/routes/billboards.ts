@@ -23,6 +23,7 @@ import {
 } from "../services/progression";
 import { queueRealtimeBroadcast } from "../services/realtime";
 import { moderateText, recordModerationLog } from "../services/moderation";
+import { expireBillboards } from "../services/rotations";
 import type { AppBindings } from "../types";
 
 type BillboardRow = {
@@ -67,6 +68,8 @@ export const billboardsRoute = new Hono<AppBindings>();
 billboardsRoute.get("/billboards", optionalAuth, async (c) => {
   const db = getDb(c.env);
 
+  await expireBillboards(db);
+
   const campusId = c.req.query("campusId");
   const rows = await db.execute<BillboardRow>(sql`
     select
@@ -97,18 +100,6 @@ billboardsRoute.get("/billboards", optionalAuth, async (c) => {
       and billboards.hidden_at is null
       and billboards.status = 'active'
       and billboards.expires_at > now()
-      and (
-        billboards.empty_expires_at > now()
-        or exists (
-          select 1
-          from app.billboard_placements
-          where
-            billboard_placements.billboard_id = billboards.id
-            and billboard_placements.deleted_at is null
-            and billboard_placements.hidden_at is null
-            and billboard_placements.status = 'active'
-        )
-      )
       and (${campusId ?? null}::uuid is null or billboards.campus_id = ${campusId ?? null})
       and (${c.req.query("north") ?? null}::double precision is null or billboards.lat <= ${c.req.query("north") ?? null})
       and (${c.req.query("south") ?? null}::double precision is null or billboards.lat >= ${c.req.query("south") ?? null})
