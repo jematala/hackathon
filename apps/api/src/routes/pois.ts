@@ -54,7 +54,7 @@ const upsertPoiInputSchema = z.union([createPoiInputSchema, updatePoiInputSchema
 export const poisRoute = new Hono<AppBindings>();
 
 poisRoute.get("/pois", optionalAuth, async (c) => {
-  const db = getDb(c);
+  const db = getDb(c.env);
   const campusId = c.req.query("campusId");
   const authUser = safeAuthUser(c);
 
@@ -95,7 +95,7 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
 });
 
 poisRoute.get("/pois/:id", optionalAuth, async (c) => {
-  const db = getDb(c);
+  const db = getDb(c.env);
   const id = idSchema.safeParse(c.req.param("id"));
 
   if (!id.success) {
@@ -108,7 +108,7 @@ poisRoute.get("/pois/:id", optionalAuth, async (c) => {
 });
 
 poisRoute.post("/pois", requireAuth, zValidator("json", upsertPoiInputSchema), async (c) => {
-  const db = getDb(c);
+  const db = getDb(c.env);
   const authUser = getAuthUser(c);
   const input = c.req.valid("json");
 
@@ -180,7 +180,7 @@ poisRoute.post(
   requireAuth,
   zValidator("json", visitPoiInputSchema),
   async (c) => {
-    const db = getDb(c);
+    const db = getDb(c.env);
     const input = c.req.valid("json");
     const authUser = getAuthUser(c);
     const id = idSchema.safeParse(c.req.param("id"));

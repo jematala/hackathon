@@ -65,7 +65,7 @@ type PlacementRow = {
 export const billboardsRoute = new Hono<AppBindings>();
 
 billboardsRoute.get("/billboards", optionalAuth, async (c) => {
-  const db = getDb(c);
+  const db = getDb(c.env);
 
   const campusId = c.req.query("campusId");
   const rows = await db.execute<BillboardRow>(sql`
@@ -126,7 +126,7 @@ billboardsRoute.get("/billboards", optionalAuth, async (c) => {
 });
 
 billboardsRoute.get("/billboards/:id", optionalAuth, async (c) => {
-  const db = getDb(c);
+  const db = getDb(c.env);
   const id = idSchema.safeParse(c.req.param("id"));
 
   if (!id.success) {
@@ -151,7 +151,7 @@ billboardsRoute.post(
   requireAuth,
   zValidator("json", createBillboardInputSchema),
   async (c) => {
-    const db = getDb(c);
+    const db = getDb(c.env);
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
     const moderation = await moderateText(c.env, input.body);
@@ -261,7 +261,7 @@ billboardsRoute.post(
 );
 
 billboardsRoute.delete("/billboards/:id", requireAuth, async (c) => {
-  const db = getDb(c);
+  const db = getDb(c.env);
   const authUser = getAuthUser(c);
   const id = idSchema.safeParse(c.req.param("id"));
 
@@ -294,7 +294,7 @@ billboardsRoute.post(
   requireAuth,
   zValidator("json", createPlacementInputSchema),
   async (c) => {
-    const db = getDb(c);
+    const db = getDb(c.env);
     const authUser = getAuthUser(c);
     const id = idSchema.safeParse(c.req.param("id"));
     const input = c.req.valid("json");

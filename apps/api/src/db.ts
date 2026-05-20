@@ -1,14 +1,12 @@
 import * as schema from "@repo/db";
 import { drizzle } from "drizzle-orm/postgres-js";
-import postgres, { type Sql } from "postgres";
+import postgres from "postgres";
 
-import type { AppContext, Env } from "./types";
+import type { Env } from "./types";
 
-export type Database = ReturnType<typeof drizzle<typeof schema>> & {
-  $client: Sql;
-};
+type Database = ReturnType<typeof drizzle<typeof schema>>;
 
-export function createDb(env: Env) {
+export function getDb(env: Env) {
   if (!env.SUPABASE_POOLER_DATABASE_URL) {
     throw new Error("SUPABASE_POOLER_DATABASE_URL is not configured.");
   }
@@ -27,22 +25,5 @@ export function createDb(env: Env) {
     ssl: "require",
   });
 
-  return drizzle(client, { schema }) as Database;
-}
-
-export function getDb(c: AppContext) {
-  const existingDb = c.get("db");
-
-  if (existingDb) {
-    return existingDb;
-  }
-
-  const db = createDb(c.env);
-  c.set("db", db);
-
-  return db;
-}
-
-export async function closeDb(db: Database) {
-  await db.$client.end({ timeout: 1 });
+  return drizzle(client, { schema }) satisfies Database;
 }
