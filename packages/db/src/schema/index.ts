@@ -204,9 +204,7 @@ export const poiDailyActivations = appSchema.table(
       .references(() => pois.id, { onDelete: "cascade" }),
     activeOn: date("active_on").notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.campusId, table.poiId, table.activeOn] }),
-  ],
+  (table) => [primaryKey({ columns: [table.campusId, table.poiId, table.activeOn] })],
 );
 
 export const billboards = appSchema.table(

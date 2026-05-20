@@ -145,27 +145,33 @@ export async function getUserCapacities(db: Database, userId: string) {
       group by perk_definitions.key
     )
     select
-      coalesce(
-        (select cap from level_caps where key = 'max_concurrent_billboards'),
-        0
-      ) + coalesce(
-        (select delta from streak_deltas where key = 'max_concurrent_billboards'),
-        0
-      ) as "maxConcurrentBillboards",
-      coalesce(
-        (select cap from level_caps where key = 'daily_billboard_limit'),
-        0
-      ) + coalesce(
-        (select delta from streak_deltas where key = 'daily_billboard_limit'),
-        0
-      ) as "dailyBillboardLimit",
-      coalesce(
-        (select cap from level_caps where key = 'sticker_slots'),
-        0
-      ) + coalesce(
-        (select delta from streak_deltas where key = 'sticker_slots'),
-        0
-      ) as "stickerSlots"
+      (
+        coalesce(
+          (select cap from level_caps where key = 'max_concurrent_billboards'),
+          0
+        ) + coalesce(
+          (select delta from streak_deltas where key = 'max_concurrent_billboards'),
+          0
+        )
+      )::int as "maxConcurrentBillboards",
+      (
+        coalesce(
+          (select cap from level_caps where key = 'daily_billboard_limit'),
+          0
+        ) + coalesce(
+          (select delta from streak_deltas where key = 'daily_billboard_limit'),
+          0
+        )
+      )::int as "dailyBillboardLimit",
+      (
+        coalesce(
+          (select cap from level_caps where key = 'sticker_slots'),
+          0
+        ) + coalesce(
+          (select delta from streak_deltas where key = 'sticker_slots'),
+          0
+        )
+      )::int as "stickerSlots"
   `);
 
   const capacities = rows[0];
