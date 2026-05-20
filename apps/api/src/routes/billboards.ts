@@ -21,7 +21,7 @@ import {
   incrementQuestProgress,
   questProgressUpdate,
 } from "../services/progression";
-import { broadcastRealtime } from "../services/realtime";
+import { queueRealtimeBroadcast } from "../services/realtime";
 import { moderateText, recordModerationLog } from "../services/moderation";
 import { expireBillboards } from "../services/rotations";
 import type { AppBindings } from "../types";
@@ -235,7 +235,7 @@ billboardsRoute.post(
       incrementQuestProgress(db, authUser.id, "leave_billboards"),
     ]);
 
-    await broadcastRealtime(c.env, {
+    queueRealtimeBroadcast(c.executionCtx, c.env, {
       billboardId,
       campusId: input.campusId,
       kind: "billboard_created",
@@ -271,7 +271,7 @@ billboardsRoute.delete("/billboards/:id", requireAuth, async (c) => {
     set deleted_at = now(), updated_at = now()
     where id = ${id.data}
   `);
-  await broadcastRealtime(c.env, {
+  queueRealtimeBroadcast(c.executionCtx, c.env, {
     billboardId: id.data,
     campusId: billboard.campusId,
     kind: "billboard_deleted",
@@ -368,7 +368,7 @@ billboardsRoute.post(
       await incrementQuestProgress(db, billboard.authorId, "receive_replies");
     }
 
-    await broadcastRealtime(c.env, {
+    queueRealtimeBroadcast(c.executionCtx, c.env, {
       billboardId: id.data,
       campusId: billboard.campusId,
       kind: "placement_created",

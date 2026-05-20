@@ -26,12 +26,23 @@ export async function broadcastRealtime(env: Env, event: RealtimeEvent) {
   }
 
   const stub = realtimeStub(env, event.campusId);
-
-  await stub.fetch("https://campus-room.local/broadcast", {
+  const response = await stub.fetch("https://campus-room.local/broadcast", {
     body: JSON.stringify(event),
     headers: {
       "Content-Type": "application/json",
     },
     method: "POST",
   });
+
+  if (!response.ok) {
+    throw new Error(`Realtime broadcast failed with status ${response.status}.`);
+  }
+}
+
+export function queueRealtimeBroadcast(ctx: ExecutionContext, env: Env, event: RealtimeEvent) {
+  ctx.waitUntil(
+    broadcastRealtime(env, event).catch((error: unknown) => {
+      console.error("[realtime] broadcast failed", error);
+    }),
+  );
 }
