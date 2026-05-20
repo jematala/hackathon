@@ -41,7 +41,14 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow UNSW Connect to use your location.",
+          "locationWhenInUsePermission": "Allow UNSW Connect to use your location."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

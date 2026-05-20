@@ -8,7 +8,6 @@ export default function SignInScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    alert(isSignedIn);
     if (isSignedIn) {
       router.replace("/(app)/map");
     }

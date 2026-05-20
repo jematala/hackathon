@@ -53,16 +53,31 @@ function TextButton({ label, onPress }: { label: string; onPress: () => void }) 
 
 type MapHUDProps = {
   onStudioPress: () => void;
+  isPermissionDenied: boolean;
+  onEnableLocation: () => void;
 };
 
-export function MapHUD({ onStudioPress }: MapHUDProps) {
+export function MapHUD({ onStudioPress, isPermissionDenied, onEnableLocation }: MapHUDProps) {
   return (
     <View style={styles.container}>
-      <ProfileButton />
-      <View style={styles.rightCluster}>
-        <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
-        <View style={{ width: 10 }} />
-        <TextButton label="Studio" onPress={onStudioPress} />
+      {isPermissionDenied && (
+        <View style={styles.permissionBanner}>
+          <Text style={styles.permissionText}>Enable location to see nearby quests & POIs</Text>
+          <Pressable
+            onPress={onEnableLocation}
+            style={({ pressed }) => [styles.permissionButton, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={styles.permissionButtonText}>Enable</Text>
+          </Pressable>
+        </View>
+      )}
+      <View style={styles.bottomRow}>
+        <ProfileButton />
+        <View style={styles.rightCluster}>
+          <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
+          <View style={{ width: 10 }} />
+          <TextButton label="Studio" onPress={onStudioPress} />
+        </View>
       </View>
     </View>
   );
@@ -70,13 +85,42 @@ export function MapHUD({ onStudioPress }: MapHUDProps) {
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "flex-start",
+    position: "absolute",
+    left: 15,
+    right: 15,
     bottom: 15,
+  },
+  bottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    left: 15,
-    position: "absolute",
-    right: 15,
+    alignItems: "flex-start",
+  },
+  permissionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#5b7559",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  permissionText: {
+    color: "#ffedd6",
+    fontFamily: fonts.family,
+    fontSize: 16,
+    flex: 1,
+  },
+  permissionButton: {
+    backgroundColor: "#ffedd6",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    marginLeft: 12,
+  },
+  permissionButtonText: {
+    color: "#5b7559",
+    fontFamily: fonts.family,
+    fontSize: 18,
   },
   leftSection: {
     flexDirection: "column",

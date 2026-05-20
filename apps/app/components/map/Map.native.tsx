@@ -86,20 +86,25 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
   );
 }
 
-export default forwardRef<{ invalidateSize: () => void }>(function Map(_props, _ref) {
+interface MapNativeProps {
+  location: { latitude: number; longitude: number } | null;
+}
+
+export default forwardRef<{ invalidateSize: () => void }, MapNativeProps>(function Map(
+  { location },
+  _ref,
+) {
   const [selectedPOI, setSelectedPOI] = useState<POI | null>(null);
 
   const userAvatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
+  const userCoord: [number, number] = location
+    ? [location.longitude, location.latitude]
+    : [UNSW_CENTER.lng, UNSW_CENTER.lat];
 
   return (
     <View style={styles.container}>
       <MapLibre style={styles.map} mapStyle={MAP_STYLE} onPress={() => setSelectedPOI(null)}>
-        <Camera
-          initialViewState={{
-            center: [UNSW_CENTER.lng, UNSW_CENTER.lat],
-            zoom: 18,
-          }}
-        />
+        <Camera center={userCoord} zoom={18} duration={1000} easing="fly" />
         {DEMO_POIS.map((poi) => (
           <POIMarker
             key={poi.title}
@@ -109,10 +114,7 @@ export default forwardRef<{ invalidateSize: () => void }>(function Map(_props, _
           />
         ))}
 
-        <UserAvatarMarker
-          coordinate={[UNSW_CENTER.lng, UNSW_CENTER.lat]}
-          imageUrl={userAvatarUrl}
-        />
+        <UserAvatarMarker coordinate={userCoord} imageUrl={userAvatarUrl} />
       </MapLibre>
 
       {selectedPOI && (

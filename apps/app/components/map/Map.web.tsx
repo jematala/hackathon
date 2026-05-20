@@ -1,4 +1,4 @@
-import type { Map as LeafletMap } from "leaflet";
+import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 import { Asset } from "expo-asset";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
@@ -12,17 +12,19 @@ const TILE_ATTR =
 
 type MapHandle = { invalidateSize: () => void };
 
-export default forwardRef<MapHandle>(function MapWeb(_props, ref) {
+interface MapWebProps {
+  location: { latitude: number; longitude: number } | null;
+}
+
+export default forwardRef<MapHandle, MapWebProps>(function MapWeb({ location }, ref) {
   const containerRef = useRef<View | null>(null);
-  const mapRef = useRef<{
-    invalidateSize: () => void;
-    remove: () => void;
-  } | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const userMarkerRef = useRef<LeafletMarker | null>(null);
+  const locationRef = useRef(location);
+  locationRef.current = location;
 
   useImperativeHandle(ref, () => ({
-    invalidateSize: () => {
-      mapRef.current?.invalidateSize();
-    },
+    invalidateSize: () => mapRef.current?.invalidateSize(),
   }));
 
   useEffect(() => {
@@ -35,8 +37,13 @@ export default forwardRef<MapHandle>(function MapWeb(_props, ref) {
     let map: LeafletMap | null = null;
 
     import("leaflet").then((L) => {
+      const currentLoc = locationRef.current;
+      const initialCenter: [number, number] = currentLoc
+        ? [currentLoc.latitude, currentLoc.longitude]
+        : [UNSW_CENTER.lat, UNSW_CENTER.lng];
+
       map = L.map(container, {
-        center: [UNSW_CENTER.lat, UNSW_CENTER.lng],
+        center: initialCenter,
         zoom: 19,
         minZoom: 18,
         zoomControl: false,
@@ -58,18 +65,31 @@ export default forwardRef<MapHandle>(function MapWeb(_props, ref) {
       }
 
       const avatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
-      L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
+      const userMarker = L.marker(initialCenter, {
         icon: toLeafletIcon(createUserAvatarMarker(avatarUrl)),
       }).addTo(map);
 
+      userMarkerRef.current = userMarker;
       mapRef.current = map;
     });
 
     return () => {
       map?.remove();
       mapRef.current = null;
+      userMarkerRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !userMarkerRef.current || !location) return;
+
+    const { latitude, longitude } = location;
+    mapRef.current.setView([latitude, longitude], mapRef.current.getZoom(), {
+      animate: true,
+    });
+    userMarkerRef.current.setLatLng([latitude, longitude]);
+  }, [location]);
 
   return <View ref={containerRef} style={styles.container} />;
 });
