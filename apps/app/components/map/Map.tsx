@@ -20,6 +20,7 @@ export type MapPoi = MapPoint & {
 export type MapProps = {
   billboards: MapPoint[];
   onBillboardPress?: (id: string) => void;
+  onPoiCheckIn?: (id: string) => void;
   pois: MapPoi[];
 };
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -13,19 +13,21 @@ import {
 import { BillboardPanel } from "@/components/billboard/BillboardPanel";
 import { Map } from "@/components/map/Map";
 import { MapHUD } from "@/components/map/MapHUD";
-import { UNSW_CAMPUS_ID, UNSW_CENTER } from "@/constants/coordinates";
+import { DEMO_POIS, UNSW_CAMPUS_ID, UNSW_CENTER } from "@/constants/coordinates";
 import { ApiError } from "@/lib/api/client";
 import { useBillboards, useCreateBillboard, usePois } from "@/lib/api/hooks";
 import { colors } from "@/lib/theme";
 
 export default function MapScreen() {
   const [activeBillboardId, setActiveBillboardId] = useState<string | null>(null);
+  const [checkedInPoiIds, setCheckedInPoiIds] = useState<ReadonlySet<string>>(() => new Set());
   const [createOpen, setCreateOpen] = useState(false);
   const [body, setBody] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
   const pois = usePois({ campusId: UNSW_CAMPUS_ID });
   const createBillboard = useCreateBillboard();
+  const mapPois = pois.data?.length ? pois.data : DEMO_POIS;
 
   const closeCreate = () => {
     setCreateOpen(false);
@@ -65,6 +67,16 @@ export default function MapScreen() {
     );
   };
 
+  const checkInToPoi = useCallback((id: string) => {
+    setCheckedInPoiIds((current) => {
+      if (current.has(id)) return current;
+
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
   return (
     <View style={styles.root}>
       <Map
@@ -75,13 +87,14 @@ export default function MapScreen() {
           lng: billboard.lng,
         }))}
         onBillboardPress={setActiveBillboardId}
-        pois={(pois.data ?? []).map((poi) => ({
+        onPoiCheckIn={checkInToPoi}
+        pois={mapPois.map((poi) => ({
           id: poi.id,
           title: poi.title,
           description: poi.description,
           lat: poi.lat,
           lng: poi.lng,
-          visited: poi.visited,
+          visited: ("visited" in poi && poi.visited) || checkedInPoiIds.has(poi.id),
         }))}
       />
       {billboards.isLoading || pois.isLoading ? (

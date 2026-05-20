@@ -5,6 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
 import { Camera, Map as MapLibre, Marker } from "@maplibre/maplibre-react-native";
 
 import { UNSW_CENTER } from "@/constants/coordinates";
+import { colors } from "@/lib/theme";
 
 import type { MapPoi, MapProps } from "./Map";
 
@@ -109,16 +110,17 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
 }
 
 export default forwardRef<{ invalidateSize: () => void }, MapProps>(function Map(
-  { billboards, onBillboardPress, pois },
+  { billboards, onBillboardPress, onPoiCheckIn, pois },
   _ref,
 ) {
-  const [selectedPOI, setSelectedPOI] = useState<MapPoi | null>(null);
+  const [selectedPOIId, setSelectedPOIId] = useState<string | null>(null);
+  const selectedPOI = pois.find((poi) => poi.id === selectedPOIId) ?? null;
 
   const userAvatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
 
   return (
     <View style={styles.container}>
-      <MapLibre style={styles.map} mapStyle={MAP_STYLE} onPress={() => setSelectedPOI(null)}>
+      <MapLibre style={styles.map} mapStyle={MAP_STYLE} onPress={() => setSelectedPOIId(null)}>
         <Camera
           initialViewState={{
             center: [UNSW_CENTER.lng, UNSW_CENTER.lat],
@@ -129,8 +131,8 @@ export default forwardRef<{ invalidateSize: () => void }, MapProps>(function Map
           <POIMarker
             key={poi.id}
             poi={poi}
-            isSelected={selectedPOI?.id === poi.id}
-            onPress={() => setSelectedPOI((prev) => (prev?.id === poi.id ? null : poi))}
+            isSelected={selectedPOIId === poi.id}
+            onPress={() => setSelectedPOIId((prev) => (prev === poi.id ? null : poi.id))}
           />
         ))}
 
@@ -159,13 +161,23 @@ export default forwardRef<{ invalidateSize: () => void }, MapProps>(function Map
                 <Text style={styles.calloutTitle}>{selectedPOI.title}</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setSelectedPOI(null)}
+                onPress={() => setSelectedPOIId(null)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text style={styles.calloutDismiss}>✕</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.calloutDescription}>{selectedPOI.description ?? ""}</Text>
+            <TouchableOpacity
+              disabled={selectedPOI.visited}
+              onPress={() => onPoiCheckIn?.(selectedPOI.id)}
+              style={[styles.checkInButton, selectedPOI.visited ? styles.checkInButtonDone : null]}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.checkInText}>
+                {selectedPOI.visited ? "Checked in" : "Check in"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -327,20 +339,42 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: colors.pinYellow,
   },
   calloutTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1a1a1a",
+    color: colors.ink,
+    fontFamily: "Jersey10",
+    fontSize: 22,
   },
   calloutDismiss: {
+    color: colors.inkSofter,
     fontSize: 16,
-    color: "#999",
   },
   calloutDescription: {
-    fontSize: 14,
-    color: "#555",
+    color: colors.inkSoft,
+    fontFamily: "Jersey10",
+    fontSize: 18,
     marginTop: 8,
     lineHeight: 20,
+  },
+  checkInButton: {
+    alignItems: "center",
+    backgroundColor: colors.sageDark,
+    borderColor: colors.sageDarker,
+    borderRadius: 10,
+    borderWidth: 2,
+    justifyContent: "center",
+    marginTop: 12,
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  checkInButtonDone: {
+    backgroundColor: colors.sageLight,
+    opacity: 0.72,
+  },
+  checkInText: {
+    color: colors.creamText,
+    fontFamily: "Jersey10",
+    fontSize: 20,
   },
 });
