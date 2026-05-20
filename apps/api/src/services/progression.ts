@@ -38,16 +38,16 @@ export async function ensureQuestProgress(db: Database, userId: string) {
   `);
 
   await db.execute(sql`
-    insert into app.user_quest_progress (user_id, source, source_id, target_count)
+    insert into app.user_quest_progress (user_id, source, source_id, target_count, active_on)
     select
       ${userId},
       'daily_quest',
-      daily_quest_assignments.id,
-      daily_quest_pool.target_count
-    from app.daily_quest_assignments
-    join app.daily_quest_pool on daily_quest_pool.id = daily_quest_assignments.daily_quest_pool_id
-    where daily_quest_assignments.active_on = (timezone('Australia/Sydney', now()))::date
-    on conflict (user_id, source, source_id) do nothing
+      daily_quest_pool.id,
+      daily_quest_pool.target_count,
+      (timezone('Australia/Sydney', now()))::date
+    from app.daily_quest_pool
+    where daily_quest_pool.active
+    on conflict (user_id, source, source_id, active_on) do nothing
   `);
 }
 
@@ -71,11 +71,9 @@ export async function incrementQuestProgress(
         and user_quest_progress.source_id = level_quest_sets.id
       left join app.quest_templates
         on level_quest_sets.template_id = quest_templates.id
-      left join app.daily_quest_assignments
-        on user_quest_progress.source = 'daily_quest'
-        and user_quest_progress.source_id = daily_quest_assignments.id
       left join app.daily_quest_pool
-        on daily_quest_assignments.daily_quest_pool_id = daily_quest_pool.id
+        on user_quest_progress.source = 'daily_quest'
+        and user_quest_progress.source_id = daily_quest_pool.id
       left join app.daily_quest_templates
         on daily_quest_pool.template_id = daily_quest_templates.id
       where
