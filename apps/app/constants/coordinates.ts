@@ -1,3 +1,5 @@
+export const UNSW_CAMPUS_ID = "00000000-0000-4000-8000-000000000100";
+
 export const UNSW_CENTER = { lat: -33.917, lng: 151.231 } as const;
 
 export const DEMO_BILLBOARD = {

@@ -10,7 +10,7 @@ export class ApiError extends Error {
   }
 }
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
 
 type FetchOptions<TResponse> = {
   method: "DELETE" | "GET" | "PATCH" | "POST";
@@ -44,7 +44,7 @@ export async function apiFetch<TResponse>({
     init.body = JSON.stringify(body);
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, init);
+  const res = await fetch(`${API_BASE_URL}${path}`, init);
   const json: unknown = await res.json().catch(() => ({}));
 
   if (!res.ok) {
@@ -58,6 +58,14 @@ export async function apiFetch<TResponse>({
   }
 
   return schema.parse(json);
+}
+
+export function realtimeUrl(path: string, token: string): string {
+  const url = new URL(path, API_BASE_URL);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.searchParams.set("token", token);
+
+  return url.toString();
 }
 
 function codeFromMessage(message: string) {
