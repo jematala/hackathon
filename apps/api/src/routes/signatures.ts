@@ -32,7 +32,7 @@ const SIGNATURE_FEATURE_PERK_KEY = "note_signature";
 export const signaturesRoute = new Hono<AppBindings>();
 
 signaturesRoute.get("/signatures", async (c) => {
-  const db = getDb(c.env);
+  const db = getDb(c);
   const rows = await db.execute<CatalogRow>(sql`
     select
       id,
@@ -54,7 +54,7 @@ signaturesRoute.get("/signatures", async (c) => {
 });
 
 signaturesRoute.get("/users/me/signatures", requireAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = getDb(c);
   const authUser = getAuthUser(c);
   const [rows, featureRows] = await Promise.all([
     db.execute<MineRow>(sql`
@@ -108,7 +108,7 @@ signaturesRoute.patch(
   requireAuth,
   zValidator("json", equipSignatureInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = getDb(c);
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
 
