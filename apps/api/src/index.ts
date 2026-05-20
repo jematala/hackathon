@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 
 import { getDb } from "./db";
-import { requireAuth } from "./middleware/auth";
+import { requireRealtimeAuth } from "./middleware/auth";
 import { billboardsRoute } from "./routes/billboards";
 import { moderation } from "./routes/moderation";
 import { poisRoute } from "./routes/pois";
@@ -35,7 +35,7 @@ app.get("/api/health", (c) => {
   });
 });
 
-app.get("/api/realtime", requireAuth, async (c) => {
+app.get("/api/realtime", requireRealtimeAuth, async (c) => {
   const campusId = c.req.query("campusId") ?? "unsw";
   const stub = realtimeStub(c.env, campusId);
 
