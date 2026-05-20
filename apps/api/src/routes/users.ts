@@ -3,7 +3,6 @@ import {
   getUserProgressResponseSchema,
   getUserResponseSchema,
   idSchema,
-  listUserPerksResponseSchema,
   updateAvatarInputSchema,
   updateCurrentUserInputSchema,
   updateCurrentUserResponseSchema,
@@ -166,18 +165,6 @@ usersRoute.get("/users/me/progress", requireAuth, async (c) => {
             and hidden_at is null
             and status = 'active'
             and expires_at > now()
-            and (
-              empty_expires_at > now()
-              or exists (
-                select 1
-                from app.billboard_placements
-                where
-                  billboard_placements.billboard_id = billboards.id
-                  and billboard_placements.deleted_at is null
-                  and billboard_placements.hidden_at is null
-                  and billboard_placements.status = 'active'
-              )
-            )
         ) as "activeBillboards",
         (
           select count(*)::int
@@ -227,12 +214,10 @@ usersRoute.get("/users/me/perks", requireAuth, async (c) => {
     loadNextPerks(db, user.level),
   ]);
 
-  return c.json(
-    listUserPerksResponseSchema.parse({
-      next: next.map(levelPerk),
-      unlocked: unlocked.map(unlockedPerk),
-    }),
-  );
+  return c.json({
+    next: next.map(levelPerk),
+    unlocked: unlocked.map(unlockedPerk),
+  });
 });
 
 usersRoute.get("/users/:id", async (c) => {
@@ -430,12 +415,7 @@ export async function loadQuestRows(db: ReturnType<typeof getDb>, userId: string
       and user_quest_progress.source_id = daily_quest_pool.id
     left join app.daily_quest_templates
       on daily_quest_templates.id = daily_quest_pool.template_id
-    where
-      user_quest_progress.user_id = ${userId}
-      and (
-        user_quest_progress.source = 'level_quest'
-        or user_quest_progress.active_on = (timezone('Australia/Sydney', now()))::date
-      )
+    where user_quest_progress.user_id = ${userId}
     order by user_quest_progress.source, level_quest_sets.sort_order nulls last
   `);
 

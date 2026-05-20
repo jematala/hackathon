@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from "react-native";
+
 import { colors, stickerPalette } from "@/app/theme";
 
 type StickerPaletteProps = {

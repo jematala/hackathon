@@ -5,6 +5,7 @@ export type Env = {
   CLERK_PUBLISHABLE_KEY?: string;
   CLERK_SECRET_KEY?: string;
   OPENAI_API_KEY?: string;
+  MODERATION_ENABLED?: string;
   SUPABASE_POOLER_DATABASE_URL?: string;
   SUPABASE_SECRET_KEY?: string;
   SUPABASE_URL?: string;

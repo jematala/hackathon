@@ -28,8 +28,11 @@ export const colors = {
   stickerCyan: "#4ABFBF",
 };
 
+/** Must match the key passed to `useFonts({ … })` in `app/_layout.tsx`. */
+export const FONT_FAMILY = "Jersey10_400Regular";
+
 export const fonts = {
-  family: "Jersey10_400Regular",
+  family: FONT_FAMILY,
   sizes: {
     xs: 16,
     sm: 18,

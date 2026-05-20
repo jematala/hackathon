@@ -10,6 +10,8 @@ import { Hono } from "hono";
 
 import { getDb } from "../db";
 import { getAuthUser, requireAuth } from "../middleware/auth";
+import { applyStreakMilestoneUnlocks } from "../services/progression";
+import { ensureDailyRotations } from "../services/rotations";
 import type { AppBindings } from "../types";
 import { loadQuestRows, loadUser } from "./users";
 
@@ -25,6 +27,8 @@ export const questsRoute = new Hono<AppBindings>();
 questsRoute.get("/quests", requireAuth, async (c) => {
   const db = getDb(c.env);
   const authUser = getAuthUser(c);
+
+  await ensureDailyRotations(db);
 
   const user = await loadUser(c.env, authUser.id);
   const quests = await loadQuestRows(db, authUser.id);
@@ -52,19 +56,15 @@ questsRoute.post(
         user_quest_progress.source,
         user_quest_progress.completed_at as "completedAt",
         user_quest_progress.claimed_at as "claimedAt",
-        coalesce(level_quest_sets.xp_reward, daily_quest_pool.xp_reward) as "xpReward"
+        case
+          when user_quest_progress.source = 'level_quest' then level_quest_sets.xp_reward
+          else 0
+        end as "xpReward"
       from app.user_quest_progress
       left join app.level_quest_sets
         on user_quest_progress.source = 'level_quest'
         and user_quest_progress.source_id = level_quest_sets.id
-      left join app.daily_quest_pool
-        on user_quest_progress.source = 'daily_quest'
-        and user_quest_progress.source_id = daily_quest_pool.id
       where user_quest_progress.id = ${id} and user_quest_progress.user_id = ${authUser.id}
-        and (
-          user_quest_progress.source = 'level_quest'
-          or user_quest_progress.active_on = (timezone('Australia/Sydney', now()))::date
-        )
     `);
     const quest = rows[0];
 
@@ -100,41 +100,26 @@ questsRoute.post(
 
     const userBefore = await loadUser(c.env, authUser.id);
 
-    const claimedRows = await db.execute<{ id: string }>(sql`
+    await db.execute(sql`
       update app.user_quest_progress
       set claimed_at = now(), claimed_xp = ${quest.xpReward}, updated_at = now()
       where id = ${id} and claimed_at is null
-      returning id
     `);
-
-    if (!claimedRows[0]) {
-      return c.json(
-        claimQuestErrorResponseSchema.parse({
-          error: "quest_already_claimed",
-          message: "Quest reward has already been claimed.",
-        }),
-        409,
-      );
-    }
-
     await db.execute(sql`
       update app.users
       set
-        xp = xp + ${quest.xpReward},
+        xp = case when ${quest.source} = 'level_quest' then xp + ${quest.xpReward} else xp end,
         last_daily_claimed_on = case
           when ${quest.source} = 'daily_quest' then (timezone('Australia/Sydney', now()))::date
           else last_daily_claimed_on
         end,
         daily_streak = case
           when ${quest.source} = 'daily_quest'
-            and last_daily_claimed_on = (timezone('Australia/Sydney', now()))::date - 1
-          then daily_streak + 1
-          when ${quest.source} = 'daily_quest'
             and (
               last_daily_claimed_on is null
               or last_daily_claimed_on < (timezone('Australia/Sydney', now()))::date
             )
-          then 1
+          then daily_streak + 1
           else daily_streak
         end,
         streak_updated_on = case
@@ -144,6 +129,14 @@ questsRoute.post(
         updated_at = now()
       where id = ${authUser.id}
     `);
+
+    if (quest.source === "daily_quest") {
+      const streakRows = await db.execute<{ dailyStreak: number }>(sql`
+        select daily_streak as "dailyStreak" from app.users where id = ${authUser.id}
+      `);
+      const streak = streakRows[0]?.dailyStreak ?? 0;
+      await applyStreakMilestoneUnlocks(db, authUser.id, streak);
+    }
 
     if (quest.source === "level_quest") {
       await maybeLevelUp(db, authUser.id);

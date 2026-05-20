@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { StyleSheet, View } from "react-native";
+
 import { colors } from "@/app/theme";
 
 export function Card({ children }: PropsWithChildren) {

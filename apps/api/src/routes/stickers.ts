@@ -50,7 +50,7 @@ type SavedStickerRow = {
 export const stickersRoute = new Hono<AppBindings>();
 
 stickersRoute.post(
-  "/stickers",
+  "/users/me/stickers",
   requireAuth,
   zValidator("json", createStickerInputSchema),
   async (c) => {
@@ -92,7 +92,7 @@ stickersRoute.post(
   },
 );
 
-stickersRoute.get("/users/me/stickers", requireAuth, async (c) => {
+stickersRoute.get("/users/me/saved-stickers", requireAuth, async (c) => {
   const db = getDb(c.env);
   const authUser = getAuthUser(c);
   const [rows, capacity] = await Promise.all([
@@ -109,7 +109,7 @@ stickersRoute.get("/users/me/stickers", requireAuth, async (c) => {
 });
 
 stickersRoute.post(
-  "/users/me/stickers",
+  "/users/me/saved-stickers",
   requireAuth,
   zValidator("json", createSavedStickerInputSchema),
   async (c) => {
@@ -125,18 +125,6 @@ stickersRoute.post(
 
     if ((countRows[0]?.count ?? 0) >= capacity.stickerSlots) {
       conflict("Saved sticker capacity reached.");
-    }
-
-    if (input.kind === "sticker") {
-      const stickerRows = await db.execute<{ id: string }>(sql`
-        select id
-        from app.sticker_assets
-        where id = ${input.stickerAssetId} and deleted_at is null and status = 'active'
-      `);
-
-      if (!stickerRows[0]) {
-        notFound("Sticker asset not found.");
-      }
     }
 
     const rows = await db.execute<{ id: string }>(sql`
@@ -164,7 +152,7 @@ stickersRoute.post(
   },
 );
 
-stickersRoute.delete("/users/me/stickers/:id", requireAuth, async (c) => {
+stickersRoute.delete("/users/me/saved-stickers/:id", requireAuth, async (c) => {
   const db = getDb(c.env);
   const authUser = getAuthUser(c);
   const id = idSchema.safeParse(c.req.param("id"));

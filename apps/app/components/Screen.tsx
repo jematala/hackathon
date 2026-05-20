@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { colors } from "@/app/theme";
 
 export function Screen({ children }: PropsWithChildren) {

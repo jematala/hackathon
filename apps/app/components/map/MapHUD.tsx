@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { fonts } from "@/app/theme";
+import { useUserProfile } from "@/lib/userProfile";
 
 const HUD_BUTTON_SIZE = 100;
 const COLOR_FG = "#5b7559";
@@ -23,6 +24,9 @@ function makeXpRingUri(progress: number): string {
 }
 
 function ProfileButton() {
+  const { avatarUri } = useUserProfile();
+  const useDrawn = Boolean(avatarUri);
+  const source = avatarUri ? { uri: avatarUri } : require("@/assets/images/avatar.png");
   return (
     <View style={styles.leftSection}>
       <Text style={styles.levelLabel}>lv22</Text>
@@ -33,7 +37,10 @@ function ProfileButton() {
           onPress={() => router.push("/profile" as any)}
           style={({ pressed }) => [styles.profileButton, { opacity: pressed ? 0.7 : 1 }]}
         >
-          <Image source={require("@/assets/images/avatar.png")} style={styles.profileImage} />
+          <Image
+            source={source}
+            style={[styles.profileImage, useDrawn && styles.profileImageDrawn]}
+          />
         </Pressable>
       </View>
     </View>
@@ -51,13 +58,25 @@ function TextButton({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
+function AddButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityLabel="Create billboard"
+      style={({ pressed }) => [styles.addButton, { opacity: pressed ? 0.7 : 1 }]}
+    >
+      <Text style={styles.addLabel}>+</Text>
+    </Pressable>
+  );
+}
+
 type MapHUDProps = {
-  onStudioPress: () => void;
-  isPermissionDenied: boolean;
-  onEnableLocation: () => void;
+  onCreateBillboard: () => void;
+  isPermissionDenied?: boolean;
+  onEnableLocation?: () => void;
 };
 
-export function MapHUD({ onStudioPress, isPermissionDenied, onEnableLocation }: MapHUDProps) {
+export function MapHUD({ onCreateBillboard, isPermissionDenied, onEnableLocation }: MapHUDProps) {
   return (
     <View style={styles.container}>
       {isPermissionDenied && (
@@ -71,12 +90,13 @@ export function MapHUD({ onStudioPress, isPermissionDenied, onEnableLocation }: 
           </Pressable>
         </View>
       )}
-      <View style={styles.bottomRow}>
-        <ProfileButton />
+      <ProfileButton />
+      <View style={styles.rightStack}>
+        <AddButton onPress={onCreateBillboard} />
         <View style={styles.rightCluster}>
           <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
           <View style={{ width: 10 }} />
-          <TextButton label="Studio" onPress={onStudioPress} />
+          <TextButton label="Studio" onPress={() => router.push("/studio" as any)} />
         </View>
       </View>
     </View>
@@ -156,6 +176,9 @@ const styles = StyleSheet.create({
     height: HUD_BUTTON_SIZE - 6,
     width: HUD_BUTTON_SIZE - 6,
   },
+  profileImageDrawn: {
+    backgroundColor: "#faf7ef",
+  },
   textButton: {
     alignItems: "center",
     backgroundColor: COLOR_FG,
@@ -169,6 +192,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family,
     fontSize: 28,
   },
+  addButton: {
+    alignItems: "center",
+    backgroundColor: COLOR_FG,
+    borderRadius: 8,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  addLabel: {
+    color: "#ffedd6",
+    fontFamily: fonts.family,
+    fontSize: 36,
+    lineHeight: 38,
+  },
   levelLabel: {
     color: "#5b7559",
     fontFamily: fonts.family,
@@ -176,7 +213,12 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   rightCluster: {
-    flexDirection: "row",
     alignSelf: "flex-end",
+    flexDirection: "row",
+  },
+  rightStack: {
+    alignItems: "flex-end",
+    alignSelf: "flex-end",
+    gap: 10,
   },
 });

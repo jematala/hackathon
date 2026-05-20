@@ -193,6 +193,20 @@ export const poiVisits = appSchema.table(
   ],
 );
 
+export const poiDailyActivations = appSchema.table(
+  "poi_daily_activations",
+  {
+    campusId: uuid("campus_id")
+      .notNull()
+      .references(() => campuses.id, { onDelete: "cascade" }),
+    poiId: uuid("poi_id")
+      .notNull()
+      .references(() => pois.id, { onDelete: "cascade" }),
+    activeOn: date("active_on").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.campusId, table.poiId, table.activeOn] })],
+);
+
 export const billboards = appSchema.table(
   "billboards",
   {
@@ -541,6 +555,40 @@ export const streakRewardDefinitions = appSchema.table(
       "streak_reward_definitions_reward_object_check",
       sql`jsonb_typeof(${table.reward}) = 'object'`,
     ),
+  ],
+);
+
+export const signatures = appSchema.table(
+  "signatures",
+  {
+    id: uuidPrimaryKey(),
+    key: text("key").notNull().unique(),
+    name: text("name").notNull(),
+    assetBase64: text("asset_base64").notNull(),
+    streakDayRequired: integer("streak_day_required").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt,
+  },
+  (table) => [check("signatures_streak_day_check", sql`${table.streakDayRequired} > 0`)],
+);
+
+export const userSignatures = appSchema.table(
+  "user_signatures",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    signatureId: uuid("signature_id")
+      .notNull()
+      .references(() => signatures.id, { onDelete: "cascade" }),
+    unlockedAt: timestamp("unlocked_at", { withTimezone: true }).notNull().defaultNow(),
+    isEquipped: boolean("is_equipped").notNull().default(false),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.signatureId] }),
+    uniqueIndex("user_signatures_one_equipped_idx")
+      .on(table.userId)
+      .where(sql`${table.isEquipped}`),
   ],
 );
 

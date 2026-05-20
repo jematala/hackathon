@@ -36,12 +36,17 @@ export class CampusRealtimeRoomDO implements DurableObject {
     server.accept();
     this.sessions.add(server);
 
-    server.addEventListener("close", () => {
+    const removeSession = () => {
       this.sessions.delete(server);
-    });
-    server.addEventListener("error", () => {
-      this.sessions.delete(server);
-    });
+      try {
+        server.close();
+      } catch {
+        // The close or error path may fire after the socket has already closed.
+      }
+    };
+
+    server.addEventListener("close", removeSession);
+    server.addEventListener("error", removeSession);
 
     return new Response(null, {
       status: 101,

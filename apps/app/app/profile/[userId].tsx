@@ -1,7 +1,8 @@
 import { useLocalSearchParams } from "expo-router";
+import { StyleSheet, Text } from "react-native";
+
 import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
-import { StyleSheet, Text } from "react-native";
 import { colors, fonts } from "@/app/theme";
 
 export default function ProfileScreen() {
@@ -21,21 +22,21 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   title: {
     color: colors.text,
+    fontFamily: fonts.family,
     fontSize: 28,
     fontWeight: "700",
-    fontFamily: fonts.family,
   },
   label: {
     color: colors.textSecondary,
+    fontFamily: fonts.family,
     fontSize: 13,
     fontWeight: "700",
     textTransform: "uppercase",
-    fontFamily: fonts.family,
   },
   value: {
     color: colors.text,
+    fontFamily: fonts.family,
     fontSize: 18,
     fontWeight: "700",
-    fontFamily: fonts.family,
   },
 });

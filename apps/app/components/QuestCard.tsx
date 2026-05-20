@@ -1,85 +1,110 @@
-import { StyleSheet, Text, View } from "react-native";
-import { colors, fonts } from "@/app/theme";
+import type { QuestProgress } from "@repo/shared";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { fonts } from "@/app/theme";
+
+import { Card } from "./Card";
+import { ProgressBar } from "./ProgressBar";
 
 type QuestCardProps = {
-  title: string;
-  description: string;
-  progress: number;
-  total: number;
-  completed: boolean;
+  progress: QuestProgress;
+  onClaim: (id: string) => void;
+  isClaiming: boolean;
 };
 
-export function QuestCard({ title, description, progress, total, completed }: QuestCardProps) {
+export function QuestCard({ progress, onClaim, isClaiming }: QuestCardProps) {
+  const { quest, claimedAt, claimableAt, progressCount, targetCount } = progress;
+  const claimed = Boolean(claimedAt);
+  const claimable = Boolean(claimableAt) && !claimed;
+  const isDaily = quest.source === "daily_quest";
+  const claimedLabel = isDaily ? "Claimed · streak +1" : "Claimed";
+
   return (
-    <View style={[styles.card, completed && styles.completed]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, completed && styles.completedText]}>{title}</Text>
-        {completed && <Text style={styles.checkmark}>✓</Text>}
+    <Card>
+      <View style={styles.headerRow}>
+        <Text style={styles.title} numberOfLines={2}>
+          {quest.title}
+        </Text>
+        {isDaily && <Text style={styles.streakReward}>+1 streak</Text>}
       </View>
-      <Text style={styles.description}>{description}</Text>
-      <View style={styles.progressContainer}>
-        <View
-          style={[styles.progressBar, { width: `${Math.min((progress / total) * 100, 100)}%` }]}
-        />
+      <Text style={styles.description}>{quest.description}</Text>
+      <ProgressBar value={progressCount} max={targetCount} />
+      <View style={styles.actionRow}>
+        {claimed ? (
+          <View style={styles.claimedPill}>
+            <Text style={styles.claimedLabel}>{claimedLabel}</Text>
+          </View>
+        ) : claimable ? (
+          <Pressable
+            disabled={isClaiming}
+            onPress={() => onClaim(progress.id)}
+            style={({ pressed }) => [
+              styles.claimButton,
+              {
+                opacity: isClaiming ? 0.6 : pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <Text style={styles.claimLabel}>{isClaiming ? "Claiming…" : "Claim"}</Text>
+          </Pressable>
+        ) : null}
       </View>
-      <Text style={styles.progressText}>
-        {progress}/{total}
-      </Text>
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.parchment,
-    borderColor: colors.borderDark,
-    borderRadius: 0,
-    borderWidth: 2,
-    padding: 12,
-    gap: 8,
-  },
-  completed: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryDark,
-  },
-  header: {
+  headerRow: {
+    alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
   },
   title: {
-    color: colors.text,
-    fontSize: fonts.sizes.md,
-    fontWeight: "700",
+    color: "#6A401A",
+    flex: 1,
     fontFamily: fonts.family,
+    fontSize: 20,
+    marginRight: 12,
   },
-  completedText: {
-    color: colors.white,
-  },
-  checkmark: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: "700",
+  streakReward: {
+    color: "#D94A29",
+    fontFamily: fonts.family,
+    fontSize: 16,
   },
   description: {
-    color: colors.textSecondary,
-    fontSize: fonts.sizes.sm,
+    color: "#71730E",
     fontFamily: fonts.family,
+    fontSize: 16,
   },
-  progressContainer: {
-    height: 4,
-    backgroundColor: colors.border,
+  actionRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
+  claimButton: {
+    alignItems: "center",
+    backgroundColor: "#5b7559",
+    borderRadius: 8,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  claimLabel: {
+    color: "#ffedd6",
+    fontFamily: fonts.family,
+    fontSize: 18,
+  },
+  claimedPill: {
+    backgroundColor: "#E9D8B5",
+    borderColor: "#B17833",
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.borderDark,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
-  progressBar: {
-    height: "100%",
-    backgroundColor: colors.primary,
-  },
-  progressText: {
-    color: colors.textSecondary,
-    fontSize: fonts.sizes.xs,
+  claimedLabel: {
+    color: "#6A401A",
     fontFamily: fonts.family,
-    textAlign: "right",
+    fontSize: 16,
   },
 });

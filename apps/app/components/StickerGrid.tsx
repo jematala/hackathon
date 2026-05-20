@@ -1,4 +1,5 @@
 import { StyleSheet, View } from "react-native";
+
 import { pixelBorder } from "@/app/theme";
 
 type StickerGridProps = {
