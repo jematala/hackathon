@@ -14,7 +14,7 @@
 ## Phase 0 — Domain Alignment & Data Model (Everyone, together first)
 
 - [x] **All 4** — Whiteboard the domain model: User, POI, Billboard, Placement (Sticker/StickyNote), Quest, DailyQuest, UserProgress, Report
-- [x] **BE1** — Write `packages/db/supabase/reset.sql` with all real tables (POIs include picture column, users include avatar + is_admin columns)
+- [x] **BE1** — Write `packages/db/d1/schema.sql` with all real tables (POIs include picture column, users include avatar + is_admin columns)
 - [x] **BE1** — Write Drizzle schema in `packages/db/src/schema/` (POI: picture field; User: avatar field)
 - [x] **BE1** — Write shared Zod schemas in `packages/shared/src/` (poi includes optional picture, user includes avatar)
 - [x] **BE1** — Delete old `events`-related code from `packages/shared/src/events.ts`
@@ -29,7 +29,7 @@
 ## Phase 1a — Foundation: Backend
 
 - [x] **BE2** — Set up Clerk JWKS verification middleware in `apps/api/src/middleware/auth.ts`
-- [x] **BE2** — Set up Drizzle driver + Supabase connection in `apps/api/src/db.ts`
+- [x] **BE2** — Set up Drizzle driver + D1 connection in `apps/api/src/db.ts`
 - [x] **BE2** — User profile API: avatar upload (base64 PNG) + `PATCH /api/users/me/avatar`
 - [x] **BE2** — Restructure `apps/api/src/index.ts` — split into route modules (`/pois`, `/billboards`, `/stickers`, `/quests`, `/users`, `/admin`)
 
@@ -62,7 +62,7 @@
 - [x] **FE1** — Map: show POI markers with distinct glowing style
 - [X] **FE1** — Map: show billboard markers with note icon style
 - [x] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
-- [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger (quest-progress toast plumbing exists for API mutations; geofence trigger still pending)
+- [ ] **FE1** — POI discovery UX: toast when entering numeric radius check + quest progress trigger (quest-progress toast plumbing exists for API mutations; numeric radius check trigger still pending)
 - [X] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
 - [X] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
 - [X] **FE2** — Sticky note composer: text input, preview as sticky note, post to billboard
@@ -73,7 +73,7 @@
 
 - [x] **BE1** — Daily quest rotation logic + streak tracking
 - [x] **BE1** — User profile API: `GET /api/users/:id`, `PATCH /api/users/me`
-- [x] **BE2** — Durable Object: WebSocket handler, Postgres connection, broadcast on mutations
+- [x] **BE2** — Durable Object: WebSocket handler, D1 connection, broadcast on mutations
 - [ ] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
 - [x] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars (currently backed by mock quest data)
 - [x] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited)
@@ -121,16 +121,16 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 ## Key Architectural Decisions (confirmed)
 
 - **Sticker storage:** base64 PNG blob — FE produces B64 string, sends to BE for moderation (B64 moderation via OpenAI)
-- **Admin role:** `is_admin` boolean column on `app.users`
-- **Primary keys:** internal UUIDv4 values for all primary keys; Clerk user IDs are stored as unique external auth identifiers on `app.users.clerk_user_id`
+- **Admin role:** `is_admin` boolean column on `users`
+- **Primary keys:** internal UUIDv4 values for all primary keys; Clerk user IDs are stored as unique external auth identifiers on `users.clerk_user_id`
 - **Map on mobile:** `react-native-leaflet-view` (pavel-corsaghin/react-native-leaflet)
-- **Drizzle migrations:** Drizzle Kit with `drizzle-kit push` for hackathon speed
+- **D1 migrations:** SQL files under `packages/db/d1/migrations`; local resets use `packages/db/d1/schema.sql`
 - **Billboard limits:** concurrent active cap starts at 3 and scales with level; posting at the cap soft-deletes the user's oldest active billboard before publishing the new one
 - **Billboard daily limit:** separate Sydney calendar-day posting cap; seeded as concurrent + 1 and capped at 10/day
 - **Billboard expiry:** derived from `empty_expires_at`/`expires_at` in active queries (empty billboards disappear after 24 hours; all billboards disappear after 5 days)
 - **Daily quests:** seeded templates/pool; active quest is deterministically selected from the Sydney calendar day
 - **POI rotation:** seeded/admin-created POI table; active POI set is deterministically selected from the campus calendar day
-- **POI geofence radius:** 30m
+- **POI numeric radius check radius:** 30m
 - **Quest system:** parameterised templates (visit N POIs, leave N notes, place N stickers, receive N replies, save N stickers) with per-level randomised values and tier progression
 - **Daily quest pool:** 5 curated seeded daily quests; one rotates each Sydney calendar day
 - **Push notification timing:** 8–9am daily quest reminder when push is enabled
@@ -210,4 +210,4 @@ Hardcoded in `constants/coordinates.ts`:
 
 ### Maps Backlog (post-hackathon)
 
-- POI discovery toast on geofence enter
+- POI discovery toast on numeric radius check enter

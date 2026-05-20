@@ -33,7 +33,7 @@ can track what's done. Use `- [x]` for completed items.
 ```
 apps/app          Expo Router app (web + mobile)
 apps/api          Cloudflare Worker API (Hono)
-packages/db       Supabase/PostGIS reset SQL
+packages/db       D1 reset SQL
 packages/shared   Shared Zod schemas & API contracts
 ```
 

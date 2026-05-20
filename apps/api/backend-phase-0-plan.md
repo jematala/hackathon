@@ -12,12 +12,12 @@
 
 - Sticker storage: base64 PNG blob produced by FE and stored by BE.
 - POI picture storage: optional compressed 128x128 base64 PNG stored inline in the POI row.
-- User avatar storage: 64x64 pixel art base64 PNG stored in `app.users.avatar_base64`.
-- Admin role: `is_admin boolean` on `app.users`.
-- Primary keys: internal UUIDv4 values for all primary keys; Clerk user IDs are unique external auth identifiers stored on `app.users.clerk_user_id`.
-- UUIDv4 generation: `reset.sql` and Drizzle table defaults call `gen_random_uuid()`, which is available on Supabase PostgreSQL 17.6.
+- User avatar storage: 64x64 pixel art base64 PNG stored in `users.avatar_base64`.
+- Admin role: `is_admin boolean` on `users`.
+- Primary keys: internal UUIDv4 text values for all primary keys; Clerk user IDs are unique external auth identifiers stored on `users.clerk_user_id`.
+- UUIDv4 generation: API code assigns UUIDv4 text values before inserts; D1 seed rows use stable IDs.
 - Map provider: `react-native-leaflet-view` with OSM tiles; backend still exposes lat/lng and campus bounds/provider config.
-- Drizzle migrations: Drizzle Kit with `drizzle-kit push` for hackathon speed.
+- D1 migrations: SQL files under `packages/db/d1/migrations`; local resets use `packages/db/d1/schema.sql`.
 - POI rotation, empty-billboard expiry, daily quests, and POI/day setup are derived at request time where possible, but Phase 0 needs schema support and seed data.
 - Quest system: parameterised templates such as `visit_pois`, `leave_billboards`, `place_stickers`, `receive_replies`, and `save_stickers`, with generated per-level values.
 - Daily quests: fixed curated seeded pool of about 5 templates; one is deterministically selected per Sydney calendar day.
@@ -31,7 +31,7 @@
 
 Update or create these files:
 
-- [`packages/db/supabase/reset.sql`](../../packages/db/supabase/reset.sql): full reset SQL for the real tables, seed UNSW campus plus a few demo POIs/quests, and remove event tables.
+- [`packages/db/d1/schema.sql`](../../packages/db/d1/schema.sql): full reset SQL for the real tables, seed UNSW campus plus a few demo POIs/quests, and remove event tables.
 - [`packages/db/src/schema/`](../../packages/db/src/schema/): Drizzle schema matching the SQL tables.
 - [`packages/shared/src/poi.ts`](../../packages/shared/src/poi.ts): POI schemas and route contracts.
 - [`packages/shared/src/billboard.ts`](../../packages/shared/src/billboard.ts): billboard and placement schemas.
@@ -91,46 +91,46 @@ Reports/admin:
 
 ## Phase 0 SQL And Drizzle Model
 
-Use `app` schema and PostGIS. The SQL reset and Drizzle schema should define the same tables.
+Use D1 tables without a separate SQL schema. The SQL reset and Drizzle schema should define the same tables.
 
 Identity:
 
-- `app.users`: UUIDv4 `id` primary key, unique `clerk_user_id`, username, display name, `avatar_base64`, `is_admin`, level, XP, streak fields, banned/deleted flags, timestamps. Do not reuse Clerk IDs as primary keys; map Clerk JWT `sub` to this row via `clerk_user_id`.
-- `app.push_tokens`: optional Phase 0 table if quick; useful for Phase 3 push.
+- `users`: UUIDv4 text `id` primary key, unique `clerk_user_id`, username, display name, `avatar_base64`, `is_admin`, level, XP, streak fields, banned/deleted flags, timestamps. Do not reuse Clerk IDs as primary keys; map Clerk JWT `sub` to this row via `clerk_user_id`.
+- `push_tokens`: optional Phase 0 table if quick; useful for Phase 3 push.
 
 Campus and POIs:
 
-- `app.campuses`: id, name, timezone, map center, radius/bounds.
-- `app.pois`: campus id, title, description, optional `picture_base64`, location point, radius meters defaulting to 30m, active/admin fields.
-- `app.poi_visits`: user id, POI id, visited date/time, unique first-visit constraint.
+- `campuses`: id, name, timezone, map center, radius/bounds.
+- `pois`: campus id, title, description, optional `picture_base64`, lat/lng numbers, radius meters defaulting to 30m, active/admin fields.
+- `poi_visits`: user id, POI id, visited date/time, unique first-visit constraint.
 
 Billboards and placements:
 
-- `app.billboards`: campus id, author id, text body, location point, status, moderation fields, `empty_expires_at`, hard `expires_at`, and deleted timestamps. Track enough timestamps to enforce the concurrent cap, the Sydney calendar-day posting cap, empty-billboard 24-hour expiry, and the 5-day maximum lifetime.
-- `app.billboard_placements`: billboard id, author id, kind `sticker | sticky_note`, x/y, z index, sticker asset ref or text body, status, moderation fields. Unique active `(billboard_id, author_id)`.
+- `billboards`: campus id, author id, text body, lat/lng numbers, status, moderation fields, `empty_expires_at`, hard `expires_at`, and deleted timestamps. Track enough timestamps to enforce the concurrent cap, the Sydney calendar-day posting cap, empty-billboard 24-hour expiry, and the 5-day maximum lifetime.
+- `billboard_placements`: billboard id, author id, kind `sticker | sticky_note`, x/y, z index, sticker asset ref or text body, status, moderation fields. Unique active `(billboard_id, author_id)`.
 
 Stickers and collection:
 
-- `app.sticker_assets`: owner id, base64 PNG data, width/height, palette metadata, moderation/status fields for OpenAI image moderation.
-- `app.saved_stickers`: user collection rows pointing to sticker assets or saved sticky-note text, with capacity enforced in API.
+- `sticker_assets`: owner id, base64 PNG data, width/height, palette metadata, moderation/status fields for OpenAI image moderation.
+- `saved_stickers`: user collection rows pointing to sticker assets or saved sticky-note text, with capacity enforced in API.
 
 Quests and perks:
 
-- `app.quest_templates`: parameterised level quest template catalog. Columns should include `key`, `trigger_type`, `title_template`, `description_template`, `min_target`, `max_target`, `xp_reward`, and `active`.
-- `app.level_quest_sets`: generated or seeded level/tier quest instances with `level`, `template_id`, `target_count`, `xp_reward`, and ordering.
-- `app.daily_quest_templates`: parameterised daily quest template catalog, separate from level quests even when it uses the same trigger types.
-- `app.daily_quest_pool`: curated daily quest candidates from `daily_quest_templates`, with target counts and XP tuned for daily play.
-- `app.user_quest_progress`: user id, quest source/type, quest instance id, optional active date for daily quests, progress count, completed_at, claimable_at, claimed_at, claimed XP.
-- `app.perk_definitions`: catalog of perks such as concurrent billboard capacity, daily posting capacity, sticker slot increase, note signature, note border flair, palette expansion.
-- `app.level_perks`: maps each level to one or more perk definitions plus any numeric value, e.g. `max_concurrent_billboards = 3` and `daily_billboard_limit = 4`.
-- `app.user_perk_unlocks`: records perks unlocked when a user reaches a level, useful for profile display, analytics, and future manual grants.
-- `app.streak_reward_definitions`: optional catalog for daily streak bonus rewards such as cosmetics or XP multipliers. Store the reward as JSONB, validate it with the shared streak reward payload schema, and keep a DB check that the stored value is a JSON object.
+- `quest_templates`: parameterised level quest template catalog. Columns should include `key`, `trigger_type`, `title_template`, `description_template`, `min_target`, `max_target`, `xp_reward`, and `active`.
+- `level_quest_sets`: generated or seeded level/tier quest instances with `level`, `template_id`, `target_count`, `xp_reward`, and ordering.
+- `daily_quest_templates`: parameterised daily quest template catalog, separate from level quests even when it uses the same trigger types.
+- `daily_quest_pool`: curated daily quest candidates from `daily_quest_templates`, with target counts and XP tuned for daily play.
+- `user_quest_progress`: user id, quest source/type, quest instance id, optional active date for daily quests, progress count, completed_at, claimable_at, claimed_at, claimed XP.
+- `perk_definitions`: catalog of perks such as concurrent billboard capacity, daily posting capacity, sticker slot increase, note signature, note border flair, palette expansion.
+- `level_perks`: maps each level to one or more perk definitions plus any numeric value, e.g. `max_concurrent_billboards = 3` and `daily_billboard_limit = 4`.
+- `user_perk_unlocks`: records perks unlocked when a user reaches a level, useful for profile display, analytics, and future manual grants.
+- `streak_reward_definitions`: optional catalog for daily streak bonus rewards such as cosmetics or XP multipliers. Store the reward as JSON text, validate it with the shared streak reward payload schema, and keep a DB check that the stored value is a JSON object.
 
 Safety/admin:
 
-- `app.reports`: reporter, target type/id, reason, status, admin notes.
-- `app.moderation_actions`: admin action log for report outcomes.
-- `app.content_moderation_logs`: OpenAI moderation response summary, target type/id, including sticker assets because saved stickers can outlive placements.
+- `reports`: reporter, target type/id, reason, status, admin notes.
+- `moderation_actions`: admin action log for report outcomes.
+- `content_moderation_logs`: OpenAI moderation response summary, target type/id, including sticker assets because saved stickers can outlive placements.
 
 Indexes/constraints:
 
@@ -183,14 +183,14 @@ Model expiry and caps from the PRD explicitly:
 
 ## Later Phase Notes
 
-- Phase 1a implements Clerk JWKS middleware, Drizzle driver/Supabase connection, and route module structure.
+- Phase 1a implements Clerk JWKS middleware, Drizzle driver/D1 connection, and route module structure.
 - Phase 1b implements the actual POI, billboard, sticker/placement, quest, and user APIs from the contracts above.
 - Phase 3 adds Durable Object WebSockets. Keep one `CampusRealtimeRoomDO` class with one instance for UNSW in MVP; do not create DOs per message/billboard/POI.
 - Do not add an app-level WebSocket `ping` message unless real device testing shows a need.
 
 ## Implementation Order For Phase 0
 
-1. Rewrite [`packages/db/supabase/reset.sql`](../../packages/db/supabase/reset.sql) with the real `app` tables and seed data.
+1. Rewrite [`packages/db/d1/schema.sql`](../../packages/db/d1/schema.sql) with the real `app` tables and seed data.
 2. Add matching Drizzle schema files under [`packages/db/src/schema/`](../../packages/db/src/schema/).
 3. Replace shared event schemas with the domain modules and route contracts above.
 4. Seed the PRD level perks and the initial quest template/daily pool rows.

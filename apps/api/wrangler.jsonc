@@ -25,6 +25,14 @@
       "zone_name": "takuk.me",
     },
   ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jematala-db",
+      "database_id": "816d5f5d-0be0-4122-88a9-f4bcee86892e",
+      "migrations_dir": "../../packages/db/d1/migrations",
+    },
+  ],
   "durable_objects": {
     "bindings": [
       {

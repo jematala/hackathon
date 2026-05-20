@@ -11,7 +11,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import { getDb, nowSql } from "../db";
 import { forbidden, notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import {
@@ -19,7 +19,7 @@ import {
   getUserCapacities,
   questRowToProgress,
 } from "../services/progression";
-import { isoDateTime, nullableIsoDate, nullableIsoDateTime } from "../serialize";
+import { isoDateTime, jsonObject, nullableIsoDate, nullableIsoDateTime } from "../serialize";
 import type { AppBindings } from "../types";
 
 type UserRow = {
@@ -69,11 +69,11 @@ usersRoute.patch(
     const authUser = getAuthUser(c);
     const db = getDb(c.env);
     const rows = await db.execute<UserRow>(sql`
-      update app.users
+      update users
       set
         username = coalesce(${input.username ?? null}, username),
         display_name = coalesce(${input.displayName ?? null}, display_name),
-        updated_at = now()
+        updated_at = ${nowSql()}
       where id = ${authUser.id}
       returning
         id,
@@ -105,8 +105,8 @@ usersRoute.patch(
     const authUser = getAuthUser(c);
     const db = getDb(c.env);
     const rows = await db.execute<UserRow>(sql`
-      update app.users
-      set avatar_base64 = ${input.avatarBase64}, updated_at = now()
+      update users
+      set avatar_base64 = ${input.avatarBase64}, updated_at = ${nowSql()}
       where id = ${authUser.id}
       returning
         id,
@@ -147,39 +147,39 @@ usersRoute.get("/users/me/progress", requireAuth, async (c) => {
       stickersSaved: number;
     }>(sql`
       select
-        (select count(*)::int from app.poi_visits where user_id = ${authUser.id}) as "poisVisited",
+        (select count(*) from poi_visits where user_id = ${authUser.id}) as "poisVisited",
         (
-          select count(*)::int
-          from app.billboards
+          select count(*)
+          from billboards
           where
             author_id = ${authUser.id}
-            and (timezone('Australia/Sydney', created_at))::date =
-              (timezone('Australia/Sydney', now()))::date
+            and date(created_at, '+10 hours') =
+              date('now', '+10 hours')
         ) as "billboardsCreatedToday",
         (
-          select count(*)::int
-          from app.billboards
+          select count(*)
+          from billboards
           where
             author_id = ${authUser.id}
             and deleted_at is null
             and hidden_at is null
             and status = 'active'
-            and expires_at > now()
+            and expires_at > ${nowSql()}
         ) as "activeBillboards",
         (
-          select count(*)::int
-          from app.saved_stickers
+          select count(*)
+          from saved_stickers
           where user_id = ${authUser.id} and deleted_at is null
         ) as "stickersSaved",
         (
-          select count(*)::int
-          from app.billboard_placements
+          select count(*)
+          from billboard_placements
           where author_id = ${authUser.id} and deleted_at is null
         ) as "placementsCreated",
         (
-          select count(*)::int
-          from app.billboard_placements
-          join app.billboards on billboards.id = billboard_placements.billboard_id
+          select count(*)
+          from billboard_placements
+          join billboards on billboards.id = billboard_placements.billboard_id
           where
             billboards.author_id = ${authUser.id}
             and billboard_placements.author_id <> ${authUser.id}
@@ -250,7 +250,7 @@ export async function loadUser(env: AppBindings["Bindings"], id: string) {
       deleted_at as "deletedAt",
       created_at as "createdAt",
       updated_at as "updatedAt"
-    from app.users
+    from users
     where id = ${id} and deleted_at is null
   `);
 
@@ -285,7 +285,7 @@ function currentUser(user: UserRow) {
     bannedAt: nullableIsoDateTime(user.bannedAt),
     dailyStreak: user.dailyStreak,
     deletedAt: nullableIsoDateTime(user.deletedAt),
-    isAdmin: user.isAdmin,
+    isAdmin: Boolean(user.isAdmin),
     lastDailyClaimedOn: nullableIsoDate(user.lastDailyClaimedOn),
     streakUpdatedOn: nullableIsoDate(user.streakUpdatedOn),
     updatedAt: isoDateTime(user.updatedAt),
@@ -306,7 +306,7 @@ function levelPerk(row: PerkRow) {
   return {
     id: row.levelPerkId,
     level: row.level,
-    metadata: row.metadata,
+    metadata: jsonObject(row.metadata),
     numericValue: row.numericValue,
     perk: perk(row),
   };
@@ -334,9 +334,9 @@ async function loadUnlockedPerks(db: ReturnType<typeof getDb>, userId: string) {
       perk_definitions.description,
       user_perk_unlocks.source_level as "sourceLevel",
       user_perk_unlocks.unlocked_at as "unlockedAt"
-    from app.user_perk_unlocks
-    join app.level_perks on level_perks.id = user_perk_unlocks.level_perk_id
-    join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+    from user_perk_unlocks
+    join level_perks on level_perks.id = user_perk_unlocks.level_perk_id
+    join perk_definitions on perk_definitions.id = level_perks.perk_id
     where user_perk_unlocks.user_id = ${userId}
     order by level_perks.level, perk_definitions.key
   `);
@@ -353,10 +353,10 @@ async function loadNextPerks(db: ReturnType<typeof getDb>, level: number) {
       perk_definitions.key as "perkKey",
       perk_definitions.name,
       perk_definitions.description
-    from app.level_perks
-    join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+    from level_perks
+    join perk_definitions on perk_definitions.id = level_perks.perk_id
     where level_perks.level = (
-      select min(level) from app.level_perks where level > ${level}
+      select min(level) from level_perks where level > ${level}
     )
     order by level_perks.level, perk_definitions.key
   `);
@@ -392,7 +392,7 @@ export async function loadQuestRows(db: ReturnType<typeof getDb>, userId: string
       replace(
         coalesce(quest_templates.title_template, daily_quest_templates.title_template),
         '{target}',
-        user_quest_progress.target_count::text
+        user_quest_progress.target_count
       ) as title,
       replace(
         coalesce(
@@ -400,23 +400,26 @@ export async function loadQuestRows(db: ReturnType<typeof getDb>, userId: string
           daily_quest_templates.description_template
         ),
         '{target}',
-        user_quest_progress.target_count::text
+        user_quest_progress.target_count
       ) as description,
       level_quest_sets.level,
       level_quest_sets.sort_order as "sortOrder",
       user_quest_progress.active_on as "activeOn"
-    from app.user_quest_progress
-    left join app.level_quest_sets
+    from user_quest_progress
+    left join level_quest_sets
       on user_quest_progress.source = 'level_quest'
       and user_quest_progress.source_id = level_quest_sets.id
-    left join app.quest_templates on quest_templates.id = level_quest_sets.template_id
-    left join app.daily_quest_pool
+    left join quest_templates on quest_templates.id = level_quest_sets.template_id
+    left join daily_quest_pool
       on user_quest_progress.source = 'daily_quest'
-      and user_quest_progress.source_id = daily_quest_pool.id
-    left join app.daily_quest_templates
+      and daily_quest_pool.id = user_quest_progress.source_id
+    left join daily_quest_templates
       on daily_quest_templates.id = daily_quest_pool.template_id
     where user_quest_progress.user_id = ${userId}
-    order by user_quest_progress.source, level_quest_sets.sort_order nulls last
+    order by
+      user_quest_progress.source,
+      level_quest_sets.sort_order is null,
+      level_quest_sets.sort_order
   `);
 
   return rows.map(questRowToProgress);

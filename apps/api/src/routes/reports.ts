@@ -9,7 +9,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import { getDb, newId, nowSql } from "../db";
 import { notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import { isoDateTime } from "../serialize";
@@ -56,10 +56,10 @@ reportsRoute.post(
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
     const rows = await db.execute<{ id: string }>(sql`
-    insert into app.reports (reporter_id, target_type, target_id, reason, details)
-    values (${authUser.id}, ${input.targetType}, ${input.targetId}, ${input.reason}, ${input.details ?? null})
+    insert into reports (id, reporter_id, target_type, target_id, reason, details)
+    values (${newId()}, ${authUser.id}, ${input.targetType}, ${input.targetId}, ${input.reason}, ${input.details ?? null})
     on conflict (reporter_id, target_type, target_id) do update
-      set reason = excluded.reason, details = excluded.details, updated_at = now()
+      set reason = excluded.reason, details = excluded.details, updated_at = ${nowSql()}
     returning id
   `);
     const report = await loadReport(db, rows[0]!.id);
@@ -105,7 +105,8 @@ reportsRoute.post(
     await applyModerationAction(db, report, input.action);
 
     const actionRows = await db.execute<ActionRow>(sql`
-      insert into app.moderation_actions (
+      insert into moderation_actions (
+        id,
         report_id,
         admin_id,
         action,
@@ -114,6 +115,7 @@ reportsRoute.post(
         notes
       )
       values (
+        ${newId()},
         ${report.id},
         ${authUser.id},
         ${input.action},
@@ -132,11 +134,11 @@ reportsRoute.post(
         created_at as "createdAt"
     `);
     await db.execute(sql`
-      update app.reports
+      update reports
       set
         status = case when ${input.action} = 'dismiss' then 'dismissed' else 'resolved' end,
         admin_notes = ${input.notes ?? null},
-        updated_at = now()
+        updated_at = ${nowSql()}
       where id = ${report.id}
     `);
 
@@ -183,8 +185,8 @@ function reportSelectSql() {
       users.avatar_base64 as "reporterAvatarBase64",
       users.level as "reporterLevel",
       users.created_at as "reporterCreatedAt"
-    from app.reports
-    join app.users on users.id = reports.reporter_id
+    from reports
+    join users on users.id = reports.reporter_id
   `;
 }
 
@@ -195,32 +197,32 @@ async function applyModerationAction(
 ) {
   if (report.targetType === "billboard" && (action === "hide" || action === "remove")) {
     await db.execute(sql`
-      update app.billboards
+      update billboards
       set
-        hidden_at = case when ${action} = 'hide' then now() else hidden_at end,
-        deleted_at = case when ${action} = 'remove' then now() else deleted_at end,
+        hidden_at = case when ${action} = 'hide' then ${nowSql()} else hidden_at end,
+        deleted_at = case when ${action} = 'remove' then ${nowSql()} else deleted_at end,
         status = case when ${action} = 'hide' then 'hidden' else 'removed' end,
-        updated_at = now()
+        updated_at = ${nowSql()}
       where id = ${report.targetId}
     `);
   }
 
   if (report.targetType === "placement" && (action === "hide" || action === "remove")) {
     await db.execute(sql`
-      update app.billboard_placements
+      update billboard_placements
       set
-        hidden_at = case when ${action} = 'hide' then now() else hidden_at end,
-        deleted_at = case when ${action} = 'remove' then now() else deleted_at end,
+        hidden_at = case when ${action} = 'hide' then ${nowSql()} else hidden_at end,
+        deleted_at = case when ${action} = 'remove' then ${nowSql()} else deleted_at end,
         status = case when ${action} = 'hide' then 'hidden' else 'removed' end,
-        updated_at = now()
+        updated_at = ${nowSql()}
       where id = ${report.targetId}
     `);
   }
 
   if (report.targetType === "user" && action === "ban") {
     await db.execute(sql`
-      update app.users
-      set banned_at = coalesce(banned_at, now()), updated_at = now()
+      update users
+      set banned_at = coalesce(banned_at, ${nowSql()}), updated_at = ${nowSql()}
       where id = ${report.targetId}
     `);
   }

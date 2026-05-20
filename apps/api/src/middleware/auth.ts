@@ -2,7 +2,7 @@ import { createClerkClient, type ClerkClient } from "@clerk/backend";
 import { sql } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 
-import { getDb } from "../db";
+import { getDb, newId, nowSql } from "../db";
 import { unauthorized } from "../http";
 import type { AppBindings, AuthUser, Env } from "../types";
 
@@ -129,27 +129,24 @@ async function upsertAuthUser(env: Env, payload: ClerkClaims): Promise<AuthUser>
   }
 
   const db = getDb(env);
-  const rows = await db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(74291013)`);
-
-    return tx.execute<AuthUser>(sql`
-      insert into app.users (clerk_user_id, username, display_name, is_admin)
-      values (
-        ${payload.sub},
-        ${usernameFromClaims(payload)},
-        ${displayNameFromClaims(payload)},
-        not exists (select 1 from app.users where deleted_at is null)
-      )
-      on conflict (clerk_user_id) do update
-        set updated_at = now()
-      returning
-        id,
-        clerk_user_id as "clerkUserId",
-        username,
-        display_name as "displayName",
-        is_admin as "isAdmin"
-    `);
-  });
+  const rows = await db.execute<AuthUser>(sql`
+    insert into users (id, clerk_user_id, username, display_name, is_admin)
+    values (
+      ${newId()},
+      ${payload.sub},
+      ${usernameFromClaims(payload)},
+      ${displayNameFromClaims(payload)},
+      not exists (select 1 from users where deleted_at is null)
+    )
+    on conflict (clerk_user_id) do update
+      set updated_at = ${nowSql()}
+    returning
+      id,
+      clerk_user_id as "clerkUserId",
+      username,
+      display_name as "displayName",
+      is_admin as "isAdmin"
+  `);
 
   const user = rows[0];
   if (!user) {
@@ -157,14 +154,19 @@ async function upsertAuthUser(env: Env, payload: ClerkClaims): Promise<AuthUser>
   }
 
   await db.execute(sql`
-    insert into app.user_perk_unlocks (user_id, level_perk_id, source_level)
+    insert into user_perk_unlocks (user_id, level_perk_id, source_level)
     select ${user.id}, level_perks.id, level_perks.level
-    from app.level_perks
-    where level_perks.level <= (select level from app.users where id = ${user.id})
+    from level_perks
+    where
+      level_perks.level >= 1
+      and level_perks.level <= (select level from users where id = ${user.id})
     on conflict (user_id, level_perk_id) do nothing
   `);
 
-  return user;
+  return {
+    ...user,
+    isAdmin: Boolean(user.isAdmin),
+  };
 }
 
 function authMiddleware(options: AuthOptions = {}): MiddlewareHandler<AppBindings> {

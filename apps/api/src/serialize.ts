@@ -21,6 +21,14 @@ export function nullableIsoDate(value: Date | string | null) {
 }
 
 export function jsonObject(value: unknown): JsonObject | null {
+  if (typeof value === "string") {
+    try {
+      return jsonObject(JSON.parse(value));
+    } catch {
+      return null;
+    }
+  }
+
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }

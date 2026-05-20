@@ -13,12 +13,12 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { getDb } from "../db";
+import { getDb, newId, nowSql, sydneyDateSql } from "../db";
 import { badRequest, notFound } from "../http";
 import { getAuthUser, optionalAuth, requireAuth } from "../middleware/auth";
 import { incrementQuestProgress, questProgressUpdate } from "../services/progression";
 import { ensureDailyRotations } from "../services/rotations";
-import { isoDate, isoDateTime } from "../serialize";
+import { isoDate, isoDateTime, jsonObject } from "../serialize";
 import type { AppBindings, AuthUser } from "../types";
 import { requireAdmin } from "./users";
 
@@ -75,17 +75,17 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
       pois.is_active as "isActive",
       poi_daily_activations.active_on as "activeOn",
       exists (
-        select 1 from app.poi_visits
+        select 1 from poi_visits
         where poi_visits.poi_id = pois.id and poi_visits.user_id = ${authUser?.id ?? null}
       ) as visited,
       pois.created_at as "createdAt",
       pois.updated_at as "updatedAt",
-      0::int as "visitCount"
-    from app.pois
-    join app.poi_daily_activations
+      0 as "visitCount"
+    from pois
+    join poi_daily_activations
       on poi_daily_activations.poi_id = pois.id
       and poi_daily_activations.campus_id = pois.campus_id
-      and poi_daily_activations.active_on = (timezone(${campus.timezone}, now()))::date
+      and poi_daily_activations.active_on = ${sydneyDateSql()}
     where
       pois.campus_id = ${campus.id}
       and pois.deleted_at is null
@@ -124,7 +124,7 @@ poisRoute.post("/pois", requireAuth, zValidator("json", upsertPoiInputSchema), a
   const rows =
     "id" in input
       ? await db.execute<{ id: string }>(sql`
-            update app.pois
+            update pois
             set
               campus_id = coalesce(${input.campusId ?? null}, campus_id),
               title = coalesce(${input.title ?? null}, title),
@@ -132,39 +132,33 @@ poisRoute.post("/pois", requireAuth, zValidator("json", upsertPoiInputSchema), a
               picture_base64 = coalesce(${input.pictureBase64 ?? null}, picture_base64),
               lat = coalesce(${input.lat ?? null}, lat),
               lng = coalesce(${input.lng ?? null}, lng),
-              location_point = case
-                when ${input.lat ?? null}::double precision is not null
-                  and ${input.lng ?? null}::double precision is not null
-                then st_setsrid(st_makepoint(${input.lng}, ${input.lat}), 4326)::geography
-                else location_point
-              end,
               radius_meters = coalesce(${input.radiusMeters ?? null}, radius_meters),
               is_active = coalesce(${input.isActive ?? null}, is_active),
-              updated_at = now()
+              updated_at = ${nowSql()}
             where id = ${input.id}
             returning id
           `)
       : await db.execute<{ id: string }>(sql`
-            insert into app.pois (
+            insert into pois (
+              id,
               campus_id,
               title,
               description,
               picture_base64,
               lat,
               lng,
-              location_point,
               radius_meters,
               is_active,
               created_by
             )
             values (
+              ${newId()},
               ${input.campusId},
               ${input.title},
               ${input.description ?? null},
               ${input.pictureBase64 ?? null},
               ${input.lat},
               ${input.lng},
-              st_setsrid(st_makepoint(${input.lng}, ${input.lat}), 4326)::geography,
               ${input.radiusMeters},
               ${input.isActive},
               ${authUser.id}
@@ -197,21 +191,17 @@ poisRoute.post(
     }
 
     const rows = await db.execute<{
-      campusId: string;
+      lat: number;
+      lng: number;
       radiusMeters: number;
       visitedAt: Date | string;
-      withinRadius: boolean;
     }>(sql`
       select
-        campus_id as "campusId",
+        lat,
+        lng,
         radius_meters as "radiusMeters",
-        now() as "visitedAt",
-        st_dwithin(
-          location_point,
-          st_setsrid(st_makepoint(${input.lng}, ${input.lat}), 4326)::geography,
-          radius_meters
-        ) as "withinRadius"
-      from app.pois
+        ${nowSql()} as "visitedAt"
+      from pois
       where id = ${id.data} and deleted_at is null and is_active
     `);
     const poi = rows[0];
@@ -220,7 +210,9 @@ poisRoute.post(
       notFound("POI not found.");
     }
 
-    if (!poi.withinRadius) {
+    const withinRadius = distanceMeters(input.lat, input.lng, poi.lat, poi.lng) <= poi.radiusMeters;
+
+    if (!withinRadius) {
       return c.json(
         visitPoiResponseSchema.parse({
           firstVisit: false,
@@ -233,7 +225,7 @@ poisRoute.post(
     }
 
     const insertRows = await db.execute<{ inserted: boolean; visitedAt: Date | string }>(sql`
-      insert into app.poi_visits (user_id, poi_id)
+      insert into poi_visits (user_id, poi_id)
       values (${authUser.id}, ${id.data})
       on conflict (user_id, poi_id) do nothing
       returning true as inserted, visited_at as "visitedAt"
@@ -272,7 +264,7 @@ async function loadCampus(db: ReturnType<typeof getDb>, campusId: string | undef
       radius_meters as "radiusMeters",
       bounds,
       map_provider as "mapProvider"
-    from app.campuses
+    from campuses
     where ${campusId ? sql`id = ${campusId}` : sql`true`}
     order by created_at
     limit 1
@@ -300,20 +292,20 @@ async function loadPoi(db: ReturnType<typeof getDb>, id: string, userId: string 
       pois.is_active as "isActive",
       poi_daily_activations.active_on as "activeOn",
       exists (
-        select 1 from app.poi_visits
+        select 1 from poi_visits
         where poi_visits.poi_id = pois.id and poi_visits.user_id = ${userId ?? null}
       ) as visited,
       pois.created_at as "createdAt",
       pois.updated_at as "updatedAt",
       (
-        select count(*)::int from app.poi_visits where poi_visits.poi_id = pois.id
+        select count(*) from poi_visits where poi_visits.poi_id = pois.id
       ) as "visitCount"
-    from app.pois
-    left join app.campuses on campuses.id = pois.campus_id
-    left join app.poi_daily_activations
+    from pois
+    left join campuses on campuses.id = pois.campus_id
+    left join poi_daily_activations
       on poi_daily_activations.poi_id = pois.id
       and poi_daily_activations.campus_id = pois.campus_id
-      and poi_daily_activations.active_on = (timezone(campuses.timezone, now()))::date
+      and poi_daily_activations.active_on = ${sydneyDateSql()}
     where pois.id = ${id} and pois.deleted_at is null
   `);
   const poi = rows[0];
@@ -327,7 +319,7 @@ async function loadPoi(db: ReturnType<typeof getDb>, id: string, userId: string 
 
 function campusResponse(row: CampusRow) {
   return {
-    bounds: row.bounds,
+    bounds: jsonObject(row.bounds) ?? row.bounds,
     center: {
       lat: row.centerLat,
       lng: row.centerLng,
@@ -346,13 +338,13 @@ function poiSummary(row: PoiRow) {
     campusId: row.campusId,
     description: row.description,
     id: row.id,
-    isActive: row.isActive,
+    isActive: Boolean(row.isActive),
     lat: row.lat,
     lng: row.lng,
     pictureBase64: row.pictureBase64,
     radiusMeters: row.radiusMeters,
     title: row.title,
-    visited: row.visited,
+    visited: Boolean(row.visited),
   };
 }
 
@@ -367,4 +359,14 @@ function poiDetail(row: PoiRow) {
 
 function safeAuthUser(c: { var: { authUser?: AuthUser } }) {
   return c.var.authUser;
+}
+
+function distanceMeters(fromLat: number, fromLng: number, toLat: number, toLng: number) {
+  const metersPerLatDegree = 111_320;
+  const averageLatRadians = (((fromLat + toLat) / 2) * Math.PI) / 180;
+  const metersPerLngDegree = metersPerLatDegree * Math.cos(averageLatRadians);
+  const deltaLat = (fromLat - toLat) * metersPerLatDegree;
+  const deltaLng = (fromLng - toLng) * metersPerLngDegree;
+
+  return Math.hypot(deltaLat, deltaLng);
 }

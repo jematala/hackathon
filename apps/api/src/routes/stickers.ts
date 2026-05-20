@@ -11,7 +11,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import { getDb, newId, nowSql } from "../db";
 import { conflict, forbidden, notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import { jsonObject, isoDateTime } from "../serialize";
@@ -64,7 +64,8 @@ stickersRoute.post(
     }
 
     const rows = await db.execute<{ id: string }>(sql`
-      insert into app.sticker_assets (
+      insert into sticker_assets (
+        id,
         owner_id,
         png_base64,
         width,
@@ -74,13 +75,14 @@ stickersRoute.post(
         moderation_summary
       )
       values (
+        ${newId()},
         ${authUser.id},
         ${input.pngBase64},
         ${input.width},
         ${input.height},
-        ${input.palette ? JSON.stringify(input.palette) : null}::jsonb,
+        ${input.palette ? JSON.stringify(input.palette) : null},
         'active',
-        ${moderation.rawResponse ? JSON.stringify(moderation.rawResponse) : null}::jsonb
+        ${moderation.rawResponse ? JSON.stringify(moderation.rawResponse) : null}
       )
       returning id
     `);
@@ -118,8 +120,8 @@ stickersRoute.post(
     const input = c.req.valid("json");
     const capacity = await getUserCapacities(db, authUser.id);
     const countRows = await db.execute<{ count: number }>(sql`
-      select count(*)::int as count
-      from app.saved_stickers
+      select count(*) as count
+      from saved_stickers
       where user_id = ${authUser.id} and deleted_at is null
     `);
 
@@ -128,8 +130,9 @@ stickersRoute.post(
     }
 
     const rows = await db.execute<{ id: string }>(sql`
-      insert into app.saved_stickers (user_id, kind, sticker_asset_id, body, label)
+      insert into saved_stickers (id, user_id, kind, sticker_asset_id, body, label)
       values (
+        ${newId()},
         ${authUser.id},
         ${input.kind},
         ${input.kind === "sticker" ? input.stickerAssetId : null},
@@ -162,8 +165,8 @@ stickersRoute.delete("/users/me/saved-stickers/:id", requireAuth, async (c) => {
   }
 
   const rows = await db.execute<{ id: string }>(sql`
-    update app.saved_stickers
-    set deleted_at = now()
+    update saved_stickers
+    set deleted_at = ${nowSql()}
     where id = ${id.data} and user_id = ${authUser.id} and deleted_at is null
     returning id
   `);
@@ -186,7 +189,7 @@ async function loadStickerAsset(db: ReturnType<typeof getDb>, id: string) {
       palette,
       status,
       created_at as "createdAt"
-    from app.sticker_assets
+    from sticker_assets
     where id = ${id} and deleted_at is null
   `);
   const sticker = rows[0];
@@ -215,8 +218,8 @@ async function loadSavedStickers(db: ReturnType<typeof getDb>, userId: string) {
       sticker_assets.palette as "stickerPalette",
       sticker_assets.status as "stickerStatus",
       sticker_assets.created_at as "stickerCreatedAt"
-    from app.saved_stickers
-    left join app.sticker_assets on sticker_assets.id = saved_stickers.sticker_asset_id
+    from saved_stickers
+    left join sticker_assets on sticker_assets.id = saved_stickers.sticker_asset_id
     where saved_stickers.user_id = ${userId} and saved_stickers.deleted_at is null
     order by saved_stickers.created_at desc
   `);

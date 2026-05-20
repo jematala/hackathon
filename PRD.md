@@ -6,7 +6,7 @@ A location-based social exploration game for UNSW students.
 
 ## 1. Overview
 
-Mobile app where students discover geofenced Points of Interest (POIs) around UNSW Kensington campus, leave billboard notes, and reply with pixel-art stickers. Progression via quests and levelling unlocks cosmetic perks, billboard capacity, and sticker collection capacity upgrades.
+Mobile app where students discover radius-based Points of Interest (POIs) around UNSW Kensington campus, leave billboard notes, and reply with pixel-art stickers. Progression via quests and levelling unlocks cosmetic perks, billboard capacity, and sticker collection capacity upgrades.
 
 **Core loop:** Explore campus → discover POIs → leave/read notes → reply with stickers → complete quests → level up → unlock perks → explore more.
 
@@ -16,10 +16,10 @@ Mobile app where students discover geofenced Points of Interest (POIs) around UN
 
 | Layer                       | Choice                                                                    |
 | --------------------------- | ------------------------------------------------------------------------- |
-| Mobile framework            | Expo (React Native) with native geofencing                                |
+| Mobile framework            | Expo (React Native) with native numeric radius checks                                |
 | API runtime (non-real-time) | Hono on Cloudflare Workers                                                |
 | Real-time runtime           | Cloudflare Durable Objects (WebSockets, broadcasting)                     |
-| Database                    | PostgreSQL + PostGIS on Supabase (no RLS)                                 |
+| Database                    | Cloudflare D1 (no RLS)                                 |
 | ORM                         | Drizzle                                                                   |
 | Auth                        | Clerk (social login only — Google, Apple)                                 |
 | Maps                        | react-native-leaflet-view + OSM                                           |
@@ -36,10 +36,10 @@ Cloudflare Workers are the entry point for all HTTP requests. Routing depends on
 
 | Request type       | Handler                                   | Example                                 |
 | ------------------ | ----------------------------------------- | --------------------------------------- |
-| Non-real-time GET  | CF Worker (Hono) → Postgres               | Fetch user profile, list saved stickers |
-| Non-real-time POST | CF Worker (Hono) → Postgres               | Update user display name, settings      |
-| Real-time GET      | Durable Object → Postgres (via WebSocket) | Query notes, POIs, and map data         |
-| Real-time POST     | Durable Object → Postgres + broadcast     | Post a note, place a sticker            |
+| Non-real-time GET  | CF Worker (Hono) → D1               | Fetch user profile, list saved stickers |
+| Non-real-time POST | CF Worker (Hono) → D1               | Update user display name, settings      |
+| Real-time GET      | Durable Object → D1 (via WebSocket) | Query notes, POIs, and map data         |
+| Real-time POST     | Durable Object → D1 + broadcast     | Post a note, place a sticker            |
 | WebSocket connect  | Durable Object (persistent connection)    | Live map updates, push notifications    |
 
 Durable Objects manage persistent WebSocket connections for real-time features — querying notes and map data, broadcasting changes, and sending notifications. Mutations required for real-time functionality (e.g. posting notes, placing stickers) also run inside the Durable Object so the result can be broadcast immediately.
@@ -53,7 +53,7 @@ Non-real-time requests (e.g. updating user settings, fetching saved stickers) go
 - 2D top-down map centered on UNSW Kensington campus
 - User sees: their own location dot, POI markers, and billboard notes
 - **No other users are visible** on the map — anonymity of presence
-- POI geofence radius: 30m (tuned during playtesting if needed)
+- POI numeric radius check radius: 30m (tuned during playtesting if needed)
 - Map provider: react-native-leaflet-view with OSM tiles
 - User represented on map by a 64×64 pixel art avatar drawn at sign-up
 
@@ -223,7 +223,7 @@ Quests are **parameterised templates** rather than fixed one-time objectives. Ea
 | -------------------------------- | -------------------------------------- |
 | Primary key format               | **UUIDv4** for internal primary keys; Clerk IDs are unique auth-provider identifiers, not primary keys |
 | Billboard limits                 | **Concurrent cap + Sydney-day posting cap**; posting at the concurrent cap replaces the user's oldest active billboard |
-| POI geofence trigger radius      | **30m**                                |
+| POI numeric radius check trigger radius      | **30m**                                |
 | Map provider                     | **react-native-leaflet-view** + OSM    |
 | Sticker storage format           | **base64 PNG**                         |
 | Quest system                     | **Parameterised templates** (visit N POIs, leave N notes, place N stickers, receive N replies, save N stickers) with per-level randomised values |

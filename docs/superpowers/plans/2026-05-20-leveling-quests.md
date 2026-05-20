@@ -6,7 +6,7 @@
 
 **Architecture:** The existing schema and services already match ~80% of the spec — the work is **deltas**, not a rewrite. Seed data changes drive most of the gameplay tuning. The biggest code changes are: (a) the claim flow stops awarding XP for daily quests; (b) a new streak-break path runs on the existing CF `scheduled()` cron; (c) two small new tables (`signatures`, `user_signatures`) and a new shared schema for streak rewards that support a `capacity_billboard` variant; (d) capacity computation in `getUserCapacities` extends to streak perks. Frontend deltas are confined to `QuestCard` (daily reward label), a new `NextMilestonePreview`, and a signature picker on the profile screen (gated by L4).
 
-**Tech Stack:** Bun workspaces · Postgres + PostGIS (Supabase) · Drizzle ORM · Drizzle Kit (push) · Hono on Cloudflare Workers · Zod (shared schemas) · Expo / React Native · React Native Leaflet (not touched by this plan)
+**Tech Stack:** Bun workspaces · Cloudflare D1 · Drizzle ORM · Drizzle Kit (push) · Hono on Cloudflare Workers · Zod (shared schemas) · Expo / React Native · React Native Leaflet (not touched by this plan)
 
 **Spec reference:** `docs/superpowers/specs/2026-05-20-leveling-quests-design.md`
 
@@ -23,7 +23,7 @@ These are the only verification commands this project supports. Most tasks use o
 | `bun --cwd apps/api dev` | Start Worker locally (port 8787 default) | Smoke check API responses |
 | `bun --cwd apps/app start` | Start Expo on app | Smoke check UI |
 | `bun --cwd packages/db drizzle-kit push` | Apply Drizzle schema changes to DB | After Drizzle schema edits |
-| `psql "$DATABASE_URL" -f packages/db/supabase/reset.sql` | Reset + reseed DB | After seed edits |
+| `D1 CLI "$CLOUDFLARE_D1_DATABASE_ID" -f packages/db/d1/schema.sql` | Reset + reseed DB | After seed edits |
 
 > **Note:** `reset.sql` resets the entire `app` schema and reseeds. If running it during execution, all other working state is lost; this is fine for hackathon iteration but be aware.
 
@@ -33,7 +33,7 @@ These are the only verification commands this project supports. Most tasks use o
 
 | File | Action | Responsibility |
 |---|---|---|
-| `packages/db/supabase/reset.sql` | modify | Add `signatures` and `user_signatures` tables, revise `level_perks` seed (cap-5 numbers), expand `level_quest_sets` seed to all 10 levels with new ramp, replace `streak_reward_definitions` seed (days 3/7/14/30) |
+| `packages/db/d1/schema.sql` | modify | Add `signatures` and `user_signatures` tables, revise `level_perks` seed (cap-5 numbers), expand `level_quest_sets` seed to all 10 levels with new ramp, replace `streak_reward_definitions` seed (days 3/7/14/30) |
 | `packages/db/src/schema/index.ts` | modify | Add Drizzle definitions for `signatures` and `user_signatures` to mirror SQL |
 | `packages/shared/src/quest.ts` | modify | Add `capacity_billboard` variant to `streakRewardSchema`; remove `xp_multiplier` variant |
 | `packages/shared/src/signature.ts` | create | Zod schemas + types for `Signature`, `UserSignature`, `ListSignaturesResponse`, `EquipSignatureInput` |
@@ -59,11 +59,11 @@ These are the only verification commands this project supports. Most tasks use o
 **Why:** The current seed has L2/L5/L8 each adding +1 concurrent (reaching 6) and L10 jumping to 10. Per spec §5, level path caps at 5 (L2 +1, L8 +1) and the L10 jump is removed.
 
 **Files:**
-- Modify: `packages/db/supabase/reset.sql:420-438`
+- Modify: `packages/db/d1/schema.sql:420-438`
 
 - [ ] **Step 1: Replace the `level_perks` insert block**
 
-Open `packages/db/supabase/reset.sql` and locate the `insert into app.level_perks` block (around lines 420-438). Replace the entire block with:
+Open `packages/db/d1/schema.sql` and locate the `insert into app.level_perks` block (around lines 420-438). Replace the entire block with:
 
 ```sql
 insert into app.level_perks (id, level, perk_id, numeric_value, metadata)
@@ -102,7 +102,7 @@ Note: row id `…907` (was L5 concurrent +1) and `…90e` (was L10 concurrent 10
 Grep the file for the new value cap:
 
 ```bash
-grep "level_perks" packages/db/supabase/reset.sql | head -20
+grep "level_perks" packages/db/d1/schema.sql | head -20
 ```
 
 Confirm L8 concurrent shows `5` and L10 has no concurrent row.
@@ -110,7 +110,7 @@ Confirm L8 concurrent shows `5` and L10 has no concurrent row.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add packages/db/supabase/reset.sql
+git add packages/db/d1/schema.sql
 git commit -m "db: cap level-perk concurrent billboards at 5"
 ```
 
@@ -121,7 +121,7 @@ git commit -m "db: cap level-perk concurrent billboards at 5"
 **Why:** Current seed covers L1–L3 only. Per spec §3.1, tier sizes are 1-2-2-3-3-3-4-4-5-5 (total 32 quests). Per spec §3.2, no template repeats within a tier, and target values scale with tier.
 
 **Files:**
-- Modify: `packages/db/supabase/reset.sql:388-394`
+- Modify: `packages/db/d1/schema.sql:388-394`
 
 Template UUID reference (from existing seed, lines 372-378):
 - `visit_pois` → `00000000-0000-4000-8000-000000000301`
@@ -209,7 +209,7 @@ values
 Open the new block and count rows by `level`. Expected counts: L1=1, L2=2, L3=2, L4=3, L5=3, L6=3, L7=4, L8=4, L9=5, L10=5. Total = 32.
 
 ```bash
-grep -E "', [0-9]+, '00000000-0000-4000-8000-000000000(301|302|303|304|305)'," packages/db/supabase/reset.sql | wc -l
+grep -E "', [0-9]+, '00000000-0000-4000-8000-000000000(301|302|303|304|305)'," packages/db/d1/schema.sql | wc -l
 ```
 
 Expected: at least 32 (some rows may match if `select random` blocks include similar substring — eyeball the actual block to confirm).
@@ -217,7 +217,7 @@ Expected: at least 32 (some rows may match if `select random` blocks include sim
 - [ ] **Step 3: Commit**
 
 ```bash
-git add packages/db/supabase/reset.sql
+git add packages/db/d1/schema.sql
 git commit -m "db: seed level quest sets for all 10 levels (32 quests, 1-2-2-3-3-3-4-4-5-5)"
 ```
 
@@ -228,7 +228,7 @@ git commit -m "db: seed level quest sets for all 10 levels (32 quests, 1-2-2-3-3
 **Why:** Spec §4.5: streak milestones at days 3 / 7 / 14 / 30. Days 3, 7, 30 grant a signature; day 14 grants `+1 concurrent billboard`. The current seed has different days and uses `xp_multiplier` (which the spec drops).
 
 **Files:**
-- Modify: `packages/db/supabase/reset.sql:440-443`
+- Modify: `packages/db/d1/schema.sql:440-443`
 
 - [ ] **Step 1: Replace the `streak_reward_definitions` insert**
 
@@ -250,7 +250,7 @@ values
 - [ ] **Step 2: Commit**
 
 ```bash
-git add packages/db/supabase/reset.sql
+git add packages/db/d1/schema.sql
 git commit -m "db: seed streak milestones at days 3/7/14/30"
 ```
 
@@ -261,11 +261,11 @@ git commit -m "db: seed streak milestones at days 3/7/14/30"
 **Why:** Spec §7.2 — earned signatures need to be stored and equipped. `signatures` is the seed catalog; `user_signatures` is the junction with `is_equipped` (at most one true per user).
 
 **Files:**
-- Modify: `packages/db/supabase/reset.sql` (append new tables before the `create index` block around line 326)
+- Modify: `packages/db/d1/schema.sql` (append new tables before the `create index` block around line 326)
 
 - [ ] **Step 1: Append the new tables**
 
-In `packages/db/supabase/reset.sql`, just BEFORE the `create index pois_location_point_idx` line (around line 326), insert:
+In `packages/db/d1/schema.sql`, just BEFORE the `create index pois_active_campus_idx` line (around line 326), insert:
 
 ```sql
 create table app.signatures (
@@ -292,7 +292,7 @@ create unique index user_signatures_one_equipped_idx
 
 - [ ] **Step 2: Append seed signatures at end of file**
 
-At the very END of `packages/db/supabase/reset.sql`, append:
+At the very END of `packages/db/d1/schema.sql`, append:
 
 ```sql
 insert into app.signatures (id, key, name, asset_base64, streak_day_required)
@@ -313,7 +313,7 @@ The base64 above is a 1×1 transparent PNG placeholder. The team will replace `a
 - [ ] **Step 3: Commit**
 
 ```bash
-git add packages/db/supabase/reset.sql
+git add packages/db/d1/schema.sql
 git commit -m "db: add signatures and user_signatures tables"
 ```
 
@@ -389,30 +389,30 @@ git commit -m "db: drizzle schema for signatures and user_signatures"
 
 - [ ] **Step 1: Reset and reseed**
 
-Run (assumes `DATABASE_URL` env var is set):
+Run (assumes `CLOUDFLARE_D1_DATABASE_ID` env var is set):
 
 ```bash
-psql "$DATABASE_URL" -f packages/db/supabase/reset.sql
+D1 CLI "$CLOUDFLARE_D1_DATABASE_ID" -f packages/db/d1/schema.sql
 ```
 
 Expected output: a series of `DROP`, `CREATE`, `INSERT` lines. No `ERROR` lines.
 
-- [ ] **Step 2: Sanity check via psql**
+- [ ] **Step 2: Sanity check via D1 CLI**
 
 ```bash
-psql "$DATABASE_URL" -c "select level, count(*) from app.level_quest_sets group by level order by level;"
+D1 CLI "$CLOUDFLARE_D1_DATABASE_ID" -c "select level, count(*) from app.level_quest_sets group by level order by level;"
 ```
 
 Expected: 10 rows with counts 1, 2, 2, 3, 3, 3, 4, 4, 5, 5.
 
 ```bash
-psql "$DATABASE_URL" -c "select streak_days, name from app.streak_reward_definitions order by streak_days;"
+D1 CLI "$CLOUDFLARE_D1_DATABASE_ID" -c "select streak_days, name from app.streak_reward_definitions order by streak_days;"
 ```
 
 Expected: 4 rows for days 3, 7, 14, 30.
 
 ```bash
-psql "$DATABASE_URL" -c "select count(*) from app.signatures;"
+D1 CLI "$CLOUDFLARE_D1_DATABASE_ID" -c "select count(*) from app.signatures;"
 ```
 
 Expected: 3.
@@ -638,7 +638,7 @@ Start the API:
 bun --cwd apps/api dev
 ```
 
-In a separate shell, claim a daily quest using the demo bearer token (set `USER_ID` and `QUEST_ID` from `psql` queries):
+In a separate shell, claim a daily quest using the demo bearer token (set `USER_ID` and `QUEST_ID` from `D1 CLI` queries):
 
 ```bash
 curl -s -X POST -H "Authorization: Bearer dev" -H "Content-Type: application/json" \
@@ -730,12 +730,12 @@ export async function applyStreakMilestoneUnlocks(
 
 - [ ] **Step 2: Allow level=0 rows in the existing CHECK constraint**
 
-The current `level_perks` table has `check (level >= 1)` which would block streak-source rows (level=0). Open `packages/db/supabase/reset.sql` and find the `create table app.level_perks` block (around lines 262-270). Change `check (level >= 1)` to `check (level >= 0)`. Also update the Drizzle definition: in `packages/db/src/schema/index.ts:518`, change `sql\`${table.level} >= 1\`` to `sql\`${table.level} >= 0\``.
+The current `level_perks` table has `check (level >= 1)` which would block streak-source rows (level=0). Open `packages/db/d1/schema.sql` and find the `create table app.level_perks` block (around lines 262-270). Change `check (level >= 1)` to `check (level >= 0)`. Also update the Drizzle definition: in `packages/db/src/schema/index.ts:518`, change `sql\`${table.level} >= 1\`` to `sql\`${table.level} >= 0\``.
 
 - [ ] **Step 3: Re-apply schema**
 
 ```bash
-psql "$DATABASE_URL" -f packages/db/supabase/reset.sql
+D1 CLI "$CLOUDFLARE_D1_DATABASE_ID" -f packages/db/d1/schema.sql
 ```
 
 (This re-runs all the seed data too — fine.)
@@ -751,7 +751,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/api/src/services/progression.ts packages/db/supabase/reset.sql packages/db/src/schema/index.ts
+git add apps/api/src/services/progression.ts packages/db/d1/schema.sql packages/db/src/schema/index.ts
 git commit -m "api: applyStreakMilestoneUnlocks helper + allow level=0 perks"
 ```
 
@@ -877,7 +877,7 @@ Expected: PASS.
 
 - [ ] **Step 4: Smoke check**
 
-With the dev DB at a fresh state (run `psql … -f reset.sql` if needed), hit `/api/users/me/progress` for the demo user and confirm `capacities` reflects the base L1 values (concurrent=3, daily=4, sticker=10). Then `UPDATE app.users SET daily_streak = 14, level = 8 WHERE id = '00000000-0000-4000-8000-000000000002';`, call `applyStreakMilestoneUnlocks` (e.g. via curl after claiming a daily — or in psql: `INSERT INTO app.level_perks (level, perk_id, numeric_value, metadata) SELECT 0, id, 1, '{"source":"streak"}'::jsonb FROM app.perk_definitions WHERE key='max_concurrent_billboards';` then `INSERT INTO app.user_perk_unlocks(user_id, level_perk_id, source_level) SELECT '...', id, 0 FROM app.level_perks WHERE level=0;`). Hit `/api/users/me/progress` again: `maxConcurrentBillboards` should be 6 (L8=5 + streak=1).
+With the dev DB at a fresh state (run `D1 CLI … -f reset.sql` if needed), hit `/api/users/me/progress` for the demo user and confirm `capacities` reflects the base L1 values (concurrent=3, daily=4, sticker=10). Then `UPDATE app.users SET daily_streak = 14, level = 8 WHERE id = '00000000-0000-4000-8000-000000000002';`, call `applyStreakMilestoneUnlocks` (e.g. via curl after claiming a daily — or in D1 CLI: `INSERT INTO app.level_perks (level, perk_id, numeric_value, metadata) SELECT 0, id, 1, '{"source":"streak"}'::jsonb FROM app.perk_definitions WHERE key='max_concurrent_billboards';` then `INSERT INTO app.user_perk_unlocks(user_id, level_perk_id, source_level) SELECT '...', id, 0 FROM app.level_perks WHERE level=0;`). Hit `/api/users/me/progress` again: `maxConcurrentBillboards` should be 6 (L8=5 + streak=1).
 
 - [ ] **Step 5: Commit**
 
@@ -958,13 +958,13 @@ Expected: PASS.
 - [ ] **Step 4: Smoke check (manual)**
 
 ```bash
-psql "$DATABASE_URL" -c "update app.users set daily_streak = 7, last_daily_claimed_on = (current_date - 3) where id = '00000000-0000-4000-8000-000000000002';"
+D1 CLI "$CLOUDFLARE_D1_DATABASE_ID" -c "update app.users set daily_streak = 7, last_daily_claimed_on = (current_date - 3) where id = '00000000-0000-4000-8000-000000000002';"
 ```
 
 Then invoke the function via REPL or temporarily expose a debug route to call `resetBrokenStreaks`. The simplest smoke test:
 
 ```bash
-psql "$DATABASE_URL" -c "
+D1 CLI "$CLOUDFLARE_D1_DATABASE_ID" -c "
   update app.users
   set daily_streak = 0
   where
@@ -1707,7 +1707,7 @@ Expected: 0 errors across lint, format, and typecheck.
 Reset DB:
 
 ```bash
-psql "$DATABASE_URL" -f packages/db/supabase/reset.sql
+D1 CLI "$CLOUDFLARE_D1_DATABASE_ID" -f packages/db/d1/schema.sql
 ```
 
 Start API and app:
@@ -1719,7 +1719,7 @@ bun --cwd apps/app start
 
 Walk through:
 1. `GET /api/quests` — should return one daily quest (`xpReward: 0` in the daily-template shape if the SELECT is reading from `daily_quest_pool` — re-verify that the read path normalises daily XP to 0) and one or more level quests for the demo user's current level.
-2. Manually advance `daily_streak` to 3 for the demo user via psql, then claim today's daily. Verify `user_signatures` now has the day-3 signature.
+2. Manually advance `daily_streak` to 3 for the demo user via D1 CLI, then claim today's daily. Verify `user_signatures` now has the day-3 signature.
 3. Set `daily_streak = 14`, claim daily. Verify `level_perks` has a level=0 row for `max_concurrent_billboards`, `user_perk_unlocks` has the matching row, and `GET /api/users/me/progress` returns `maxConcurrentBillboards` = base+streak.
 4. App: Quests tab shows "+1 streak" reward on the daily card and a next-milestone hint underneath.
 5. App: Profile tab shows the banking message for L1; if you bump the user to L4 in DB, the picker appears.

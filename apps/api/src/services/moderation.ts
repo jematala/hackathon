@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 
+import { newId } from "../db";
 import type { getDb } from "../db";
 import type { Env } from "../types";
 
@@ -220,7 +221,8 @@ export async function recordModerationLog(
   result: ModerationResult,
 ) {
   await db.execute(sql`
-    insert into app.content_moderation_logs (
+    insert into content_moderation_logs (
+      id,
       target_type,
       target_id,
       flagged,
@@ -229,12 +231,13 @@ export async function recordModerationLog(
       raw_response
     )
     values (
+      ${newId()},
       ${targetType},
       ${targetId},
       ${result.flagged},
-      ${result.categories ? JSON.stringify(result.categories) : null}::jsonb,
-      ${result.scores ? JSON.stringify(result.scores) : null}::jsonb,
-      ${result.rawResponse ? JSON.stringify(result.rawResponse) : null}::jsonb
+      ${result.categories ? JSON.stringify(result.categories) : null},
+      ${result.scores ? JSON.stringify(result.scores) : null},
+      ${result.rawResponse ? JSON.stringify(result.rawResponse) : null}
     )
   `);
 }

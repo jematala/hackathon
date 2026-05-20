@@ -26,11 +26,11 @@ app.use("/api/*", cors());
 
 app.get("/api/health", (c) => {
   return c.json({
-    database: Boolean(c.env.SUPABASE_POOLER_DATABASE_URL),
+    d1: Boolean(c.env.DB),
+    database: Boolean(c.env.DB),
     durableObjects: Boolean(c.env.CAMPUS_REALTIME_ROOM),
     ok: true,
     service: "jematala-api",
-    supabase: Boolean(c.env.SUPABASE_URL && c.env.SUPABASE_SECRET_KEY),
     moderation: Boolean(c.env.OPENAI_API_KEY) && c.env.MODERATION_ENABLED !== "false",
   });
 });

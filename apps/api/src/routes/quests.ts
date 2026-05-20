@@ -8,7 +8,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import { getDb, nowSql } from "../db";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import { applyStreakMilestoneUnlocks } from "../services/progression";
 import { ensureDailyRotations } from "../services/rotations";
@@ -60,8 +60,8 @@ questsRoute.post(
           when user_quest_progress.source = 'level_quest' then level_quest_sets.xp_reward
           else 0
         end as "xpReward"
-      from app.user_quest_progress
-      left join app.level_quest_sets
+      from user_quest_progress
+      left join level_quest_sets
         on user_quest_progress.source = 'level_quest'
         and user_quest_progress.source_id = level_quest_sets.id
       where user_quest_progress.id = ${id} and user_quest_progress.user_id = ${authUser.id}
@@ -101,38 +101,38 @@ questsRoute.post(
     const userBefore = await loadUser(c.env, authUser.id);
 
     await db.execute(sql`
-      update app.user_quest_progress
-      set claimed_at = now(), claimed_xp = ${quest.xpReward}, updated_at = now()
+      update user_quest_progress
+      set claimed_at = ${nowSql()}, claimed_xp = ${quest.xpReward}, updated_at = ${nowSql()}
       where id = ${id} and claimed_at is null
     `);
     await db.execute(sql`
-      update app.users
+      update users
       set
         xp = case when ${quest.source} = 'level_quest' then xp + ${quest.xpReward} else xp end,
         last_daily_claimed_on = case
-          when ${quest.source} = 'daily_quest' then (timezone('Australia/Sydney', now()))::date
+          when ${quest.source} = 'daily_quest' then date('now', '+10 hours')
           else last_daily_claimed_on
         end,
         daily_streak = case
           when ${quest.source} = 'daily_quest'
             and (
               last_daily_claimed_on is null
-              or last_daily_claimed_on < (timezone('Australia/Sydney', now()))::date
+              or last_daily_claimed_on < date('now', '+10 hours')
             )
           then daily_streak + 1
           else daily_streak
         end,
         streak_updated_on = case
-          when ${quest.source} = 'daily_quest' then (timezone('Australia/Sydney', now()))::date
+          when ${quest.source} = 'daily_quest' then date('now', '+10 hours')
           else streak_updated_on
         end,
-        updated_at = now()
+        updated_at = ${nowSql()}
       where id = ${authUser.id}
     `);
 
     if (quest.source === "daily_quest") {
       const streakRows = await db.execute<{ dailyStreak: number }>(sql`
-        select daily_streak as "dailyStreak" from app.users where id = ${authUser.id}
+        select daily_streak as "dailyStreak" from users where id = ${authUser.id}
       `);
       const streak = streakRows[0]?.dailyStreak ?? 0;
       await applyStreakMilestoneUnlocks(db, authUser.id, streak);
@@ -145,7 +145,7 @@ questsRoute.post(
     const userAfter = await loadUser(c.env, authUser.id);
     const unlockedRows = await db.execute<{ levelPerkId: string }>(sql`
       select level_perk_id as "levelPerkId"
-      from app.user_perk_unlocks
+      from user_perk_unlocks
       where user_id = ${authUser.id} and source_level > ${userBefore.level}
       order by source_level, level_perk_id
     `);
@@ -165,10 +165,10 @@ questsRoute.post(
 
 async function maybeLevelUp(db: ReturnType<typeof getDb>, userId: string) {
   const pendingRows = await db.execute<{ pending: number }>(sql`
-    select count(*)::int as pending
-    from app.user_quest_progress
-    join app.level_quest_sets on level_quest_sets.id = user_quest_progress.source_id
-    join app.users on users.id = user_quest_progress.user_id
+    select count(*) as pending
+    from user_quest_progress
+    join level_quest_sets on level_quest_sets.id = user_quest_progress.source_id
+    join users on users.id = user_quest_progress.user_id
     where
       user_quest_progress.user_id = ${userId}
       and user_quest_progress.source = 'level_quest'
@@ -181,8 +181,8 @@ async function maybeLevelUp(db: ReturnType<typeof getDb>, userId: string) {
   }
 
   const leveledRows = await db.execute<{ level: number }>(sql`
-    update app.users
-    set level = level + 1, updated_at = now()
+    update users
+    set level = level + 1, updated_at = ${nowSql()}
     where id = ${userId}
     returning level
   `);
@@ -193,10 +193,10 @@ async function maybeLevelUp(db: ReturnType<typeof getDb>, userId: string) {
   }
 
   await db.execute(sql`
-    insert into app.user_perk_unlocks (user_id, level_perk_id, source_level)
+    insert into user_perk_unlocks (user_id, level_perk_id, source_level)
     select ${userId}, id, level
-    from app.level_perks
-    where level <= ${level}
+    from level_perks
+    where level >= 1 and level <= ${level}
     on conflict (user_id, level_perk_id) do nothing
   `);
 }

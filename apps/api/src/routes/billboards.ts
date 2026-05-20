@@ -12,7 +12,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import { getDb, newId, nowSql } from "../db";
 import { conflict, forbidden, notFound, tooManyRequests } from "../http";
 import { getAuthUser, optionalAuth, requireAuth } from "../middleware/auth";
 import { jsonObject, isoDateTime } from "../serialize";
@@ -82,8 +82,8 @@ billboardsRoute.get("/billboards", optionalAuth, async (c) => {
       billboards.lng,
       billboards.status,
       (
-        select count(*)::int
-        from app.billboard_placements
+        select count(*)
+        from billboard_placements
         where
           billboard_placements.billboard_id = billboards.id
           and billboard_placements.deleted_at is null
@@ -93,18 +93,18 @@ billboardsRoute.get("/billboards", optionalAuth, async (c) => {
       billboards.empty_expires_at as "emptyExpiresAt",
       billboards.expires_at as "expiresAt",
       billboards.created_at as "createdAt"
-    from app.billboards
-    join app.users on users.id = billboards.author_id
+    from billboards
+    join users on users.id = billboards.author_id
     where
       billboards.deleted_at is null
       and billboards.hidden_at is null
       and billboards.status = 'active'
-      and billboards.expires_at > now()
-      and (${campusId ?? null}::uuid is null or billboards.campus_id = ${campusId ?? null})
-      and (${c.req.query("north") ?? null}::double precision is null or billboards.lat <= ${c.req.query("north") ?? null})
-      and (${c.req.query("south") ?? null}::double precision is null or billboards.lat >= ${c.req.query("south") ?? null})
-      and (${c.req.query("east") ?? null}::double precision is null or billboards.lng <= ${c.req.query("east") ?? null})
-      and (${c.req.query("west") ?? null}::double precision is null or billboards.lng >= ${c.req.query("west") ?? null})
+      and billboards.expires_at > ${nowSql()}
+      and (${campusId ?? null} is null or billboards.campus_id = ${campusId ?? null})
+      and (${c.req.query("north") ?? null} is null or billboards.lat <= ${c.req.query("north") ?? null})
+      and (${c.req.query("south") ?? null} is null or billboards.lat >= ${c.req.query("south") ?? null})
+      and (${c.req.query("east") ?? null} is null or billboards.lng <= ${c.req.query("east") ?? null})
+      and (${c.req.query("west") ?? null} is null or billboards.lng >= ${c.req.query("west") ?? null})
     order by billboards.created_at desc
     limit 100
   `);
@@ -155,22 +155,22 @@ billboardsRoute.post(
     const countRows = await db.execute<{ activeCount: number; todayCount: number }>(sql`
       select
         (
-          select count(*)::int
-          from app.billboards
+          select count(*)
+          from billboards
           where
             author_id = ${authUser.id}
             and deleted_at is null
             and hidden_at is null
             and status = 'active'
-            and expires_at > now()
+            and expires_at > ${nowSql()}
         ) as "activeCount",
         (
-          select count(*)::int
-          from app.billboards
+          select count(*)
+          from billboards
           where
             author_id = ${authUser.id}
-            and (timezone('Australia/Sydney', created_at))::date =
-              (timezone('Australia/Sydney', now()))::date
+            and date(created_at, '+10 hours') =
+              date('now', '+10 hours')
         ) as "todayCount"
     `);
     const counts = countRows[0]!;
@@ -183,17 +183,17 @@ billboardsRoute.post(
 
     if (counts.activeCount >= capacities.maxConcurrentBillboards) {
       const replacedRows = await db.execute<{ id: string }>(sql`
-        update app.billboards
-        set deleted_at = now(), updated_at = now()
+        update billboards
+        set deleted_at = ${nowSql()}, updated_at = ${nowSql()}
         where id = (
           select id
-          from app.billboards
+          from billboards
           where
             author_id = ${authUser.id}
             and deleted_at is null
             and hidden_at is null
             and status = 'active'
-            and expires_at > now()
+            and expires_at > ${nowSql()}
           order by created_at asc
           limit 1
         )
@@ -204,25 +204,25 @@ billboardsRoute.post(
     }
 
     const insertRows = await db.execute<{ id: string }>(sql`
-      insert into app.billboards (
+      insert into billboards (
+        id,
         campus_id,
         author_id,
         body,
         lat,
         lng,
-        location_point,
         status,
         moderation_summary
       )
       values (
+        ${newId()},
         ${input.campusId},
         ${authUser.id},
         ${input.body},
         ${input.lat},
         ${input.lng},
-        st_setsrid(st_makepoint(${input.lng}, ${input.lat}), 4326)::geography,
         'active',
-        ${moderation.rawResponse ? JSON.stringify(moderation.rawResponse) : null}::jsonb
+        ${moderation.rawResponse ? JSON.stringify(moderation.rawResponse) : null}
       )
       returning id
     `);
@@ -267,8 +267,8 @@ billboardsRoute.delete("/billboards/:id", requireAuth, async (c) => {
   }
 
   await db.execute(sql`
-    update app.billboards
-    set deleted_at = now(), updated_at = now()
+    update billboards
+    set deleted_at = ${nowSql()}, updated_at = ${nowSql()}
     where id = ${id.data}
   `);
   queueRealtimeBroadcast(c.executionCtx, c.env, {
@@ -303,8 +303,8 @@ billboardsRoute.post(
     }
 
     const existingRows = await db.execute<{ count: number }>(sql`
-      select count(*)::int as count
-      from app.billboard_placements
+      select count(*) as count
+      from billboard_placements
       where billboard_id = ${id.data} and author_id = ${authUser.id} and deleted_at is null
     `);
 
@@ -315,7 +315,8 @@ billboardsRoute.post(
     const stickerAssetId = input.kind === "sticker" ? input.stickerAssetId : null;
 
     const insertRows = await db.execute<{ id: string }>(sql`
-      insert into app.billboard_placements (
+      insert into billboard_placements (
+        id,
         billboard_id,
         author_id,
         kind,
@@ -328,6 +329,7 @@ billboardsRoute.post(
         moderation_summary
       )
       values (
+        ${newId()},
         ${id.data},
         ${authUser.id},
         ${input.kind},
@@ -336,7 +338,7 @@ billboardsRoute.post(
         coalesce(
           (
             select max(z_index) + 1
-            from app.billboard_placements
+            from billboard_placements
             where billboard_id = ${id.data}
           ),
           0
@@ -344,7 +346,7 @@ billboardsRoute.post(
         ${stickerAssetId},
         ${body},
         'active',
-        ${moderation?.rawResponse ? JSON.stringify(moderation.rawResponse) : null}::jsonb
+        ${moderation?.rawResponse ? JSON.stringify(moderation.rawResponse) : null}
       )
       returning id
     `);
@@ -396,8 +398,8 @@ async function loadBillboard(db: ReturnType<typeof getDb>, id: string) {
       billboards.lng,
       billboards.status,
       (
-        select count(*)::int
-        from app.billboard_placements
+        select count(*)
+        from billboard_placements
         where
           billboard_placements.billboard_id = billboards.id
           and billboard_placements.deleted_at is null
@@ -407,14 +409,14 @@ async function loadBillboard(db: ReturnType<typeof getDb>, id: string) {
       billboards.empty_expires_at as "emptyExpiresAt",
       billboards.expires_at as "expiresAt",
       billboards.created_at as "createdAt"
-    from app.billboards
-    join app.users on users.id = billboards.author_id
+    from billboards
+    join users on users.id = billboards.author_id
     where
       billboards.id = ${id}
       and billboards.deleted_at is null
       and billboards.hidden_at is null
       and billboards.status = 'active'
-      and billboards.expires_at > now()
+      and billboards.expires_at > ${nowSql()}
   `);
   const billboard = rows[0];
 
@@ -447,9 +449,9 @@ async function loadPlacements(db: ReturnType<typeof getDb>, billboardId: string)
       sticker_assets.palette as "stickerPalette",
       sticker_assets.status as "stickerStatus",
       sticker_assets.created_at as "stickerAssetCreatedAt"
-    from app.billboard_placements
-    join app.users on users.id = billboard_placements.author_id
-    left join app.sticker_assets on sticker_assets.id = billboard_placements.sticker_asset_id
+    from billboard_placements
+    join users on users.id = billboard_placements.author_id
+    left join sticker_assets on sticker_assets.id = billboard_placements.sticker_asset_id
     where
       billboard_placements.billboard_id = ${billboardId}
       and billboard_placements.deleted_at is null

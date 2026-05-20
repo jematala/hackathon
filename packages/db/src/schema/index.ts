@@ -1,112 +1,46 @@
 import { sql } from "drizzle-orm";
 import {
-  boolean,
   check,
-  customType,
-  date,
-  doublePrecision,
   index,
   integer,
-  jsonb,
-  pgSchema,
   primaryKey,
+  real,
+  sqliteTable,
   text,
-  timestamp,
   uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/sqlite-core";
 
 export type JsonObject = Record<string, unknown>;
 
-export const appSchema = pgSchema("app");
+const timestamp = (name: string) =>
+  text(name)
+    .notNull()
+    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`);
+const nullableTimestamp = (name: string) => text(name);
+const dateText = (name: string) => text(name);
+const id = (name = "id") => text(name).primaryKey();
+const requiredId = (name: string) => text(name).notNull();
+const bool = (name: string) => integer(name, { mode: "boolean" });
+const json = (name: string) => text(name, { mode: "json" }).$type<JsonObject>();
 
-export const contentStatusEnum = appSchema.enum("content_status", [
-  "pending",
-  "active",
-  "hidden",
-  "removed",
-  "rejected",
-]);
-export const placementKindEnum = appSchema.enum("placement_kind", ["sticker", "sticky_note"]);
-export const savedStickerKindEnum = appSchema.enum("saved_sticker_kind", [
-  "sticker",
-  "sticky_note",
-]);
-export const questTriggerTypeEnum = appSchema.enum("quest_trigger_type", [
-  "visit_pois",
-  "leave_billboards",
-  "place_stickers",
-  "receive_replies",
-  "save_stickers",
-]);
-export const questSourceEnum = appSchema.enum("quest_source", ["level_quest", "daily_quest"]);
-export const reportTargetTypeEnum = appSchema.enum("report_target_type", [
-  "billboard",
-  "placement",
-  "user",
-]);
-export const contentModerationTargetTypeEnum = appSchema.enum("content_moderation_target_type", [
-  "billboard",
-  "placement",
-  "sticker_asset",
-]);
-export const reportReasonEnum = appSchema.enum("report_reason", [
-  "spam",
-  "harassment",
-  "hate",
-  "sexual",
-  "violence",
-  "self_harm",
-  "other",
-]);
-export const reportStatusEnum = appSchema.enum("report_status", [
-  "open",
-  "reviewing",
-  "resolved",
-  "dismissed",
-]);
-export const moderationActionTypeEnum = appSchema.enum("moderation_action_type", [
-  "hide",
-  "remove",
-  "warn",
-  "ban",
-  "dismiss",
-]);
-export const pushPlatformEnum = appSchema.enum("push_platform", ["expo", "ios", "android", "web"]);
-
-const geographyPoint = customType<{ data: string; driverData: string }>({
-  dataType() {
-    return "geography(point, 4326)";
-  },
-});
-
-const createdAt = timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
-const updatedAt = timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
-const deletedAt = timestamp("deleted_at", { withTimezone: true });
-const currentSydneyDate = sql`(timezone('Australia/Sydney', now()))::date`;
-const uuidPrimaryKey = (name = "id") =>
-  uuid(name)
-    .primaryKey()
-    .default(sql`gen_random_uuid()`);
-
-export const users = appSchema.table(
+export const users = sqliteTable(
   "users",
   {
-    id: uuidPrimaryKey(),
+    id: id(),
     clerkUserId: text("clerk_user_id").notNull().unique(),
     username: text("username").notNull().unique(),
     displayName: text("display_name").notNull(),
     avatarBase64: text("avatar_base64"),
-    isAdmin: boolean("is_admin").notNull().default(false),
+    isAdmin: bool("is_admin").notNull().default(false),
     level: integer("level").notNull().default(1),
     xp: integer("xp").notNull().default(0),
     dailyStreak: integer("daily_streak").notNull().default(0),
-    streakUpdatedOn: date("streak_updated_on"),
-    lastDailyClaimedOn: date("last_daily_claimed_on"),
-    bannedAt: timestamp("banned_at", { withTimezone: true }),
-    deletedAt,
-    createdAt,
-    updatedAt,
+    streakUpdatedOn: dateText("streak_updated_on"),
+    lastDailyClaimedOn: dateText("last_daily_claimed_on"),
+    bannedAt: nullableTimestamp("banned_at"),
+    deletedAt: nullableTimestamp("deleted_at"),
+    createdAt: timestamp("created_at"),
+    updatedAt: timestamp("updated_at"),
   },
   (table) => [
     check("users_level_check", sql`${table.level} >= 1`),
@@ -115,77 +49,69 @@ export const users = appSchema.table(
   ],
 );
 
-export const pushTokens = appSchema.table(
+export const pushTokens = sqliteTable(
   "push_tokens",
   {
-    id: uuidPrimaryKey(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    id: id(),
+    userId: requiredId("user_id").references(() => users.id, { onDelete: "cascade" }),
     token: text("token").notNull().unique(),
-    platform: pushPlatformEnum("platform").notNull().default("expo"),
-    createdAt,
-    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    platform: text("platform", { enum: ["expo", "ios", "android", "web"] })
+      .notNull()
+      .default("expo"),
+    createdAt: timestamp("created_at"),
+    revokedAt: nullableTimestamp("revoked_at"),
   },
   (table) => [index("push_tokens_user_idx").on(table.userId)],
 );
 
-export const campuses = appSchema.table(
+export const campuses = sqliteTable(
   "campuses",
   {
-    id: uuidPrimaryKey(),
+    id: id(),
     name: text("name").notNull(),
     timezone: text("timezone").notNull(),
-    centerLat: doublePrecision("center_lat").notNull(),
-    centerLng: doublePrecision("center_lng").notNull(),
+    centerLat: real("center_lat").notNull(),
+    centerLng: real("center_lng").notNull(),
     radiusMeters: integer("radius_meters").notNull(),
-    bounds: jsonb("bounds").$type<JsonObject>().notNull(),
+    bounds: json("bounds").notNull(),
     mapProvider: text("map_provider").notNull().default("openstreetmap"),
-    createdAt,
+    createdAt: timestamp("created_at"),
   },
   (table) => [check("campuses_radius_meters_check", sql`${table.radiusMeters} > 0`)],
 );
 
-export const pois = appSchema.table(
+export const pois = sqliteTable(
   "pois",
   {
-    id: uuidPrimaryKey(),
-    campusId: uuid("campus_id")
-      .notNull()
-      .references(() => campuses.id, { onDelete: "cascade" }),
+    id: id(),
+    campusId: requiredId("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
     pictureBase64: text("picture_base64"),
-    locationPoint: geographyPoint("location_point").notNull(),
-    lat: doublePrecision("lat").notNull(),
-    lng: doublePrecision("lng").notNull(),
+    lat: real("lat").notNull(),
+    lng: real("lng").notNull(),
     radiusMeters: integer("radius_meters").notNull().default(30),
-    isActive: boolean("is_active").notNull().default(true),
-    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
-    createdAt,
-    updatedAt,
-    deletedAt,
+    isActive: bool("is_active").notNull().default(true),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at"),
+    updatedAt: timestamp("updated_at"),
+    deletedAt: nullableTimestamp("deleted_at"),
   },
   (table) => [
-    index("pois_location_point_idx").using("gist", table.locationPoint),
-    index("pois_active_campus_idx")
-      .on(table.campusId, table.isActive)
-      .where(sql`${table.deletedAt} is null`),
+    index("pois_active_campus_idx").on(table.campusId, table.isActive),
     check("pois_radius_meters_check", sql`${table.radiusMeters} > 0`),
   ],
 );
 
-export const poiVisits = appSchema.table(
+export const poiVisits = sqliteTable(
   "poi_visits",
   {
-    userId: uuid("user_id")
+    userId: requiredId("user_id").references(() => users.id, { onDelete: "cascade" }),
+    poiId: requiredId("poi_id").references(() => pois.id, { onDelete: "cascade" }),
+    visitedAt: timestamp("visited_at"),
+    visitedOn: text("visited_on")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    poiId: uuid("poi_id")
-      .notNull()
-      .references(() => pois.id, { onDelete: "cascade" }),
-    visitedAt: timestamp("visited_at", { withTimezone: true }).notNull().defaultNow(),
-    visitedOn: date("visited_on").notNull().default(currentSydneyDate),
+      .default(sql`(date('now', '+10 hours'))`),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.poiId] }),
@@ -193,82 +119,62 @@ export const poiVisits = appSchema.table(
   ],
 );
 
-export const poiDailyActivations = appSchema.table(
+export const poiDailyActivations = sqliteTable(
   "poi_daily_activations",
   {
-    campusId: uuid("campus_id")
-      .notNull()
-      .references(() => campuses.id, { onDelete: "cascade" }),
-    poiId: uuid("poi_id")
-      .notNull()
-      .references(() => pois.id, { onDelete: "cascade" }),
-    activeOn: date("active_on").notNull(),
+    campusId: requiredId("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+    poiId: requiredId("poi_id").references(() => pois.id, { onDelete: "cascade" }),
+    activeOn: text("active_on").notNull(),
+    createdAt: timestamp("created_at"),
   },
   (table) => [primaryKey({ columns: [table.campusId, table.poiId, table.activeOn] })],
 );
 
-export const billboards = appSchema.table(
+export const billboards = sqliteTable(
   "billboards",
   {
-    id: uuidPrimaryKey(),
-    campusId: uuid("campus_id")
-      .notNull()
-      .references(() => campuses.id, { onDelete: "cascade" }),
-    authorId: uuid("author_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    id: id(),
+    campusId: requiredId("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+    authorId: requiredId("author_id").references(() => users.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
-    locationPoint: geographyPoint("location_point").notNull(),
-    lat: doublePrecision("lat").notNull(),
-    lng: doublePrecision("lng").notNull(),
-    status: contentStatusEnum("status").notNull().default("pending"),
-    moderationSummary: jsonb("moderation_summary").$type<JsonObject>(),
-    emptyExpiresAt: timestamp("empty_expires_at", { withTimezone: true })
+    lat: real("lat").notNull(),
+    lng: real("lng").notNull(),
+    status: text("status", { enum: ["pending", "active", "hidden", "removed", "rejected"] })
       .notNull()
-      .default(sql`now() + interval '24 hours'`),
-    expiresAt: timestamp("expires_at", { withTimezone: true })
+      .default("pending"),
+    moderationSummary: json("moderation_summary"),
+    emptyExpiresAt: text("empty_expires_at")
       .notNull()
-      .default(sql`now() + interval '5 days'`),
-    hiddenAt: timestamp("hidden_at", { withTimezone: true }),
-    deletedAt,
-    createdAt,
-    updatedAt,
+      .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+24 hours'))`),
+    expiresAt: text("expires_at")
+      .notNull()
+      .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+5 days'))`),
+    hiddenAt: nullableTimestamp("hidden_at"),
+    deletedAt: nullableTimestamp("deleted_at"),
+    createdAt: timestamp("created_at"),
+    updatedAt: timestamp("updated_at"),
   },
   (table) => [
-    index("billboards_location_point_idx").using("gist", table.locationPoint),
-    index("billboards_active_idx")
-      .on(table.campusId, table.status, table.expiresAt)
-      .where(sql`${table.deletedAt} is null`),
-    index("billboards_author_day_idx").on(
-      table.authorId,
-      sql`((timezone('Australia/Sydney', ${table.createdAt}))::date)`,
-    ),
-    check(
-      "billboards_expires_at_check",
-      sql`${table.expiresAt} > ${table.createdAt} and ${table.expiresAt} <= ${table.createdAt} + interval '5 days'`,
-    ),
-    check(
-      "billboards_empty_expires_at_check",
-      sql`${table.emptyExpiresAt} > ${table.createdAt} and ${table.emptyExpiresAt} <= ${table.createdAt} + interval '24 hours'`,
-    ),
+    index("billboards_active_idx").on(table.campusId, table.status, table.expiresAt),
+    index("billboards_author_day_idx").on(table.authorId, table.createdAt),
   ],
 );
 
-export const stickerAssets = appSchema.table(
+export const stickerAssets = sqliteTable(
   "sticker_assets",
   {
-    id: uuidPrimaryKey(),
-    ownerId: uuid("owner_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    id: id(),
+    ownerId: requiredId("owner_id").references(() => users.id, { onDelete: "cascade" }),
     pngBase64: text("png_base64").notNull(),
     width: integer("width").notNull().default(64),
     height: integer("height").notNull().default(64),
-    palette: jsonb("palette").$type<JsonObject>(),
-    status: contentStatusEnum("status").notNull().default("pending"),
-    moderationSummary: jsonb("moderation_summary").$type<JsonObject>(),
-    createdAt,
-    deletedAt,
+    palette: json("palette"),
+    status: text("status", { enum: ["pending", "active", "hidden", "removed", "rejected"] })
+      .notNull()
+      .default("pending"),
+    moderationSummary: json("moderation_summary"),
+    createdAt: timestamp("created_at"),
+    deletedAt: nullableTimestamp("deleted_at"),
   },
   (table) => [
     index("sticker_assets_owner_idx").on(table.ownerId),
@@ -277,30 +183,30 @@ export const stickerAssets = appSchema.table(
   ],
 );
 
-export const billboardPlacements = appSchema.table(
+export const billboardPlacements = sqliteTable(
   "billboard_placements",
   {
-    id: uuidPrimaryKey(),
-    billboardId: uuid("billboard_id")
-      .notNull()
-      .references(() => billboards.id, { onDelete: "cascade" }),
-    authorId: uuid("author_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    kind: placementKindEnum("kind").notNull(),
-    x: doublePrecision("x").notNull(),
-    y: doublePrecision("y").notNull(),
+    id: id(),
+    billboardId: requiredId("billboard_id").references(() => billboards.id, {
+      onDelete: "cascade",
+    }),
+    authorId: requiredId("author_id").references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["sticker", "sticky_note"] }).notNull(),
+    x: real("x").notNull(),
+    y: real("y").notNull(),
     zIndex: integer("z_index").notNull().default(0),
-    stickerAssetId: uuid("sticker_asset_id").references(() => stickerAssets.id, {
+    stickerAssetId: text("sticker_asset_id").references(() => stickerAssets.id, {
       onDelete: "restrict",
     }),
     body: text("body"),
-    status: contentStatusEnum("status").notNull().default("pending"),
-    moderationSummary: jsonb("moderation_summary").$type<JsonObject>(),
-    hiddenAt: timestamp("hidden_at", { withTimezone: true }),
-    deletedAt,
-    createdAt,
-    updatedAt,
+    status: text("status", { enum: ["pending", "active", "hidden", "removed", "rejected"] })
+      .notNull()
+      .default("pending"),
+    moderationSummary: json("moderation_summary"),
+    hiddenAt: nullableTimestamp("hidden_at"),
+    deletedAt: nullableTimestamp("deleted_at"),
+    createdAt: timestamp("created_at"),
+    updatedAt: timestamp("updated_at"),
   },
   (table) => [
     uniqueIndex("billboard_placements_one_per_user_idx")
@@ -309,161 +215,115 @@ export const billboardPlacements = appSchema.table(
     index("billboard_placements_billboard_idx").on(table.billboardId, table.zIndex),
     check("billboard_placements_x_check", sql`${table.x} >= 0 and ${table.x} <= 1`),
     check("billboard_placements_y_check", sql`${table.y} >= 0 and ${table.y} <= 1`),
-    check(
-      "billboard_placements_kind_payload_check",
-      sql`
-        (
-          ${table.kind} = 'sticker'
-          and ${table.stickerAssetId} is not null
-          and ${table.body} is null
-        )
-        or (
-          ${table.kind} = 'sticky_note'
-          and ${table.stickerAssetId} is null
-          and ${table.body} is not null
-        )
-      `,
-    ),
   ],
 );
 
-export const savedStickers = appSchema.table(
+export const savedStickers = sqliteTable(
   "saved_stickers",
   {
-    id: uuidPrimaryKey(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    kind: savedStickerKindEnum("kind").notNull(),
-    stickerAssetId: uuid("sticker_asset_id").references(() => stickerAssets.id, {
+    id: id(),
+    userId: requiredId("user_id").references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["sticker", "sticky_note"] }).notNull(),
+    stickerAssetId: text("sticker_asset_id").references(() => stickerAssets.id, {
       onDelete: "cascade",
     }),
     body: text("body"),
     label: text("label"),
-    createdAt,
-    deletedAt,
+    createdAt: timestamp("created_at"),
+    deletedAt: nullableTimestamp("deleted_at"),
   },
-  (table) => [
-    index("saved_stickers_user_idx")
-      .on(table.userId)
-      .where(sql`${table.deletedAt} is null`),
-    check(
-      "saved_stickers_kind_payload_check",
-      sql`
-        (
-          ${table.kind} = 'sticker'
-          and ${table.stickerAssetId} is not null
-          and ${table.body} is null
-        )
-        or (
-          ${table.kind} = 'sticky_note'
-          and ${table.stickerAssetId} is null
-          and ${table.body} is not null
-        )
-      `,
-    ),
-  ],
+  (table) => [index("saved_stickers_user_idx").on(table.userId)],
 );
 
-export const questTemplates = appSchema.table(
-  "quest_templates",
-  {
-    id: uuidPrimaryKey(),
-    key: text("key").notNull().unique(),
-    triggerType: questTriggerTypeEnum("trigger_type").notNull(),
-    titleTemplate: text("title_template").notNull(),
-    descriptionTemplate: text("description_template").notNull(),
-    minTarget: integer("min_target").notNull(),
-    maxTarget: integer("max_target").notNull(),
-    xpReward: integer("xp_reward").notNull(),
-    active: boolean("active").notNull().default(true),
-    createdAt,
-  },
-  (table) => [
-    check("quest_templates_min_target_check", sql`${table.minTarget} > 0`),
-    check("quest_templates_max_target_check", sql`${table.maxTarget} >= ${table.minTarget}`),
-    check("quest_templates_xp_reward_check", sql`${table.xpReward} >= 0`),
-  ],
-);
+export const questTemplates = sqliteTable("quest_templates", {
+  id: id(),
+  key: text("key").notNull().unique(),
+  triggerType: text("trigger_type", {
+    enum: ["visit_pois", "leave_billboards", "place_stickers", "receive_replies", "save_stickers"],
+  }).notNull(),
+  titleTemplate: text("title_template").notNull(),
+  descriptionTemplate: text("description_template").notNull(),
+  minTarget: integer("min_target").notNull(),
+  maxTarget: integer("max_target").notNull(),
+  xpReward: integer("xp_reward").notNull(),
+  active: bool("active").notNull().default(true),
+  createdAt: timestamp("created_at"),
+});
 
-export const dailyQuestTemplates = appSchema.table(
-  "daily_quest_templates",
-  {
-    id: uuidPrimaryKey(),
-    key: text("key").notNull().unique(),
-    triggerType: questTriggerTypeEnum("trigger_type").notNull(),
-    titleTemplate: text("title_template").notNull(),
-    descriptionTemplate: text("description_template").notNull(),
-    minTarget: integer("min_target").notNull(),
-    maxTarget: integer("max_target").notNull(),
-    xpReward: integer("xp_reward").notNull(),
-    active: boolean("active").notNull().default(true),
-    createdAt,
-  },
-  (table) => [
-    check("daily_quest_templates_min_target_check", sql`${table.minTarget} > 0`),
-    check("daily_quest_templates_max_target_check", sql`${table.maxTarget} >= ${table.minTarget}`),
-    check("daily_quest_templates_xp_reward_check", sql`${table.xpReward} >= 0`),
-  ],
-);
+export const dailyQuestTemplates = sqliteTable("daily_quest_templates", {
+  id: id(),
+  key: text("key").notNull().unique(),
+  triggerType: text("trigger_type", {
+    enum: ["visit_pois", "leave_billboards", "place_stickers", "receive_replies", "save_stickers"],
+  }).notNull(),
+  titleTemplate: text("title_template").notNull(),
+  descriptionTemplate: text("description_template").notNull(),
+  minTarget: integer("min_target").notNull(),
+  maxTarget: integer("max_target").notNull(),
+  xpReward: integer("xp_reward").notNull(),
+  active: bool("active").notNull().default(true),
+  createdAt: timestamp("created_at"),
+});
 
-export const levelQuestSets = appSchema.table(
+export const levelQuestSets = sqliteTable(
   "level_quest_sets",
   {
-    id: uuidPrimaryKey(),
+    id: id(),
     level: integer("level").notNull(),
-    templateId: uuid("template_id")
-      .notNull()
-      .references(() => questTemplates.id, { onDelete: "restrict" }),
+    templateId: requiredId("template_id").references(() => questTemplates.id, {
+      onDelete: "restrict",
+    }),
     targetCount: integer("target_count").notNull(),
     xpReward: integer("xp_reward").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt,
+    createdAt: timestamp("created_at"),
   },
-  (table) => [
-    uniqueIndex("level_quest_sets_level_sort_idx").on(table.level, table.sortOrder),
-    check("level_quest_sets_level_check", sql`${table.level} >= 1`),
-    check("level_quest_sets_target_count_check", sql`${table.targetCount} > 0`),
-    check("level_quest_sets_xp_reward_check", sql`${table.xpReward} >= 0`),
-  ],
+  (table) => [uniqueIndex("level_quest_sets_level_sort_idx").on(table.level, table.sortOrder)],
 );
 
-export const dailyQuestPool = appSchema.table(
-  "daily_quest_pool",
+export const dailyQuestPool = sqliteTable("daily_quest_pool", {
+  id: id(),
+  templateId: requiredId("template_id").references(() => dailyQuestTemplates.id, {
+    onDelete: "restrict",
+  }),
+  targetCount: integer("target_count").notNull(),
+  xpReward: integer("xp_reward").notNull(),
+  active: bool("active").notNull().default(true),
+  createdAt: timestamp("created_at"),
+});
+
+export const dailyQuestAssignments = sqliteTable(
+  "daily_quest_assignments",
   {
-    id: uuidPrimaryKey(),
-    templateId: uuid("template_id")
-      .notNull()
-      .references(() => dailyQuestTemplates.id, { onDelete: "restrict" }),
-    targetCount: integer("target_count").notNull(),
-    xpReward: integer("xp_reward").notNull(),
-    active: boolean("active").notNull().default(true),
-    createdAt,
+    id: id(),
+    campusId: requiredId("campus_id").references(() => campuses.id, { onDelete: "cascade" }),
+    activeOn: text("active_on").notNull(),
+    dailyQuestPoolId: requiredId("daily_quest_pool_id").references(() => dailyQuestPool.id, {
+      onDelete: "restrict",
+    }),
+    createdAt: timestamp("created_at"),
   },
   (table) => [
-    check("daily_quest_pool_target_count_check", sql`${table.targetCount} > 0`),
-    check("daily_quest_pool_xp_reward_check", sql`${table.xpReward} >= 0`),
+    uniqueIndex("daily_quest_assignments_campus_day_idx").on(table.campusId, table.activeOn),
   ],
 );
 
-export const userQuestProgress = appSchema.table(
+export const userQuestProgress = sqliteTable(
   "user_quest_progress",
   {
-    id: uuidPrimaryKey(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    source: questSourceEnum("source").notNull(),
-    sourceId: uuid("source_id").notNull(),
-    activeOn: date("active_on"),
+    id: id(),
+    userId: requiredId("user_id").references(() => users.id, { onDelete: "cascade" }),
+    source: text("source", { enum: ["level_quest", "daily_quest"] }).notNull(),
+    sourceId: requiredId("source_id"),
+    activeOn: text("active_on"),
     progressCount: integer("progress_count").notNull().default(0),
     targetCount: integer("target_count").notNull(),
-    completedAt: timestamp("completed_at", { withTimezone: true }),
-    claimableAt: timestamp("claimable_at", { withTimezone: true }),
-    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    completedAt: nullableTimestamp("completed_at"),
+    claimableAt: nullableTimestamp("claimable_at"),
+    claimedAt: nullableTimestamp("claimed_at"),
     claimedXp: integer("claimed_xp"),
-    createdAt,
-    updatedAt,
+    createdAt: timestamp("created_at"),
+    updatedAt: timestamp("updated_at"),
   },
   (table) => [
     uniqueIndex("user_quest_progress_level_unique_idx")
@@ -473,116 +333,71 @@ export const userQuestProgress = appSchema.table(
       .on(table.userId, table.source, table.sourceId, table.activeOn)
       .where(sql`${table.activeOn} is not null`),
     index("user_quest_progress_user_idx").on(table.userId),
-    check(
-      "user_quest_progress_active_on_check",
-      sql`
-        (
-          ${table.source} = 'daily_quest'
-          and ${table.activeOn} is not null
-        )
-        or (
-          ${table.source} = 'level_quest'
-          and ${table.activeOn} is null
-        )
-      `,
-    ),
-    check("user_quest_progress_progress_count_check", sql`${table.progressCount} >= 0`),
-    check("user_quest_progress_target_count_check", sql`${table.targetCount} > 0`),
-    check(
-      "user_quest_progress_claimed_xp_check",
-      sql`${table.claimedXp} is null or ${table.claimedXp} >= 0`,
-    ),
   ],
 );
 
-export const perkDefinitions = appSchema.table("perk_definitions", {
-  id: uuidPrimaryKey(),
+export const perkDefinitions = sqliteTable("perk_definitions", {
+  id: id(),
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  createdAt,
+  createdAt: timestamp("created_at"),
 });
 
-export const levelPerks = appSchema.table(
+export const levelPerks = sqliteTable(
   "level_perks",
   {
-    id: uuidPrimaryKey(),
+    id: id(),
     level: integer("level").notNull(),
-    perkId: uuid("perk_id")
-      .notNull()
-      .references(() => perkDefinitions.id, { onDelete: "restrict" }),
+    perkId: requiredId("perk_id").references(() => perkDefinitions.id, { onDelete: "restrict" }),
     numericValue: integer("numeric_value"),
-    metadata: jsonb("metadata").$type<JsonObject>(),
-    createdAt,
+    metadata: json("metadata"),
+    createdAt: timestamp("created_at"),
   },
-  (table) => [
-    uniqueIndex("level_perks_level_perk_idx").on(table.level, table.perkId),
-    check("level_perks_level_check", sql`${table.level} >= 1`),
-  ],
+  (table) => [uniqueIndex("level_perks_level_perk_idx").on(table.level, table.perkId)],
 );
 
-export const userPerkUnlocks = appSchema.table(
+export const userPerkUnlocks = sqliteTable(
   "user_perk_unlocks",
   {
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    levelPerkId: uuid("level_perk_id")
-      .notNull()
-      .references(() => levelPerks.id, { onDelete: "restrict" }),
+    userId: requiredId("user_id").references(() => users.id, { onDelete: "cascade" }),
+    levelPerkId: requiredId("level_perk_id").references(() => levelPerks.id, {
+      onDelete: "restrict",
+    }),
     sourceLevel: integer("source_level").notNull(),
-    unlockedAt: timestamp("unlocked_at", { withTimezone: true }).notNull().defaultNow(),
+    unlockedAt: timestamp("unlocked_at"),
   },
-  (table) => [
-    primaryKey({ columns: [table.userId, table.levelPerkId] }),
-    check("user_perk_unlocks_source_level_check", sql`${table.sourceLevel} >= 1`),
-  ],
+  (table) => [primaryKey({ columns: [table.userId, table.levelPerkId] })],
 );
 
-export const streakRewardDefinitions = appSchema.table(
-  "streak_reward_definitions",
-  {
-    id: uuidPrimaryKey(),
-    streakDays: integer("streak_days").notNull().unique(),
-    name: text("name").notNull(),
-    reward: jsonb("reward").$type<JsonObject>().notNull(),
-    active: boolean("active").notNull().default(true),
-    createdAt,
-  },
-  (table) => [
-    check("streak_reward_definitions_streak_days_check", sql`${table.streakDays} > 0`),
-    check(
-      "streak_reward_definitions_reward_object_check",
-      sql`jsonb_typeof(${table.reward}) = 'object'`,
-    ),
-  ],
-);
+export const streakRewardDefinitions = sqliteTable("streak_reward_definitions", {
+  id: id(),
+  streakDays: integer("streak_days").notNull().unique(),
+  name: text("name").notNull(),
+  reward: json("reward").notNull(),
+  active: bool("active").notNull().default(true),
+  createdAt: timestamp("created_at"),
+});
 
-export const signatures = appSchema.table(
-  "signatures",
-  {
-    id: uuidPrimaryKey(),
-    key: text("key").notNull().unique(),
-    name: text("name").notNull(),
-    assetBase64: text("asset_base64").notNull(),
-    streakDayRequired: integer("streak_day_required").notNull(),
-    active: boolean("active").notNull().default(true),
-    createdAt,
-  },
-  (table) => [check("signatures_streak_day_check", sql`${table.streakDayRequired} > 0`)],
-);
+export const signatures = sqliteTable("signatures", {
+  id: id(),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  assetBase64: text("asset_base64").notNull(),
+  streakDayRequired: integer("streak_day_required").notNull(),
+  active: bool("active").notNull().default(true),
+  createdAt: timestamp("created_at"),
+});
 
-export const userSignatures = appSchema.table(
+export const userSignatures = sqliteTable(
   "user_signatures",
   {
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    signatureId: uuid("signature_id")
-      .notNull()
-      .references(() => signatures.id, { onDelete: "cascade" }),
-    unlockedAt: timestamp("unlocked_at", { withTimezone: true }).notNull().defaultNow(),
-    isEquipped: boolean("is_equipped").notNull().default(false),
+    userId: requiredId("user_id").references(() => users.id, { onDelete: "cascade" }),
+    signatureId: requiredId("signature_id").references(() => signatures.id, {
+      onDelete: "cascade",
+    }),
+    unlockedAt: timestamp("unlocked_at"),
+    isEquipped: bool("is_equipped").notNull().default(false),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.signatureId] }),
@@ -592,21 +407,23 @@ export const userSignatures = appSchema.table(
   ],
 );
 
-export const reports = appSchema.table(
+export const reports = sqliteTable(
   "reports",
   {
-    id: uuidPrimaryKey(),
-    reporterId: uuid("reporter_id")
+    id: id(),
+    reporterId: requiredId("reporter_id").references(() => users.id, { onDelete: "cascade" }),
+    targetType: text("target_type", { enum: ["billboard", "placement", "user"] }).notNull(),
+    targetId: requiredId("target_id"),
+    reason: text("reason", {
+      enum: ["spam", "harassment", "hate", "sexual", "violence", "self_harm", "other"],
+    }).notNull(),
+    status: text("status", { enum: ["open", "reviewing", "resolved", "dismissed"] })
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    targetType: reportTargetTypeEnum("target_type").notNull(),
-    targetId: uuid("target_id").notNull(),
-    reason: reportReasonEnum("reason").notNull(),
+      .default("open"),
     details: text("details"),
-    status: reportStatusEnum("status").notNull().default("open"),
     adminNotes: text("admin_notes"),
-    createdAt,
-    updatedAt,
+    createdAt: timestamp("created_at"),
+    updatedAt: timestamp("updated_at"),
   },
   (table) => [
     uniqueIndex("reports_reporter_target_idx").on(
@@ -618,27 +435,25 @@ export const reports = appSchema.table(
   ],
 );
 
-export const moderationActions = appSchema.table("moderation_actions", {
-  id: uuidPrimaryKey(),
-  reportId: uuid("report_id").references(() => reports.id, { onDelete: "set null" }),
-  adminId: uuid("admin_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "restrict" }),
-  action: moderationActionTypeEnum("action").notNull(),
-  targetType: reportTargetTypeEnum("target_type").notNull(),
-  targetId: uuid("target_id").notNull(),
+export const moderationActions = sqliteTable("moderation_actions", {
+  id: id(),
+  reportId: text("report_id").references(() => reports.id, { onDelete: "set null" }),
+  adminId: requiredId("admin_id").references(() => users.id, { onDelete: "restrict" }),
+  action: text("action", { enum: ["hide", "remove", "warn", "ban", "dismiss"] }).notNull(),
+  targetType: text("target_type", { enum: ["billboard", "placement", "user"] }).notNull(),
+  targetId: requiredId("target_id"),
   notes: text("notes"),
-  createdAt,
+  createdAt: timestamp("created_at"),
 });
 
-export const contentModerationLogs = appSchema.table("content_moderation_logs", {
-  id: uuidPrimaryKey(),
-  targetType: contentModerationTargetTypeEnum("target_type").notNull(),
-  targetId: uuid("target_id").notNull(),
+export const contentModerationLogs = sqliteTable("content_moderation_logs", {
+  id: id(),
+  targetType: text("target_type", { enum: ["billboard", "placement", "sticker_asset"] }).notNull(),
+  targetId: requiredId("target_id"),
   provider: text("provider").notNull().default("openai"),
-  flagged: boolean("flagged").notNull(),
-  categories: jsonb("categories").$type<JsonObject>(),
-  scores: jsonb("scores").$type<JsonObject>(),
-  rawResponse: jsonb("raw_response").$type<JsonObject>(),
-  createdAt,
+  flagged: bool("flagged").notNull(),
+  categories: json("categories"),
+  scores: json("scores"),
+  rawResponse: json("raw_response"),
+  createdAt: timestamp("created_at"),
 });

@@ -9,12 +9,13 @@
   },
   "scripts": {
     "db:push": "drizzle-kit push",
-    "reset:local": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f supabase/reset.sql",
+    "migrate:local": "bun --cwd ../../apps/api wrangler d1 migrations apply jematala-db --local",
+    "migrate:remote": "bun --cwd ../../apps/api wrangler d1 migrations apply jematala-db --remote",
+    "reset:local": "bun --cwd ../../apps/api wrangler d1 execute jematala-db --local --file ../../packages/db/d1/schema.sql",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.9"
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",

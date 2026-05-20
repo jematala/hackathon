@@ -22,7 +22,7 @@ pixel-art stickers and avatars, and completing daily quests.
   [Hono](https://hono.dev/), Clerk JWKS auth middleware, and Zod validators
 - Realtime and scheduled jobs: Cloudflare Durable Objects for WebSocket fan-out
   and Worker cron triggers for rotations/expiry/streak maintenance
-- Database: Supabase Postgres with PostGIS, Drizzle ORM, and Drizzle Kit
+- Database: Cloudflare D1 with Drizzle ORM and Drizzle Kit
 - Shared contracts: workspace Zod schemas and TypeScript types in
   `packages/shared`
 - Moderation: OpenAI Moderation API from the API Worker
@@ -34,7 +34,7 @@ pixel-art stickers and avatars, and completing daily quests.
 ```txt
 apps/app          Expo Router app for web and native clients
 apps/api          Cloudflare Worker API using Hono, Durable Objects, and cron
-packages/db       Drizzle schema plus Supabase/PostGIS reset SQL
+packages/db       Drizzle schema plus D1 reset SQL
 packages/shared   Shared Zod schemas and TypeScript API contracts
 ```
 
@@ -50,7 +50,7 @@ reports, signatures, health checks, and realtime WebSocket connections.
 - [mise](https://mise.jdx.dev/getting-started.html)
 - [Bun](https://bun.sh) 1.3.14 or the version installed by `mise`
 - Cloudflare account access for deployment
-- Supabase project with a Postgres pooler URL
+- Cloudflare D1 database access
 - Clerk application configured for social login
 - OpenAI API key for content moderation
 
@@ -78,18 +78,18 @@ bun run dev:app
 bun run dev:api
 ```
 
-`apps/api` owns server-side API routes. The frontend should not access the Supabase secret key or database directly.
+`apps/api` owns server-side API routes. The frontend should only access data through the API Worker.
 
 ## Database Changes
 
 Drizzle owns the TypeScript schema in `packages/db/src/schema`. For hackathon
-speed, schema pushes use Drizzle Kit:
+speed, remote schema changes are applied through D1 migrations:
 
 ```sh
-bun --cwd packages/db run db:push
+bun run --cwd packages/db migrate:remote
 ```
 
-## Supabase PostGIS Reset
+## D1 Reset
 
 The temp database schema is intentionally resettable while the product schema is still moving. Do not run this from GitHub Actions.
 
@@ -97,10 +97,10 @@ The temp database schema is intentionally resettable while the product schema is
 set -a
 source .env
 set +a
-bun --cwd packages/db run reset:local
+bun run --cwd packages/db reset:local
 ```
 
-`packages/db/supabase/reset.sql` drops and recreates only the `app` schema, enables PostGIS, and seeds demo data. Use the Supabase pooler URL for future non-destructive CI migrations if needed; keep full resets local/manual.
+`packages/db/d1/schema.sql` drops and recreates the local D1 schema and seeds demo data. GitHub Actions applies non-destructive D1 migrations from `packages/db/d1/migrations`.
 
 ## Building Web
 
@@ -132,14 +132,11 @@ The deploy workflow runs on pushes to `main` and via `workflow_dispatch`. Config
 
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_API_TOKEN`
-- `SUPABASE_URL`
-- `SUPABASE_SECRET_KEY`
-- `SUPABASE_POOLER_DATABASE_URL`
 - `CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
 - `OPENAI_API_KEY`
 
-The Cloudflare API token needs permission to deploy Workers, apply Durable Object migrations, write Worker secrets, and configure Worker routes. The API Worker deploy reads `apps/api/wrangler.jsonc`, so the `CAMPUS_REALTIME_ROOM` Durable Object binding, migration, and cron triggers are applied by the deploy run. Secrets are synced immediately after the API Worker exists.
+The Cloudflare API token needs permission to deploy Workers, apply Durable Object and D1 migrations, write Worker secrets, and configure Worker routes. The API Worker deploy reads `apps/api/wrangler.jsonc`, so the `DB` D1 binding, `CAMPUS_REALTIME_ROOM` Durable Object binding, migrations, and cron triggers are applied by the deploy run. Secrets are synced immediately after the API Worker exists.
 
 The frontend build uses `EXPO_PUBLIC_API_URL` to point static web output at the deployed API route. The temporary deployment uses `https://jematala.takuk.me`, with API traffic routed under `/api/*`.
 

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 
+import { newId, newIdSql, nowSql, sydneyDateSql } from "../db";
 import type { getDb } from "../db";
 import { isoDate, isoDateTime, nullableIsoDateTime } from "../serialize";
 
@@ -29,23 +30,24 @@ type CapacityRow = {
 
 export async function ensureQuestProgress(db: Database, userId: string) {
   await db.execute(sql`
-    insert into app.user_quest_progress (user_id, source, source_id, target_count)
-    select ${userId}, 'level_quest', level_quest_sets.id, level_quest_sets.target_count
-    from app.users
-    join app.level_quest_sets on level_quest_sets.level = users.level
+    insert into user_quest_progress (id, user_id, source, source_id, target_count)
+    select ${newIdSql()}, ${userId}, 'level_quest', level_quest_sets.id, level_quest_sets.target_count
+    from users
+    join level_quest_sets on level_quest_sets.level = users.level
     where users.id = ${userId}
     on conflict (user_id, source, source_id) where active_on is null do nothing
   `);
 
   await db.execute(sql`
-    insert into app.user_quest_progress (user_id, source, source_id, target_count, active_on)
+    insert into user_quest_progress (id, user_id, source, source_id, target_count, active_on)
     select
+      ${newIdSql()},
       ${userId},
       'daily_quest',
       daily_quest_pool.id,
       daily_quest_pool.target_count,
-      (timezone('Australia/Sydney', now()))::date
-    from app.daily_quest_pool
+      ${sydneyDateSql()}
+    from daily_quest_pool
     where daily_quest_pool.active
     on conflict (user_id, source, source_id, active_on) where active_on is not null do nothing
   `);
@@ -65,41 +67,40 @@ export async function incrementQuestProgress(
         user_quest_progress.id,
         user_quest_progress.progress_count,
         user_quest_progress.target_count
-      from app.user_quest_progress
-      left join app.level_quest_sets
+      from user_quest_progress
+      left join level_quest_sets
         on user_quest_progress.source = 'level_quest'
         and user_quest_progress.source_id = level_quest_sets.id
-      left join app.quest_templates
+      left join quest_templates
         on level_quest_sets.template_id = quest_templates.id
-      left join app.daily_quest_pool
+      left join daily_quest_pool
         on user_quest_progress.source = 'daily_quest'
         and user_quest_progress.source_id = daily_quest_pool.id
-      left join app.daily_quest_templates
+      left join daily_quest_templates
         on daily_quest_pool.template_id = daily_quest_templates.id
       where
         user_quest_progress.user_id = ${userId}
         and user_quest_progress.claimed_at is null
         and coalesce(quest_templates.trigger_type, daily_quest_templates.trigger_type) = ${triggerType}
     )
-    update app.user_quest_progress
+    update user_quest_progress
     set
-      progress_count = least(
+      progress_count = min(
         user_quest_progress.target_count,
         user_quest_progress.progress_count + ${delta}
       ),
       completed_at = case
         when user_quest_progress.completed_at is not null then user_quest_progress.completed_at
-        when user_quest_progress.progress_count + ${delta} >= user_quest_progress.target_count then now()
+        when user_quest_progress.progress_count + ${delta} >= user_quest_progress.target_count then ${nowSql()}
         else null
       end,
       claimable_at = case
         when user_quest_progress.claimable_at is not null then user_quest_progress.claimable_at
-        when user_quest_progress.progress_count + ${delta} >= user_quest_progress.target_count then now()
+        when user_quest_progress.progress_count + ${delta} >= user_quest_progress.target_count then ${nowSql()}
         else null
       end,
-      updated_at = now()
-    from matching_progress
-    where user_quest_progress.id = matching_progress.id
+      updated_at = ${nowSql()}
+    where user_quest_progress.id in (select id from matching_progress)
     returning
       user_quest_progress.id as "questId",
       user_quest_progress.source,
@@ -117,15 +118,15 @@ export async function getUserCapacities(db: Database, userId: string) {
   const rows = await db.execute<CapacityRow>(sql`
     with user_level as (
       select level
-      from app.users
+      from users
       where id = ${userId}
     ),
     level_caps as (
       select
         perk_definitions.key,
         max(level_perks.numeric_value) as cap
-      from app.level_perks
-      join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+      from level_perks
+      join perk_definitions on perk_definitions.id = level_perks.perk_id
       cross join user_level
       where
         level_perks.level >= 1
@@ -136,9 +137,9 @@ export async function getUserCapacities(db: Database, userId: string) {
       select
         perk_definitions.key,
         coalesce(sum(level_perks.numeric_value), 0) as delta
-      from app.level_perks
-      join app.perk_definitions on perk_definitions.id = level_perks.perk_id
-      join app.user_perk_unlocks
+      from level_perks
+      join perk_definitions on perk_definitions.id = level_perks.perk_id
+      join user_perk_unlocks
         on user_perk_unlocks.level_perk_id = level_perks.id
         and user_perk_unlocks.user_id = ${userId}
       where level_perks.level = 0
@@ -185,8 +186,8 @@ export async function getUserCapacities(db: Database, userId: string) {
 
 export function questProgressUpdate(row: ProgressUpdateRow) {
   return {
-    claimable: row.claimable,
-    completed: row.completed,
+    claimable: Boolean(row.claimable),
+    completed: Boolean(row.completed),
     progressCount: row.progressCount,
     questId: row.questId,
     source: row.source,
@@ -255,45 +256,52 @@ type StreakRewardJson = {
   >;
 };
 
+function parseStreakReward(value: StreakRewardJson | string): StreakRewardJson {
+  return typeof value === "string" ? (JSON.parse(value) as StreakRewardJson) : value;
+}
+
 export async function applyStreakMilestoneUnlocks(
   db: Database,
   userId: string,
   currentStreak: number,
 ) {
-  const rewardRows = await db.execute<{ streakDays: number; reward: StreakRewardJson }>(sql`
+  const rewardRows = await db.execute<{
+    streakDays: number;
+    reward: StreakRewardJson | string;
+  }>(sql`
     select streak_days as "streakDays", reward
-    from app.streak_reward_definitions
+    from streak_reward_definitions
     where active and streak_days = ${currentStreak}
   `);
 
   for (const row of rewardRows) {
-    for (const reward of row.reward.rewards) {
+    for (const reward of parseStreakReward(row.reward).rewards) {
       if (reward.type === "signature") {
         await db.execute(sql`
-          insert into app.user_signatures (user_id, signature_id, is_equipped)
+          insert into user_signatures (user_id, signature_id, is_equipped)
           select ${userId}, signatures.id, false
-          from app.signatures
+          from signatures
           where signatures.key = ${reward.signatureKey}
           on conflict (user_id, signature_id) do nothing
         `);
       } else if (reward.type === "capacity_billboard") {
-        // Streak-derived capacity perks are stored at level=0 in app.level_perks
+        // Streak-derived capacity perks are stored at level=0 in level_perks
         // with metadata.source='streak'. The unique (level, perk_id) means there's
         // exactly one canonical streak-billboard row in the table; each user who
         // crosses day-14 links to it via user_perk_unlocks.
         await db.execute(sql`
-          insert into app.level_perks (level, perk_id, numeric_value, metadata)
-          select 0, id, ${reward.amount},
-            jsonb_build_object('source', 'streak', 'streakDay', ${row.streakDays})
-          from app.perk_definitions
+          insert into level_perks (id, level, perk_id, numeric_value, metadata)
+          select ${newId()}, 0, id, ${reward.amount},
+            ${JSON.stringify({ source: "streak", streakDay: row.streakDays })}
+          from perk_definitions
           where key = 'max_concurrent_billboards'
           on conflict (level, perk_id) do nothing
         `);
         await db.execute(sql`
-          insert into app.user_perk_unlocks (user_id, level_perk_id, source_level)
+          insert into user_perk_unlocks (user_id, level_perk_id, source_level)
           select ${userId}, level_perks.id, 0
-          from app.level_perks
-          join app.perk_definitions on perk_definitions.id = level_perks.perk_id
+          from level_perks
+          join perk_definitions on perk_definitions.id = level_perks.perk_id
           where level_perks.level = 0
             and perk_definitions.key = 'max_concurrent_billboards'
           on conflict (user_id, level_perk_id) do nothing

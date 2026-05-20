@@ -40,6 +40,13 @@ jobs:
       # - name: Check
       # run: bun run check
 
+      - name: Apply D1 migrations
+        working-directory: apps/api
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: bun wrangler d1 migrations apply jematala-db --remote
+
       # Cloudflare only accepts `wrangler secret put` after the Worker exists (initial deploy).
       - name: Deploy API Worker
         working-directory: apps/api
@@ -53,16 +60,10 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          SUPABASE_POOLER_DATABASE_URL: ${{ secrets.SUPABASE_POOLER_DATABASE_URL }}
         run: |
-          printf '%s' "$SUPABASE_POOLER_DATABASE_URL" | bun wrangler secret put SUPABASE_POOLER_DATABASE_URL
-          printf '%s' "$SUPABASE_URL" | bun wrangler secret put SUPABASE_URL
-          printf '%s' "$SUPABASE_SECRET_KEY" | bun wrangler secret put SUPABASE_SECRET_KEY
           printf '%s' "$CLERK_PUBLISHABLE_KEY" | bun wrangler secret put CLERK_PUBLISHABLE_KEY
           printf '%s' "$CLERK_SECRET_KEY" | bun wrangler secret put CLERK_SECRET_KEY
           printf '%s' "$OPENAI_API_KEY" | bun wrangler secret put OPENAI_API_KEY
