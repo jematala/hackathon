@@ -12,8 +12,7 @@ import {
 
 import { fonts } from "@/app/theme";
 import { ApiError } from "@/lib/api/client";
-import { useBillboard, useCreatePlacement } from "@/lib/api/hooks";
-import { useDevUser } from "@/lib/devUser";
+import { useBillboard, useCreatePlacement, useCurrentUser } from "@/lib/api/hooks";
 import { setLocalRotation } from "@/lib/localPlacements";
 import { colors, expiresInLabel } from "@/lib/theme";
 
@@ -40,8 +39,8 @@ type EditingState =
   | { kind: "sticker"; asset: StickerAsset };
 
 export function BillboardPanel({ id, onClose }: BillboardPanelProps) {
-  const { user } = useDevUser();
   const billboard = useBillboard(id);
+  const currentUser = useCurrentUser();
   const createPlacement = useCreatePlacement(id ?? "");
   const stickyRef = useRef<EditingStickyHandle>(null);
   const stickerRef = useRef<EditingStickerHandle>(null);
@@ -238,7 +237,7 @@ export function BillboardPanel({ id, onClose }: BillboardPanelProps) {
           {editing?.kind === "sticky_note" && canvasSize.width > 0 ? (
             <EditingSticky
               ref={stickyRef}
-              authorId={user.id}
+              authorId={currentUser.data?.id ?? ""}
               body={editing.body}
               onChangeBody={(t) => setEditing({ kind: "sticky_note", body: t })}
               canvasWidth={canvasSize.width}

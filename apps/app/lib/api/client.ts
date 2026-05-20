@@ -1,7 +1,5 @@
 import type { z } from "zod";
 
-import { dispatchMock, MockApiError, type MockRequest } from "./mock";
-
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -12,14 +10,13 @@ export class ApiError extends Error {
   }
 }
 
-const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK_API !== "false";
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787";
 
 type FetchOptions<TResponse> = {
-  method: MockRequest["method"];
+  method: "DELETE" | "GET" | "PATCH" | "POST";
   path: string;
   body?: unknown;
-  userId: string;
+  getToken: () => Promise<string | null>;
   schema: z.ZodType<TResponse>;
 };
 
@@ -27,26 +24,20 @@ export async function apiFetch<TResponse>({
   method,
   path,
   body,
-  userId,
+  getToken,
   schema,
 }: FetchOptions<TResponse>): Promise<TResponse> {
-  if (USE_MOCK) {
-    try {
-      const raw = await dispatchMock({ method, path, body, userId });
-      return schema.parse(raw);
-    } catch (err) {
-      if (err instanceof MockApiError) {
-        throw new ApiError(err.status, err.code, err.message);
-      }
-      throw err;
-    }
+  const token = await getToken();
+
+  if (!token) {
+    throw new ApiError(401, "unauthorized", "Authentication required.");
   }
 
   const init: RequestInit = {
     method,
     headers: {
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "x-user-id": userId,
     },
   };
   if (body !== undefined) {
@@ -62,12 +53,17 @@ export async function apiFetch<TResponse>({
       message?: string;
       error?: string;
     };
-    throw new ApiError(
-      res.status,
-      errObj.code ?? "request_failed",
-      errObj.message ?? errObj.error ?? `Request failed (${res.status})`,
-    );
+    const message = errObj.message ?? errObj.error ?? `Request failed (${res.status})`;
+    throw new ApiError(res.status, errObj.code ?? codeFromMessage(message), message);
   }
 
   return schema.parse(json);
+}
+
+function codeFromMessage(message: string) {
+  const lower = message.toLowerCase();
+  if (lower.includes("capacity")) return "capacity_reached";
+  if (lower.includes("moderation")) return "moderation_rejected";
+  if (lower.includes("already")) return "placement_exists";
+  return "request_failed";
 }

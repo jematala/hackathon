@@ -10,7 +10,6 @@ import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
 
-import { DevUserProvider } from "@/lib/devUser";
 import { colors } from "@/lib/theme";
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
@@ -90,21 +89,19 @@ export default function RootLayout() {
         publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
       >
         <QueryClientProvider client={queryClient}>
-          <DevUserProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)/sign-in" />
-              <Stack.Screen name="(auth)/sign-up" />
-              <Stack.Screen name="(app)" />
-              <Stack.Screen name="avatar/create" />
-              <Stack.Screen name="billboard/[id]" />
-              <Stack.Screen name="billboards/index" />
-              <Stack.Screen name="events/index" />
-              <Stack.Screen name="events/[id]" />
-              <Stack.Screen name="index" />
-              <Stack.Screen name="profile/[userId]" />
-            </Stack>
-            <StatusBar style="dark" />
-          </DevUserProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)/sign-in" />
+            <Stack.Screen name="(auth)/sign-up" />
+            <Stack.Screen name="(app)" />
+            <Stack.Screen name="avatar/create" />
+            <Stack.Screen name="billboard/[id]" />
+            <Stack.Screen name="billboards/index" />
+            <Stack.Screen name="events/index" />
+            <Stack.Screen name="events/[id]" />
+            <Stack.Screen name="index" />
+            <Stack.Screen name="profile/[userId]" />
+          </Stack>
+          <StatusBar style="dark" />
         </QueryClientProvider>
       </ClerkProvider>
     </GestureHandlerRootView>
