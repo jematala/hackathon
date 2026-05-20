@@ -9,6 +9,7 @@ import { NextLevelPreview } from "@/components/NextLevelPreview";
 import { NextMilestonePreview } from "@/components/NextMilestonePreview";
 import { QuestCard } from "@/components/QuestCard";
 import { Screen } from "@/components/Screen";
+import { fonts } from "@/app/theme";
 import { ApiError } from "@/lib/api/client";
 import { useClaimQuest, useQuests, useUserProgress } from "@/lib/api/hooks";
 
@@ -169,12 +170,12 @@ const styles = StyleSheet.create({
   },
   backArrow: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 40,
   },
   headerTitle: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 40,
     flex: 1,
   },
@@ -191,12 +192,12 @@ const styles = StyleSheet.create({
   },
   streakValue: {
     color: "#D94A29",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 28,
   },
   streakLabel: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 18,
   },
   section: {
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: "#5b7559",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 26,
   },
   sectionBody: {
@@ -212,12 +213,12 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: "#71730E",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 18,
   },
   errorText: {
     color: "#D94A29",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 18,
   },
   loadingRow: {

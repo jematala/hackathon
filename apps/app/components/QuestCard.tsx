@@ -1,6 +1,8 @@
 import type { QuestProgress } from "@repo/shared";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { fonts } from "@/app/theme";
+
 import { Card } from "./Card";
 import { ProgressBar } from "./ProgressBar";
 
@@ -60,18 +62,18 @@ const styles = StyleSheet.create({
   title: {
     color: "#6A401A",
     flex: 1,
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 20,
     marginRight: 12,
   },
   streakReward: {
     color: "#D94A29",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 16,
   },
   description: {
     color: "#71730E",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 16,
   },
   actionRow: {
@@ -89,7 +91,7 @@ const styles = StyleSheet.create({
   },
   claimLabel: {
     color: "#ffedd6",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 18,
   },
   claimedPill: {
@@ -102,7 +104,7 @@ const styles = StyleSheet.create({
   },
   claimedLabel: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 16,
   },
 });

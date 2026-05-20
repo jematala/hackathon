@@ -10,6 +10,7 @@ import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
 
+import { FONT_FAMILY } from "@/app/theme";
 import { colors } from "@/lib/theme";
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
@@ -22,7 +23,7 @@ const MAP_STYLES = `
   }
   body {
     color: #6A401A;
-    font-family: Jersey10, sans-serif;
+    font-family: ${FONT_FAMILY}, sans-serif;
   }
   .leaflet-container {
     height: 100%;

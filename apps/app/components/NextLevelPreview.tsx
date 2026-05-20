@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { fonts } from "@/app/theme";
+
 import { Card } from "./Card";
 
 const LEVEL_PERKS: Record<number, string> = {
@@ -44,12 +46,12 @@ const styles = StyleSheet.create({
   },
   label: {
     color: "#B17833",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 16,
   },
   perk: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 20,
   },
 });

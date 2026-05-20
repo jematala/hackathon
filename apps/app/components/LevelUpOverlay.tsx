@@ -1,5 +1,7 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { fonts } from "@/app/theme";
+
 export type LevelUpPerk = {
   id: string;
   name: string;
@@ -78,19 +80,19 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 42,
     textAlign: "center",
   },
   transition: {
     color: "#4A90D9",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 30,
     textAlign: "center",
   },
   sectionHeading: {
     color: "#5b7559",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 22,
     marginBottom: 4,
   },
@@ -110,17 +112,17 @@ const styles = StyleSheet.create({
   },
   perkName: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 20,
   },
   perkDescription: {
     color: "#71730E",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 16,
   },
   emptyPerks: {
     color: "#8B7340",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 18,
     textAlign: "center",
   },
@@ -135,7 +137,7 @@ const styles = StyleSheet.create({
   },
   continueLabel: {
     color: "#ffedd6",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 26,
   },
 });

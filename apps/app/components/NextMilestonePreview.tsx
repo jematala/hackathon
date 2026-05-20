@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { fonts } from "@/app/theme";
+
 import { Card } from "./Card";
 
 const MILESTONES: Array<{ day: number; description: string }> = [
@@ -42,12 +44,12 @@ const styles = StyleSheet.create({
   },
   label: {
     color: "#D94A29",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 16,
   },
   perk: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 20,
   },
 });

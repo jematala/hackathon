@@ -14,8 +14,8 @@ function patchForwardRef(component: ForwardRefLike): void {
     const origin = original.apply(this, args);
     return cloneElement(origin as ReactElement<{ style?: unknown }>, {
       style: [
-        { fontFamily: FONT_FAMILY },
         (origin as ReactElement<{ style?: unknown }>).props.style,
+        { fontFamily: FONT_FAMILY },
       ],
     });
   };

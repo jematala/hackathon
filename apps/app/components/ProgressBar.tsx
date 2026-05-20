@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { fonts } from "@/app/theme";
+
 type ProgressBarProps = {
   value: number;
   max: number;
@@ -38,7 +40,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 16,
     marginTop: 2,
   },

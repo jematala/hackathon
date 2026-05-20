@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
 // Import Marker alongside Map from the library
 import { Camera, Map as MapLibre, Marker } from "@maplibre/maplibre-react-native";
 
+import { fonts } from "@/app/theme";
 import { UNSW_CENTER } from "@/constants/coordinates";
 
 import type { MapPoi, MapProps } from "./Map";
@@ -283,7 +284,7 @@ const billboardStyles = StyleSheet.create({
   },
   text: {
     color: "#6A401A",
-    fontFamily: "Jersey10",
+    fontFamily: fonts.family,
     fontSize: 14,
   },
 });
