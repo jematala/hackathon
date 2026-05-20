@@ -44,7 +44,9 @@ export async function apiFetch<TResponse>({
     init.body = JSON.stringify(body);
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, init);
+  const url = `${API_BASE_URL}${path}`;
+  console.log("[apiFetch]", method, url, body);
+  const res = await fetch(url, init);
   const json: unknown = await res.json().catch(() => ({}));
 
   if (!res.ok) {

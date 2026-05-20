@@ -90,13 +90,15 @@ export function MapHUD({ onCreateBillboard, isPermissionDenied, onEnableLocation
           </Pressable>
         </View>
       )}
-      <ProfileButton />
-      <View style={styles.rightStack}>
-        <AddButton onPress={onCreateBillboard} />
-        <View style={styles.rightCluster}>
-          <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
-          <View style={{ width: 10 }} />
-          <TextButton label="Studio" onPress={() => router.push("/studio" as any)} />
+      <View style={styles.bottomRow}>
+        <ProfileButton />
+        <View style={styles.rightStack}>
+          <AddButton onPress={onCreateBillboard} />
+          <View style={styles.rightCluster}>
+            <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
+            <View style={{ width: 10 }} />
+            <TextButton label="Studio" onPress={() => router.push("/studio" as any)} />
+          </View>
         </View>
       </View>
     </View>
@@ -113,7 +115,7 @@ const styles = StyleSheet.create({
   bottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "flex-end",
   },
   permissionBanner: {
     flexDirection: "row",

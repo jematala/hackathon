@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -9,32 +9,29 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { BillboardPanel } from '@/components/billboard/BillboardPanel';
-import { CanvasModal } from '@/components/CanvasModal';
-import Map from '@/components/map/Map';
-import { MapHUD } from '@/components/map/MapHUD';
-import { UNSW_CAMPUS_ID, UNSW_CENTER } from '@/constants/coordinates';
-import { useUserLocation } from '@/hooks/useUserLocation';
-import { ApiError } from '@/lib/api/client';
-import { useBillboards, useCreateBillboard, usePois } from '@/lib/api/hooks';
-import { colors } from '@/lib/theme';
+import { BillboardPanel } from "@/components/billboard/BillboardPanel";
+import { CanvasModal } from "@/components/CanvasModal";
+import Map from "@/components/map/Map";
+import { MapHUD } from "@/components/map/MapHUD";
+import { UNSW_CAMPUS_ID, UNSW_CENTER } from "@/constants/coordinates";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { ApiError } from "@/lib/api/client";
+import { useBillboards, useCreateBillboard, usePois } from "@/lib/api/hooks";
+import { colors } from "@/lib/theme";
 
 export default function MapScreen() {
   const mapRef = useRef<{ invalidateSize: () => void }>(null);
   const [isCanvasOpen, setIsCanvasOpen] = useState(false);
-  const [activeBillboardId, setActiveBillboardId] = useState<string | null>(
-    null,
-  );
+  const [activeBillboardId, setActiveBillboardId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [body, setBody] = useState('');
+  const [body, setBody] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
   const pois = usePois({ campusId: UNSW_CAMPUS_ID });
   const createBillboard = useCreateBillboard();
-  const { location, isDenied, canAskAgain, requestPermission } =
-    useUserLocation();
+  const { location, isDenied, canAskAgain, requestPermission } = useUserLocation();
 
   const closeCreate = () => {
     setCreateOpen(false);
@@ -44,7 +41,7 @@ export default function MapScreen() {
   const submitBillboard = () => {
     const trimmed = body.trim();
     if (!trimmed) {
-      setCreateError('Write something for your whiteboard first.');
+      setCreateError("Write something for your whiteboard first.");
       return;
     }
 
@@ -59,7 +56,7 @@ export default function MapScreen() {
       },
       {
         onSuccess: (data) => {
-          setBody('');
+          setBody("");
           setCreateOpen(false);
           setActiveBillboardId(data.billboard.id);
         },
@@ -68,7 +65,8 @@ export default function MapScreen() {
             setCreateError(err.message);
             return;
           }
-          setCreateError('Could not pin this whiteboard.');
+          console.log(err.message);
+          setCreateError("Could not pin this billboard.");
         },
       },
     );
@@ -78,7 +76,7 @@ export default function MapScreen() {
     if (canAskAgain) {
       await requestPermission();
     } else {
-      Linking.openURL('app-settings:');
+      Linking.openURL("app-settings:");
     }
   }, [canAskAgain, requestPermission]);
 
@@ -120,10 +118,7 @@ export default function MapScreen() {
         onRequestClose={() => setActiveBillboardId(null)}
       >
         <View style={styles.modalRoot}>
-          <Pressable
-            style={styles.backdrop}
-            onPress={() => setActiveBillboardId(null)}
-          />
+          <Pressable style={styles.backdrop} onPress={() => setActiveBillboardId(null)} />
           <ScrollView
             style={styles.modalScroll}
             contentContainerStyle={styles.modalScrollContent}
@@ -138,17 +133,12 @@ export default function MapScreen() {
           </ScrollView>
         </View>
       </Modal>
-      <Modal
-        visible={createOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={closeCreate}
-      >
+      <Modal visible={createOpen} transparent animationType="fade" onRequestClose={closeCreate}>
         <View style={styles.modalRoot}>
           <Pressable style={styles.backdrop} onPress={closeCreate} />
           <View style={styles.createPanel}>
             <View style={styles.createHeader}>
-              <Text style={styles.createTitle}>New whiteboard</Text>
+              <Text style={styles.createTitle}>New billboard</Text>
               <Pressable
                 onPress={closeCreate}
                 style={styles.closeButton}
@@ -170,29 +160,21 @@ export default function MapScreen() {
             />
             <View style={styles.createFooter}>
               <Text style={styles.charCount}>{body.length}/500</Text>
-              {createError ? (
-                <Text style={styles.createError}>{createError}</Text>
-              ) : null}
+              {createError ? <Text style={styles.createError}>{createError}</Text> : null}
             </View>
             <Pressable
               disabled={createBillboard.isPending}
               onPress={submitBillboard}
-              style={[
-                styles.submitButton,
-                createBillboard.isPending ? styles.disabled : null,
-              ]}
+              style={[styles.submitButton, createBillboard.isPending ? styles.disabled : null]}
             >
               <Text style={styles.submitText}>
-                {createBillboard.isPending ? 'Pinning...' : 'Pin here'}
+                {createBillboard.isPending ? "Pinning..." : "Pin here"}
               </Text>
             </Pressable>
           </View>
         </View>
       </Modal>
-      <CanvasModal
-        visible={isCanvasOpen}
-        onClose={() => setIsCanvasOpen(false)}
-      />
+      <CanvasModal visible={isCanvasOpen} onClose={() => setIsCanvasOpen(false)} />
     </View>
   );
 }
@@ -202,47 +184,47 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mapStatus: {
-    alignItems: 'center',
+    alignItems: "center",
     backgroundColor: colors.pageBgSoft,
     borderColor: colors.sageDark,
     borderRadius: 999,
     borderWidth: 2,
     height: 42,
-    justifyContent: 'center',
-    position: 'absolute',
+    justifyContent: "center",
+    position: "absolute",
     right: 18,
     top: 18,
     width: 42,
   },
   modalRoot: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(36, 30, 22, 0.55)',
+    backgroundColor: "rgba(36, 30, 22, 0.55)",
   },
   modalScroll: {
-    maxHeight: '92%',
-    width: '100%',
+    maxHeight: "92%",
+    width: "100%",
   },
   modalScrollContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 18,
   },
   modalPanel: {
-    backgroundColor: '#F2EAD3',
-    borderColor: '#384730',
+    backgroundColor: "#F2EAD3",
+    borderColor: "#384730",
     borderRadius: 16,
     borderWidth: 3,
     gap: 18,
     maxWidth: 820,
     padding: 18,
-    width: '100%',
+    width: "100%",
   },
   createPanel: {
-    alignSelf: 'center',
+    alignSelf: "center",
     backgroundColor: colors.pageBg,
     borderColor: colors.sageDarker,
     borderRadius: 16,
@@ -250,25 +232,25 @@ const styles = StyleSheet.create({
     gap: 14,
     maxWidth: 460,
     padding: 18,
-    width: '90%',
+    width: "90%",
   },
   createHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   createTitle: {
     color: colors.ink,
     fontSize: 26,
   },
   closeButton: {
-    alignItems: 'center',
+    alignItems: "center",
     backgroundColor: colors.pageBgSoft,
     borderColor: colors.sageDark,
     borderRadius: 999,
     borderWidth: 2,
     height: 34,
-    justifyContent: 'center',
+    justifyContent: "center",
     width: 34,
   },
   closeText: {
@@ -282,17 +264,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     color: colors.ink,
-    fontFamily: 'Jersey10_400Regular',
+    fontFamily: "Jersey10_400Regular",
     fontSize: 20,
     minHeight: 140,
     padding: 14,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   createFooter: {
     gap: 6,
   },
   charCount: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     color: colors.inkSoft,
     fontSize: 14,
   },
@@ -301,14 +283,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   submitButton: {
-    alignItems: 'center',
+    alignItems: "center",
     backgroundColor: colors.sageDark,
     borderColor: colors.sageDarker,
     borderRadius: 12,
     borderWidth: 2,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
-    justifyContent: 'center',
+    justifyContent: "center",
     minHeight: 48,
   },
   disabled: {
