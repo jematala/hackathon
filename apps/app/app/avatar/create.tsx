@@ -6,6 +6,8 @@ import { ChevronLeft, ImageUp, Palette } from "lucide-react-native";
 import { CreateStickerPanel } from "@/components/CreateStickerPanel";
 import { Screen } from "@/components/Screen";
 import { colors, fonts, pixelBorder } from "@/app/theme";
+import { ApiError } from "@/lib/api/client";
+import { useUpdateAvatar } from "@/lib/api/hooks";
 import { setAvatarUri } from "@/lib/userProfile";
 
 type Mode = "draw" | "upload";
@@ -18,15 +20,32 @@ export default function CreateAvatarScreen() {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [uploadTone, setUploadTone] = useState<"info" | "error" | "success">("info");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const updateAvatar = useUpdateAvatar();
 
-  const handleAvatarDrawn = useCallback(({ dataUrl }: { dataUrl: string; base64: string }) => {
-    setAvatarUri(dataUrl);
-    // small delay so the success message is briefly visible
-    setTimeout(() => {
-      if (router.canGoBack()) router.back();
-      else router.replace("/(app)/profile" as any);
-    }, 350);
-  }, []);
+  const saveAvatar = useCallback(
+    async (avatarBase64: string, dataUrl: string) => {
+      try {
+        await updateAvatar.mutateAsync({ avatarBase64 });
+        setAvatarUri(dataUrl);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          throw new Error(err.message);
+        }
+        throw err;
+      }
+
+      setTimeout(() => {
+        if (router.canGoBack()) router.back();
+        else router.replace("/(app)/profile" as any);
+      }, 350);
+    },
+    [updateAvatar],
+  );
+
+  const handleAvatarDrawn = useCallback(
+    ({ dataUrl, base64 }: { dataUrl: string; base64: string }) => saveAvatar(base64, dataUrl),
+    [saveAvatar],
+  );
 
   const openFilePicker = useCallback(() => {
     if (typeof document === "undefined") {
@@ -37,7 +56,7 @@ export default function CreateAvatarScreen() {
     if (!fileInputRef.current) {
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = "image/*";
+      input.accept = "image/png";
       input.style.display = "none";
       input.addEventListener("change", handleFileChange as unknown as EventListener);
       document.body.appendChild(input);
@@ -66,6 +85,11 @@ export default function CreateAvatarScreen() {
         setUploadStatus("Could not read image.");
         return;
       }
+      if (!result.startsWith("data:image/png;base64,")) {
+        setUploadTone("error");
+        setUploadStatus("Pick a PNG image.");
+        return;
+      }
       setUploadDataUrl(result);
       setUploadTone("success");
       setUploadStatus(`Loaded ${file.name}`);
@@ -77,12 +101,19 @@ export default function CreateAvatarScreen() {
     reader.readAsDataURL(file);
   }, []);
 
-  const handleUseUploaded = useCallback(() => {
+  const handleUseUploaded = useCallback(async () => {
     if (!uploadDataUrl) return;
-    setAvatarUri(uploadDataUrl);
-    if (router.canGoBack()) router.back();
-    else router.replace("/(app)/profile" as any);
-  }, [uploadDataUrl]);
+    setUploadTone("info");
+    setUploadStatus("Saving avatar...");
+    try {
+      await saveAvatar(uploadDataUrl, uploadDataUrl);
+      setUploadTone("success");
+      setUploadStatus("Avatar saved!");
+    } catch (err) {
+      setUploadTone("error");
+      setUploadStatus(err instanceof Error ? err.message : "Could not save avatar.");
+    }
+  }, [saveAvatar, uploadDataUrl]);
 
   return (
     <Screen>
@@ -159,15 +190,17 @@ export default function CreateAvatarScreen() {
           ) : null}
 
           <Pressable
-            disabled={!uploadDataUrl}
+            disabled={!uploadDataUrl || updateAvatar.isPending}
             onPress={handleUseUploaded}
             style={({ pressed }) => [
               styles.saveBtn,
-              !uploadDataUrl && styles.saveBtnDisabled,
+              (!uploadDataUrl || updateAvatar.isPending) && styles.saveBtnDisabled,
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.saveBtnLabel}>set as avatar</Text>
+            <Text style={styles.saveBtnLabel}>
+              {updateAvatar.isPending ? "saving..." : "set as avatar"}
+            </Text>
           </Pressable>
         </View>
       )}

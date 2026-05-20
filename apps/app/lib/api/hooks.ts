@@ -13,10 +13,15 @@ import {
   listPoisResponseSchema,
   listQuestsResponseSchema,
   listSavedStickersResponseSchema,
+  updateCurrentUserResponseSchema,
+  visitPoiResponseSchema,
   type CreateBillboardInput,
   type CreatePlacementInput,
   type CreateSavedStickerInput,
   type CreateStickerInput,
+  type UpdateAvatarInput,
+  type UpdateCurrentUserInput,
+  type VisitPoiInput,
 } from "@repo/shared";
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -86,6 +91,27 @@ export function usePois(filter?: { campusId?: string }) {
         schema: listPoisResponseSchema,
       }),
     select: (data) => data.pois,
+  });
+}
+
+export function useVisitPoi(filter?: { campusId?: string }) {
+  const auth = useApiAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: VisitPoiInput }) =>
+      apiFetch({
+        method: "POST",
+        path: `/api/pois/${id}/visit`,
+        body: input,
+        getToken: auth.getToken,
+        schema: visitPoiResponseSchema,
+      }),
+    onSuccess: (data) => {
+      pushQuestProgress(data.questProgress);
+      queryClient.invalidateQueries({ queryKey: qk.pois(filter) });
+      queryClient.invalidateQueries({ queryKey: qk.quests(auth.userId) });
+      queryClient.invalidateQueries({ queryKey: qk.userProgress(auth.userId) });
+    },
   });
 }
 
@@ -279,5 +305,41 @@ export function useCurrentUser() {
         schema: getCurrentUserResponseSchema,
       }),
     select: (data) => data.user,
+  });
+}
+
+export function useUpdateCurrentUser() {
+  const auth = useApiAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateCurrentUserInput) =>
+      apiFetch({
+        method: "PATCH",
+        path: "/api/users/me",
+        body: input,
+        getToken: auth.getToken,
+        schema: updateCurrentUserResponseSchema,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.currentUser(auth.userId) });
+    },
+  });
+}
+
+export function useUpdateAvatar() {
+  const auth = useApiAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateAvatarInput) =>
+      apiFetch({
+        method: "PATCH",
+        path: "/api/users/me/avatar",
+        body: input,
+        getToken: auth.getToken,
+        schema: updateCurrentUserResponseSchema,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.currentUser(auth.userId) });
+    },
   });
 }

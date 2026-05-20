@@ -31,7 +31,7 @@ type CreateStickerPanelVariant = "sticker" | "avatar";
 type CreateStickerPanelProps = {
   onClose?: () => void;
   variant?: CreateStickerPanelVariant;
-  onAvatarSaved?: (payload: { dataUrl: string; base64: string }) => void;
+  onAvatarSaved?: (payload: { dataUrl: string; base64: string }) => Promise<void> | void;
 };
 
 export function CreateStickerPanel({
@@ -46,9 +46,10 @@ export function CreateStickerPanel({
   const [stickerName, setStickerName] = useState("");
   const [submitStatus, setSubmitStatus] = useState<string | null>(null);
   const [submitTone, setSubmitTone] = useState<"info" | "success" | "error">("info");
+  const [avatarSubmitting, setAvatarSubmitting] = useState(false);
   const createAsset = useCreateStickerAsset();
   const saveSticker = useSaveSticker();
-  const isSubmitting = !isAvatar && (createAsset.isPending || saveSticker.isPending);
+  const isSubmitting = isAvatar ? avatarSubmitting : createAsset.isPending || saveSticker.isPending;
   const isCompact = width < 390 || height < 720;
   const horizontalPanelPadding = isCompact ? 18 : 38;
   const reservedHeight = isAvatar ? 280 : 370;
@@ -71,9 +72,19 @@ export function CreateStickerPanel({
     }
 
     if (isAvatar) {
-      onAvatarSaved?.({ dataUrl: payload.dataUrl, base64: payload.base64 });
-      setSubmitTone("success");
-      setSubmitStatus("Avatar saved!");
+      setAvatarSubmitting(true);
+      setSubmitTone("info");
+      setSubmitStatus("Saving avatar...");
+      try {
+        await onAvatarSaved?.({ dataUrl: payload.dataUrl, base64: payload.base64 });
+        setSubmitTone("success");
+        setSubmitStatus("Avatar saved!");
+      } catch (err) {
+        setSubmitTone("error");
+        setSubmitStatus(err instanceof Error ? err.message : "Could not save avatar.");
+      } finally {
+        setAvatarSubmitting(false);
+      }
       return;
     }
 

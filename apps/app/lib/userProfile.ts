@@ -43,3 +43,9 @@ export function setAvatarUri(uri: string | null) {
   state = { ...state, avatarUri: uri };
   emit();
 }
+
+export function avatarBase64ToUri(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.startsWith("data:image/")) return value;
+  return `data:image/png;base64,${value}`;
+}
