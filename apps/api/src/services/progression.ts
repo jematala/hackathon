@@ -34,7 +34,7 @@ export async function ensureQuestProgress(db: Database, userId: string) {
     from app.users
     join app.level_quest_sets on level_quest_sets.level = users.level
     where users.id = ${userId}
-    on conflict (user_id, source, source_id) do nothing
+    on conflict (user_id, source, source_id) where active_on is null do nothing
   `);
 
   await db.execute(sql`
@@ -47,7 +47,7 @@ export async function ensureQuestProgress(db: Database, userId: string) {
       (timezone('Australia/Sydney', now()))::date
     from app.daily_quest_pool
     where daily_quest_pool.active
-    on conflict (user_id, source, source_id, active_on) do nothing
+    on conflict (user_id, source, source_id, active_on) where active_on is not null do nothing
   `);
 }
 

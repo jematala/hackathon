@@ -39,7 +39,17 @@ app.get("/api/realtime", requireRealtimeAuth, async (c) => {
   const campusId = c.req.query("campusId") ?? "unsw";
   const stub = realtimeStub(c.env, campusId);
 
-  return stub.fetch(c.req.raw);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    return await stub.fetch(c.req.raw, { signal: controller.signal });
+  } catch (err) {
+    console.error(`[realtime] DO fetch failed for campus=${campusId}`, err);
+    return c.json({ error: "Real-time connection failed" }, 502);
+  } finally {
+    clearTimeout(timeout);
+  }
 });
 
 app.route("/api/moderate", moderation);
@@ -58,7 +68,7 @@ app.onError((error, c) => {
     return c.json({ error: error.message }, error.status);
   }
 
-  console.error(error);
+  console.error(`[${c.req.method}] ${c.req.url}`, error);
 
   return c.json({ error: "Internal server error" }, 500);
 });
