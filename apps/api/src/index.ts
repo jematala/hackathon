@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 
-import { closeDb, createDb } from "./db";
+import { getDb } from "./db";
 import { requireRealtimeAuth } from "./middleware/auth";
 import { billboardsRoute } from "./routes/billboards";
 import { moderation } from "./routes/moderation";
@@ -23,16 +23,6 @@ export { CampusRealtimeRoomDO };
 const app = new Hono<AppBindings>();
 
 app.use("/api/*", cors());
-app.use("/api/*", async (c, next) => {
-  try {
-    await next();
-  } finally {
-    const db = c.get("db");
-    if (db) {
-      c.executionCtx.waitUntil(closeDb(db));
-    }
-  }
-});
 
 app.get("/api/health", (c) => {
   return c.json({
@@ -76,14 +66,10 @@ app.onError((error, c) => {
 export default {
   fetch: app.fetch,
   async scheduled(_event: ScheduledEvent, env: Env) {
-    const db = createDb(env);
+    const db = getDb(env);
 
-    try {
-      await ensureDailyRotations(db);
-      await expireBillboards(db);
-      await resetBrokenStreaks(db);
-    } finally {
-      await closeDb(db);
-    }
+    await ensureDailyRotations(db);
+    await expireBillboards(db);
+    await resetBrokenStreaks(db);
   },
 };
