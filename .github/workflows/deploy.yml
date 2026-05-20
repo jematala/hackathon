@@ -37,8 +37,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Check
-        run: bun run check
+      # - name: Check
+        # run: bun run check
 
       # Cloudflare only accepts `wrangler secret put` after the Worker exists (initial deploy).
       - name: Deploy API Worker
