@@ -17,7 +17,6 @@ import { getDb } from "../db";
 import { badRequest, notFound } from "../http";
 import { getAuthUser, optionalAuth, requireAuth } from "../middleware/auth";
 import { incrementQuestProgress, questProgressUpdate } from "../services/progression";
-import { ensureDailyRotations } from "../services/rotations";
 import { isoDate, isoDateTime } from "../serialize";
 import type { AppBindings, AuthUser } from "../types";
 import { requireAdmin } from "./users";
@@ -59,8 +58,6 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
   const campusId = c.req.query("campusId");
   const authUser = safeAuthUser(c);
 
-  await ensureDailyRotations(db);
-
   const campus = await loadCampus(db, campusId);
   const rows = await db.execute<PoiRow>(sql`
     select
@@ -73,7 +70,7 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
       pois.lng,
       pois.radius_meters as "radiusMeters",
       pois.is_active as "isActive",
-      poi_daily_activations.active_on as "activeOn",
+      (timezone(${campus.timezone}, now()))::date as "activeOn",
       exists (
         select 1 from app.poi_visits
         where poi_visits.poi_id = pois.id and poi_visits.user_id = ${authUser?.id ?? null}
@@ -82,10 +79,6 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
       pois.updated_at as "updatedAt",
       0::int as "visitCount"
     from app.pois
-    join app.poi_daily_activations
-      on poi_daily_activations.poi_id = pois.id
-      and poi_daily_activations.campus_id = pois.campus_id
-      and poi_daily_activations.active_on = (timezone(${campus.timezone}, now()))::date
     where
       pois.campus_id = ${campus.id}
       and pois.deleted_at is null
@@ -298,7 +291,7 @@ async function loadPoi(db: ReturnType<typeof getDb>, id: string, userId: string 
       pois.lng,
       pois.radius_meters as "radiusMeters",
       pois.is_active as "isActive",
-      poi_daily_activations.active_on as "activeOn",
+      (timezone(campuses.timezone, now()))::date as "activeOn",
       exists (
         select 1 from app.poi_visits
         where poi_visits.poi_id = pois.id and poi_visits.user_id = ${userId ?? null}
@@ -310,10 +303,6 @@ async function loadPoi(db: ReturnType<typeof getDb>, id: string, userId: string 
       ) as "visitCount"
     from app.pois
     left join app.campuses on campuses.id = pois.campus_id
-    left join app.poi_daily_activations
-      on poi_daily_activations.poi_id = pois.id
-      and poi_daily_activations.campus_id = pois.campus_id
-      and poi_daily_activations.active_on = (timezone(campuses.timezone, now()))::date
     where pois.id = ${id} and pois.deleted_at is null
   `);
   const poi = rows[0];

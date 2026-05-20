@@ -12,7 +12,12 @@ export function getDb(env: Env) {
   }
 
   const client = postgres(env.SUPABASE_POOLER_DATABASE_URL, {
-    connect_timeout: 10,
+    connect_timeout: 3,
+    connection: {
+      application_name: "jematala-api",
+      lock_timeout: 1000,
+      statement_timeout: 5000,
+    },
     fetch_types: false,
     idle_timeout: 1,
     max: 1,

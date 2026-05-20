@@ -34,20 +34,37 @@ export async function ensureQuestProgress(db: Database, userId: string) {
     from app.users
     join app.level_quest_sets on level_quest_sets.level = users.level
     where users.id = ${userId}
-    on conflict (user_id, source, source_id) do nothing
+    on conflict (user_id, source, source_id) where active_on is null do nothing
   `);
 
   await db.execute(sql`
-    insert into app.user_quest_progress (user_id, source, source_id, target_count)
+    insert into app.user_quest_progress (user_id, source, source_id, active_on, target_count)
+    with active_pool as (
+      select
+        daily_quest_pool.id,
+        daily_quest_pool.target_count,
+        row_number() over (order by daily_quest_pool.id) - 1 as ordinal,
+        count(*) over () as pool_size
+      from app.daily_quest_pool
+      where daily_quest_pool.active
+    ),
+    selected_daily as (
+      select active_pool.id, active_pool.target_count
+      from active_pool
+      where active_pool.ordinal = mod(
+        abs(hashtext((timezone('Australia/Sydney', now()))::date::text)::bigint),
+        active_pool.pool_size
+      )
+      limit 1
+    )
     select
       ${userId},
       'daily_quest',
-      daily_quest_assignments.id,
-      daily_quest_pool.target_count
-    from app.daily_quest_assignments
-    join app.daily_quest_pool on daily_quest_pool.id = daily_quest_assignments.daily_quest_pool_id
-    where daily_quest_assignments.active_on = (timezone('Australia/Sydney', now()))::date
-    on conflict (user_id, source, source_id) do nothing
+      selected_daily.id,
+      (timezone('Australia/Sydney', now()))::date,
+      selected_daily.target_count
+    from selected_daily
+    on conflict (user_id, source, source_id, active_on) where active_on is not null do nothing
   `);
 }
 
@@ -71,11 +88,9 @@ export async function incrementQuestProgress(
         and user_quest_progress.source_id = level_quest_sets.id
       left join app.quest_templates
         on level_quest_sets.template_id = quest_templates.id
-      left join app.daily_quest_assignments
-        on user_quest_progress.source = 'daily_quest'
-        and user_quest_progress.source_id = daily_quest_assignments.id
       left join app.daily_quest_pool
-        on daily_quest_assignments.daily_quest_pool_id = daily_quest_pool.id
+        on user_quest_progress.source = 'daily_quest'
+        and user_quest_progress.source_id = daily_quest_pool.id
       left join app.daily_quest_templates
         on daily_quest_pool.template_id = daily_quest_templates.id
       where
