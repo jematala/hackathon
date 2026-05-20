@@ -2,6 +2,8 @@ import type { PropsWithChildren } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { colors } from "@/app/theme";
+
 export function Screen({ children }: PropsWithChildren) {
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -12,7 +14,7 @@ export function Screen({ children }: PropsWithChildren) {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: "#FEEED5",
+    backgroundColor: colors.background,
     flex: 1,
   },
   content: {

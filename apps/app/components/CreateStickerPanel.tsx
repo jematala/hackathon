@@ -1,7 +1,11 @@
 import { useCallback, useRef, useState } from "react";
-import { Platform, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { fonts } from "@/app/theme";
-import { PixelCanvas, type PixelCanvasRef, type StickerExport } from "@/components/PixelCanvas";
+import { ApiError } from "@/lib/api/client";
+import { useCreateStickerAsset, useSaveSticker } from "@/lib/api/hooks";
+import { PixelCanvas, type PixelCanvasRef } from "@/components/PixelCanvas";
+
+const STICKER_SIZE = 64;
 
 const COLORS = [
   { label: "Dark", value: "#111827" },
@@ -14,52 +18,108 @@ const COLORS = [
   { label: "Black", value: "#000000" },
 ];
 
+type CreateStickerPanelVariant = "sticker" | "avatar";
+
 type CreateStickerPanelProps = {
   onClose?: () => void;
+  variant?: CreateStickerPanelVariant;
+  onAvatarSaved?: (payload: { dataUrl: string; base64: string }) => void;
 };
 
-export function CreateStickerPanel({ onClose }: CreateStickerPanelProps) {
+export function CreateStickerPanel({
+  onClose,
+  variant = "sticker",
+  onAvatarSaved,
+}: CreateStickerPanelProps) {
+  const isAvatar = variant === "avatar";
   const ref = useRef<PixelCanvasRef>(null);
-  const preparedStickerRef = useRef<StickerExport | null>(null);
   const [brushColor, setBrushColor] = useState("#111827");
   const [submitStatus, setSubmitStatus] = useState<string | null>(null);
+  const [submitTone, setSubmitTone] = useState<"info" | "success" | "error">("info");
+  const createAsset = useCreateStickerAsset();
+  const saveSticker = useSaveSticker();
+  const isSubmitting = !isAvatar && (createAsset.isPending || saveSticker.isPending);
 
-  const handleDownload = useCallback(async () => {
-    const payload = await ref.current?.exportAsBase64();
-    if (!payload) return;
-
-    if (Platform.OS === "web") {
+  const handleDownload = useCallback(() => {
+    void ref.current?.exportAsBase64().then((payload) => {
+      if (!payload || typeof document === "undefined") return;
       const link = document.createElement("a");
       link.href = payload.dataUrl;
       link.download = payload.filename;
       link.click();
-    } else {
-      await Share.share({ url: payload.dataUrl });
-    }
+    });
   }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!ref.current) {
-      setSubmitStatus("Sticker is not ready yet.");
+      setSubmitTone("error");
+      setSubmitStatus(isAvatar ? "Avatar is not ready yet." : "Sticker is not ready yet.");
       return;
     }
 
     const payload = await ref.current.exportAsBase64();
-    preparedStickerRef.current = payload;
-    setSubmitStatus(payload ? `Ready to send ${payload.filename}` : "Could not prepare sticker.");
-  }, []);
+    if (!payload) {
+      setSubmitTone("error");
+      setSubmitStatus(isAvatar ? "Could not prepare avatar." : "Could not prepare sticker.");
+      return;
+    }
+
+    if (isAvatar) {
+      onAvatarSaved?.({ dataUrl: payload.dataUrl, base64: payload.base64 });
+      setSubmitTone("success");
+      setSubmitStatus("Avatar saved!");
+      return;
+    }
+
+    setSubmitTone("info");
+    setSubmitStatus("Saving to your collection…");
+
+    try {
+      const { sticker } = await createAsset.mutateAsync({
+        pngBase64: payload.base64,
+        width: STICKER_SIZE,
+        height: STICKER_SIZE,
+      });
+      await saveSticker.mutateAsync({
+        kind: "sticker",
+        stickerAssetId: sticker.id,
+      });
+      setSubmitTone("success");
+      setSubmitStatus("Saved to your collection!");
+      ref.current?.clear();
+    } catch (err) {
+      setSubmitTone("error");
+      if (err instanceof ApiError) {
+        if (err.code === "capacity_reached") {
+          setSubmitStatus("Your collection is full. Delete one to make room.");
+        } else if (err.code === "moderation_rejected") {
+          setSubmitStatus("Sticker was rejected by moderation.");
+        } else {
+          setSubmitStatus(err.message);
+        }
+      } else if (err instanceof Error) {
+        setSubmitStatus(`Couldn't save sticker: ${err.message}`);
+      } else {
+        setSubmitStatus("Couldn't save sticker. Try again.");
+      }
+    }
+  }, [createAsset, saveSticker, isAvatar, onAvatarSaved]);
 
   return (
     <View style={styles.panel}>
       <View style={styles.header}>
         <View style={styles.heading}>
-          <Text style={styles.title}>Sticker Maker</Text>
-          <Text style={styles.subtitle}>Draw a 64x64 sticker to post!</Text>
+          <Text style={styles.title}>{isAvatar ? "Avatar Maker" : "Sticker Maker"}</Text>
+          <Text style={styles.subtitle}>
+            {isAvatar
+              ? "Draw a 64x64 pixel art portrait — this becomes your profile picture."
+              : "Draw a 64x64 sticker to post!"}
+          </Text>
         </View>
 
         {onClose ? (
           <Pressable
-            accessibilityLabel="Close sticker maker"
+            accessibilityLabel={isAvatar ? "Close avatar maker" : "Close sticker maker"}
             style={styles.closeButton}
             onPress={onClose}
           >
@@ -103,12 +163,37 @@ export function CreateStickerPanel({ onClose }: CreateStickerPanelProps) {
         >
           <Text style={[styles.actionLabel, styles.actionLabelPrimary]}>Download</Text>
         </Pressable>
-        <Pressable style={[styles.actionButton, styles.actionButtonSubmit]} onPress={handleSubmit}>
-          <Text style={[styles.actionLabel, styles.actionLabelSubmit]}>Submit</Text>
+        <Pressable
+          accessibilityLabel={isAvatar ? "Save avatar" : "Save sticker to collection"}
+          disabled={isSubmitting}
+          onPress={handleSubmit}
+          style={[
+            styles.actionButton,
+            styles.actionButtonSubmit,
+            isSubmitting ? styles.actionButtonDisabled : null,
+          ]}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff8e8" size="small" />
+          ) : (
+            <Text style={[styles.actionLabel, styles.actionLabelSubmit]}>
+              {isAvatar ? "Set as Avatar" : "Save"}
+            </Text>
+          )}
         </Pressable>
       </View>
 
-      {submitStatus ? <Text style={styles.submitStatus}>{submitStatus}</Text> : null}
+      {submitStatus ? (
+        <Text
+          style={[
+            styles.submitStatus,
+            submitTone === "success" ? styles.submitStatusSuccess : null,
+            submitTone === "error" ? styles.submitStatusError : null,
+          ]}
+        >
+          {submitStatus}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -119,8 +204,8 @@ const styles = StyleSheet.create({
     borderColor: "#5f4a2d",
     borderRadius: 8,
     borderWidth: 3,
-    gap: 8,
-    padding: 12,
+    gap: 14,
+    padding: 16,
     shadowColor: "#2a1f15",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
@@ -148,6 +233,7 @@ const styles = StyleSheet.create({
     color: "#2d2418",
     fontFamily: fonts.family,
     fontSize: 26,
+    fontWeight: "800",
   },
   subtitle: {
     color: "#69563f",
@@ -169,6 +255,7 @@ const styles = StyleSheet.create({
     color: "#2d2418",
     fontFamily: fonts.family,
     fontSize: 20,
+    fontWeight: "800",
     lineHeight: 22,
   },
   canvasCard: {
@@ -190,6 +277,7 @@ const styles = StyleSheet.create({
     color: "#3d3224",
     fontFamily: fonts.family,
     fontSize: 13,
+    fontWeight: "700",
     textTransform: "uppercase",
   },
   currentColour: {
@@ -234,8 +322,8 @@ const styles = StyleSheet.create({
     borderColor: "#5f4a2d",
     borderRadius: 8,
     borderWidth: 2,
-    justifyContent: "center",
     flex: 1,
+    justifyContent: "center",
     minHeight: 44,
     paddingHorizontal: 16,
   },
@@ -245,10 +333,14 @@ const styles = StyleSheet.create({
   actionButtonSubmit: {
     backgroundColor: "#2f6b42",
   },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
   actionLabel: {
     color: "#2d2418",
     fontFamily: fonts.family,
     fontSize: 15,
+    fontWeight: "800",
   },
   actionLabelPrimary: {
     color: "#2d2418",
@@ -260,6 +352,13 @@ const styles = StyleSheet.create({
     color: "#3d3224",
     fontFamily: fonts.family,
     fontSize: 13,
+    fontWeight: "700",
     textAlign: "center",
+  },
+  submitStatusSuccess: {
+    color: "#2f6b42",
+  },
+  submitStatusError: {
+    color: "#b91c1c",
   },
 });

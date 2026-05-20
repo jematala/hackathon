@@ -1,5 +1,8 @@
 import { StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
-import { fonts } from "@/app/theme";
+
+import { colors, fonts } from "@/app/theme";
+
+const WEB_NO_OUTLINE = { outlineStyle: "none" } as unknown as { outlineStyle: undefined };
 
 type TextFieldProps = {
   label: string;
@@ -9,7 +12,14 @@ export function TextField({ label, style, ...props }: TextFieldProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput autoCapitalize="none" style={[styles.input, style]} {...props} />
+      <TextInput
+        autoCapitalize="none"
+        placeholderTextColor={colors.textLight}
+        selectionColor={colors.primaryDark}
+        underlineColorAndroid="transparent"
+        style={[styles.input, WEB_NO_OUTLINE, style]}
+        {...props}
+      />
     </View>
   );
 }
@@ -19,20 +29,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    color: "#6A401A",
-    fontSize: 14,
-    fontWeight: "700",
+    color: colors.text,
     fontFamily: fonts.family,
+    fontSize: fonts.sizes.sm,
+    fontWeight: "700",
   },
   input: {
-    backgroundColor: "#FFF5E6",
-    borderColor: "#B17833",
-    borderRadius: 8,
-    borderWidth: 1,
-    color: "#6A401A",
-    fontSize: 16,
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: 0,
+    borderWidth: 2,
+    color: colors.text,
+    fontFamily: fonts.family,
+    fontSize: fonts.sizes.md,
     minHeight: 44,
     paddingHorizontal: 12,
-    fontFamily: fonts.family,
   },
 });

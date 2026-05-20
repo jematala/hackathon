@@ -1,3 +1,5 @@
+import "@/lib/installGlobalFont";
+
 import { ClerkProvider } from "@clerk/expo";
 import { Jersey10_400Regular, useFonts } from "@expo-google-fonts/jersey-10";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -5,7 +7,11 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SecureStore from "expo-secure-store";
+
+import { DevUserProvider } from "@/lib/devUser";
+import { colors } from "@/lib/theme";
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 
@@ -36,6 +42,7 @@ const MAP_STYLES = `
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
+  const [loaded, error] = useFonts({ Jersey10_400Regular });
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -55,10 +62,6 @@ export default function RootLayout() {
     };
   }, []);
 
-  const [loaded, error] = useFonts({
-    Jersey10_400Regular,
-  });
-
   if (error) {
     throw error;
   }
@@ -66,7 +69,7 @@ export default function RootLayout() {
   if (!loaded) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#5b7559" />
+        <ActivityIndicator size="large" color={colors.sageDark} />
       </View>
     );
   }
@@ -81,32 +84,41 @@ export default function RootLayout() {
   };
 
   return (
-    <ClerkProvider
-      tokenCache={tokenCache}
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
-    >
-      <QueryClientProvider client={queryClient}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)/sign-in" />
-          <Stack.Screen name="(auth)/sign-up" />
-          <Stack.Screen name="(app)" />
-          <Stack.Screen name="avatar/create" />
-          <Stack.Screen name="billboard/[id]" />
-          <Stack.Screen name="events/index" />
-          <Stack.Screen name="events/[id]" />
-          <Stack.Screen name="index" />
-          <Stack.Screen name="profile/[userId]" />
-        </Stack>
-        <StatusBar style="dark" />
-      </QueryClientProvider>
-    </ClerkProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <ClerkProvider
+        tokenCache={tokenCache}
+        publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+      >
+        <QueryClientProvider client={queryClient}>
+          <DevUserProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(auth)/sign-in" />
+              <Stack.Screen name="(auth)/sign-up" />
+              <Stack.Screen name="(app)" />
+              <Stack.Screen name="avatar/create" />
+              <Stack.Screen name="billboard/[id]" />
+              <Stack.Screen name="billboards/index" />
+              <Stack.Screen name="events/index" />
+              <Stack.Screen name="events/[id]" />
+              <Stack.Screen name="index" />
+              <Stack.Screen name="profile/[userId]" />
+            </Stack>
+            <StatusBar style="dark" />
+          </DevUserProvider>
+        </QueryClientProvider>
+      </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    backgroundColor: colors.pageBg,
+    flex: 1,
+  },
   loading: {
     alignItems: "center",
-    backgroundColor: "#FEEED5",
+    backgroundColor: colors.pageBg,
     flex: 1,
     justifyContent: "center",
   },

@@ -5,6 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import { getDb } from "./db";
 import { requireAuth } from "./middleware/auth";
 import { billboardsRoute } from "./routes/billboards";
+import { moderation } from "./routes/moderation";
 import { poisRoute } from "./routes/pois";
 import { questsRoute } from "./routes/quests";
 import { reportsRoute } from "./routes/reports";
@@ -30,6 +31,7 @@ app.get("/api/health", (c) => {
     ok: true,
     service: "jematala-api",
     supabase: Boolean(c.env.SUPABASE_URL && c.env.SUPABASE_SECRET_KEY),
+    moderation: Boolean(c.env.OPENAI_API_KEY) && c.env.MODERATION_ENABLED !== "false",
   });
 });
 
@@ -40,6 +42,7 @@ app.get("/api/realtime", requireAuth, async (c) => {
   return stub.fetch(c.req.raw);
 });
 
+app.route("/api/moderate", moderation);
 app.route("/api", usersRoute);
 app.route("/api", poisRoute);
 app.route("/api", billboardsRoute);
