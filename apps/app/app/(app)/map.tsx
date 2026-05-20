@@ -1,7 +1,6 @@
-import type { BillboardPlacement } from "@repo/shared";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import {
-  LayoutChangeEvent,
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -11,44 +10,14 @@ import {
   View,
 } from "react-native";
 
-import {
-  LOCAL_AUTHOR_ID,
-  LOCAL_AUTHOR_USERNAME,
-  LocalBillboardPanel,
-  localUuid,
-  type LocalBillboard,
-} from "@/components/billboard/LocalBillboardPanel";
+import { BillboardPanel } from "@/components/billboard/BillboardPanel";
 import { CreateStickerPanel } from "@/components/CreateStickerPanel";
 import { Map } from "@/components/map/Map";
 import { MapHUD } from "@/components/map/MapHUD";
-import { DEMO_BILLBOARD, UNSW_CENTER } from "@/constants/coordinates";
+import { UNSW_CAMPUS_ID, UNSW_CENTER } from "@/constants/coordinates";
+import { ApiError } from "@/lib/api/client";
+import { useBillboards, useCreateBillboard, usePois } from "@/lib/api/hooks";
 import { colors } from "@/lib/theme";
-
-const EXAMPLE_BILLBOARD: LocalBillboard = {
-  id: DEMO_BILLBOARD.id,
-  authorId: "00000000-0000-4000-8000-000000000001",
-  authorUsername: "admin",
-  body: "Welcome to Jematala - pin a sticky note or sticker on this whiteboard.",
-  lat: DEMO_BILLBOARD.lat,
-  lng: DEMO_BILLBOARD.lng,
-  expiresAt: hoursFromNowIso(120),
-  placements: [
-    {
-      id: "00000000-0000-4000-8000-000000000c01",
-      billboardId: DEMO_BILLBOARD.id,
-      authorId: "00000000-0000-4000-8000-000000000011",
-      authorUsername: "tess",
-      kind: "sticky_note",
-      x: 0.68,
-      y: 0.62,
-      zIndex: 0,
-      stickerAsset: null,
-      body: "study group @ Basser Steps, 3pm sharp",
-      status: "active",
-      createdAt: new Date().toISOString(),
-    },
-  ],
-};
 
 export default function MapScreen() {
   const [activeBillboardId, setActiveBillboardId] = useState<string | null>(null);
@@ -56,10 +25,9 @@ export default function MapScreen() {
   const [studioOpen, setStudioOpen] = useState(false);
   const [body, setBody] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
-  const [exampleBillboard, setExampleBillboard] = useState<LocalBillboard>(EXAMPLE_BILLBOARD);
-  const [billboards, setBillboards] = useState<LocalBillboard[]>([]);
-
-  const onLayout = useCallback((_event: LayoutChangeEvent) => {}, []);
+  const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
+  const pois = usePois({ campusId: UNSW_CAMPUS_ID });
+  const createBillboard = useCreateBillboard();
 
   const closeCreate = () => {
     setCreateOpen(false);
@@ -73,70 +41,62 @@ export default function MapScreen() {
       return;
     }
 
-    const id = localUuid();
     setCreateError(null);
-    setBillboards((current) => [
-      ...current,
+
+    createBillboard.mutate(
       {
-        id,
-        authorId: LOCAL_AUTHOR_ID,
-        authorUsername: LOCAL_AUTHOR_USERNAME,
+        campusId: UNSW_CAMPUS_ID,
         body: trimmed,
         lat: UNSW_CENTER.lat,
         lng: UNSW_CENTER.lng,
-        expiresAt: hoursFromNowIso(120),
-        placements: [],
       },
-    ]);
-    setBody("");
-    setCreateOpen(false);
-    setActiveBillboardId(id);
-  };
-
-  const addPlacement = (billboardId: string, placement: BillboardPlacement) => {
-    if (billboardId === exampleBillboard.id) {
-      setExampleBillboard((current) => ({
-        ...current,
-        placements: [...current.placements, placement],
-      }));
-      return;
-    }
-
-    setBillboards((current) =>
-      current.map((billboard) =>
-        billboard.id === billboardId
-          ? { ...billboard, placements: [...billboard.placements, placement] }
-          : billboard,
-      ),
+      {
+        onSuccess: (data) => {
+          setBody("");
+          setCreateOpen(false);
+          setActiveBillboardId(data.billboard.id);
+        },
+        onError: (err) => {
+          if (err instanceof ApiError) {
+            setCreateError(err.message);
+            return;
+          }
+          setCreateError("Could not pin this whiteboard.");
+        },
+      },
     );
   };
 
-  const visibleBillboards = [exampleBillboard, ...billboards];
-  const activeBillboard = visibleBillboards.find((billboard) => billboard.id === activeBillboardId);
-
   return (
-    <View style={styles.root} onLayout={onLayout}>
+    <View style={styles.root}>
       <Map
-        billboards={billboards.map((billboard) => ({
+        billboards={(billboards.data ?? []).map((billboard) => ({
           id: billboard.id,
-          title: "New whiteboard",
+          title: billboard.body,
           lat: billboard.lat,
           lng: billboard.lng,
         }))}
-        exampleBillboard={{
-          id: exampleBillboard.id,
-          title: DEMO_BILLBOARD.title,
-          lat: exampleBillboard.lat,
-          lng: exampleBillboard.lng,
-        }}
         onBillboardPress={setActiveBillboardId}
+        pois={(pois.data ?? []).map((poi) => ({
+          id: poi.id,
+          title: poi.title,
+          description: poi.description,
+          lat: poi.lat,
+          lng: poi.lng,
+          visited: poi.visited,
+        }))}
       />
+      {billboards.isLoading || pois.isLoading ? (
+        <View style={styles.mapStatus}>
+          <ActivityIndicator color={colors.sageDark} />
+        </View>
+      ) : null}
       <MapHUD
         onCreateBillboard={() => setCreateOpen(true)}
         onOpenStudio={() => setStudioOpen(true)}
       />
       <Modal
-        visible={activeBillboard !== undefined}
+        visible={activeBillboardId !== null}
         transparent
         animationType="fade"
         onRequestClose={() => setActiveBillboardId(null)}
@@ -149,13 +109,10 @@ export default function MapScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.modalPanel}>
-              {activeBillboard ? (
-                <LocalBillboardPanel
-                  billboard={activeBillboard}
-                  onAddPlacement={(placement) => addPlacement(activeBillboard.id, placement)}
-                  onClose={() => setActiveBillboardId(null)}
-                />
-              ) : null}
+              <BillboardPanel
+                id={activeBillboardId ?? undefined}
+                onClose={() => setActiveBillboardId(null)}
+              />
             </View>
           </ScrollView>
         </View>
@@ -208,8 +165,14 @@ export default function MapScreen() {
               <Text style={styles.charCount}>{body.length}/500</Text>
               {createError ? <Text style={styles.createError}>{createError}</Text> : null}
             </View>
-            <Pressable onPress={submitBillboard} style={styles.submitButton}>
-              <Text style={styles.submitText}>Pin here</Text>
+            <Pressable
+              disabled={createBillboard.isPending}
+              onPress={submitBillboard}
+              style={[styles.submitButton, createBillboard.isPending ? styles.disabled : null]}
+            >
+              <Text style={styles.submitText}>
+                {createBillboard.isPending ? "Pinning..." : "Pin here"}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -218,13 +181,22 @@ export default function MapScreen() {
   );
 }
 
-function hoursFromNowIso(hours: number): string {
-  return new Date(Date.now() + hours * 3600_000).toISOString();
-}
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  mapStatus: {
+    alignItems: "center",
+    backgroundColor: colors.pageBgSoft,
+    borderColor: colors.sageDark,
+    borderRadius: 999,
+    borderWidth: 2,
+    height: 42,
+    justifyContent: "center",
+    position: "absolute",
+    right: 18,
+    top: 18,
+    width: 42,
   },
   modalRoot: {
     flex: 1,
@@ -336,6 +308,9 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: "center",
     minHeight: 48,
+  },
+  disabled: {
+    opacity: 0.65,
   },
   submitText: {
     color: colors.creamText,
