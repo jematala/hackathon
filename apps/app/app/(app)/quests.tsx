@@ -1,7 +1,7 @@
 import type { ClaimQuestResponse, QuestProgress } from "@repo/shared";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/Card";
 import { LevelUpOverlay, type LevelUpPerk } from "@/components/LevelUpOverlay";
@@ -9,58 +9,52 @@ import { NextLevelPreview } from "@/components/NextLevelPreview";
 import { NextMilestonePreview } from "@/components/NextMilestonePreview";
 import { QuestCard } from "@/components/QuestCard";
 import { Screen } from "@/components/Screen";
-import { buildMockClaimResponse, mockPerksResponse, mockQuestsResponse } from "@/lib/mockQuests";
+import { ApiError } from "@/lib/api/client";
+import { useClaimQuest, useQuests, useUserProgress } from "@/lib/api/hooks";
 
 export default function QuestsScreen() {
   const router = useRouter();
   const [levelUp, setLevelUp] = useState<ClaimQuestResponse | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
-  const [claimedIds, setClaimedIds] = useState<Set<string>>(new Set());
-
-  const questsData = useMemo(() => {
-    const apply = (q: QuestProgress): QuestProgress =>
-      claimedIds.has(q.id)
-        ? { ...q, claimedAt: new Date().toISOString(), claimedXp: q.quest.xpReward }
-        : q;
-
-    return {
-      ...mockQuestsResponse,
-      dailyQuest: mockQuestsResponse.dailyQuest ? apply(mockQuestsResponse.dailyQuest) : null,
-      levelQuests: mockQuestsResponse.levelQuests.map(apply),
-    };
-  }, [claimedIds]);
-
-  const perksData = mockPerksResponse;
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const quests = useQuests();
+  const userProgress = useUserProgress();
+  const claimQuest = useClaimQuest();
 
   const handleClaim = (questId: string) => {
     setClaimingId(questId);
-    setTimeout(() => {
-      const response = buildMockClaimResponse(questId, claimedIds);
-      setClaimedIds((prev) => {
-        const next = new Set(prev);
-        next.add(questId);
-        return next;
-      });
-      setClaimingId(null);
-      if (response.levelAfter > response.levelBefore) {
-        setLevelUp(response);
-      }
-    }, 400);
+    setClaimError(null);
+    claimQuest.mutate(questId, {
+      onSuccess: (response) => {
+        if (response.levelAfter > response.levelBefore) {
+          setLevelUp(response);
+        }
+      },
+      onError: (err) => {
+        setClaimError(err instanceof ApiError ? err.message : "Could not claim this quest.");
+      },
+      onSettled: () => {
+        setClaimingId(null);
+      },
+    });
   };
 
   const levelUpPerks = useMemo<LevelUpPerk[]>(() => {
     if (!levelUp) return [];
     const ids = new Set(levelUp.unlockedPerkIds);
-    return perksData.unlocked
+    return (userProgress.data?.unlockedPerks ?? [])
       .filter((entry) => ids.has(entry.levelPerkId))
       .map((entry) => ({
         id: entry.levelPerkId,
         name: entry.perk.name,
         description: entry.perk.description,
       }));
-  }, [levelUp, perksData]);
+  }, [levelUp, userProgress.data?.unlockedPerks]);
 
-  const { dailyQuest, levelQuests, level, streak } = questsData;
+  const dailyQuest = quests.data?.dailyQuest ?? null;
+  const levelQuests = quests.data?.levelQuests ?? [];
+  const level = quests.data?.level ?? userProgress.data?.level ?? 1;
+  const streak = quests.data?.streak ?? userProgress.data?.dailyStreak ?? 0;
 
   return (
     <Screen>
@@ -75,42 +69,69 @@ export default function QuestsScreen() {
         </View>
       </View>
 
-      <Section title="Daily Quest">
-        {dailyQuest ? (
-          <>
-            <QuestCard
-              isClaiming={claimingId === dailyQuest.id}
-              onClaim={handleClaim}
-              progress={dailyQuest as QuestProgress}
-            />
-            <NextMilestonePreview currentStreak={streak} />
-          </>
-        ) : (
-          <Card>
-            <Text style={styles.emptyText}>No daily quest today. Check back tomorrow!</Text>
-          </Card>
-        )}
-      </Section>
+      {quests.isLoading ? (
+        <Card>
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color="#5b7559" />
+            <Text style={styles.emptyText}>Loading quests...</Text>
+          </View>
+        </Card>
+      ) : null}
 
-      <Section title={`Level ${level} Quests`}>
-        {levelQuests.length > 0 ? (
-          levelQuests.map((quest) => (
-            <QuestCard
-              isClaiming={claimingId === quest.id}
-              key={quest.id}
-              onClaim={handleClaim}
-              progress={quest as QuestProgress}
-            />
-          ))
-        ) : (
-          <Card>
-            <Text style={styles.emptyText}>
-              All caught up — new quests will appear after the next rotation.
-            </Text>
-          </Card>
-        )}
-        <NextLevelPreview currentLevel={level} />
-      </Section>
+      {quests.isError ? (
+        <Card>
+          <Text style={styles.errorText}>
+            {(quests.error as Error | undefined)?.message ?? "Could not load quests."}
+          </Text>
+        </Card>
+      ) : null}
+
+      {claimError ? (
+        <Card>
+          <Text style={styles.errorText}>{claimError}</Text>
+        </Card>
+      ) : null}
+
+      {!quests.isLoading && !quests.isError ? (
+        <>
+          <Section title="Daily Quest">
+            {dailyQuest ? (
+              <>
+                <QuestCard
+                  isClaiming={claimingId === dailyQuest.id}
+                  onClaim={handleClaim}
+                  progress={dailyQuest as QuestProgress}
+                />
+                <NextMilestonePreview currentStreak={streak} />
+              </>
+            ) : (
+              <Card>
+                <Text style={styles.emptyText}>No daily quest today. Check back tomorrow!</Text>
+              </Card>
+            )}
+          </Section>
+
+          <Section title={`Level ${level} Quests`}>
+            {levelQuests.length > 0 ? (
+              levelQuests.map((quest) => (
+                <QuestCard
+                  isClaiming={claimingId === quest.id}
+                  key={quest.id}
+                  onClaim={handleClaim}
+                  progress={quest as QuestProgress}
+                />
+              ))
+            ) : (
+              <Card>
+                <Text style={styles.emptyText}>
+                  All caught up — new quests will appear after the next rotation.
+                </Text>
+              </Card>
+            )}
+            <NextLevelPreview currentLevel={level} />
+          </Section>
+        </>
+      ) : null}
 
       <LevelUpOverlay
         levelAfter={levelUp?.levelAfter ?? level}
@@ -188,5 +209,15 @@ const styles = StyleSheet.create({
     color: "#71730E",
     fontFamily: "Jersey10",
     fontSize: 18,
+  },
+  errorText: {
+    color: "#D94A29",
+    fontFamily: "Jersey10",
+    fontSize: 18,
+  },
+  loadingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
   },
 });

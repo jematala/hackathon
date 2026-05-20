@@ -2,9 +2,7 @@ import { useAuth } from "@clerk/expo";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-import { useDevUserId } from "@/lib/devUser";
-
-import { realtimeUrl, USE_MOCK_API } from "./client";
+import { realtimeUrl } from "./client";
 import { qk } from "./queryKeys";
 
 type RealtimeEvent =
@@ -21,12 +19,12 @@ type RealtimeEvent =
     };
 
 export function useCampusRealtime(campusId: string) {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId: clerkUserId } = useAuth();
   const queryClient = useQueryClient();
-  const userId = useDevUserId();
+  const userId = clerkUserId ?? "__signed-out__";
 
   useEffect(() => {
-    if (USE_MOCK_API || !isSignedIn) return;
+    if (!isSignedIn) return;
 
     let closed = false;
     let socket: WebSocket | null = null;

@@ -78,9 +78,9 @@
 - [x] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars (currently backed by mock quest data)
 - [x] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited)
 - [x] **FE1** — Level-up celebration animation/overlay
-- [ ] **FE2** — WebSocket connection in app: connect to DO, listen for updates, refresh displayed data
+- [x] **FE2** — WebSocket connection in app: connect to DO, listen for updates, refresh displayed data
 - [x] **FE2** — Saved stickers collection picker: browse, select, reuse stickers inside the billboard placement flow
-- [ ] **FE1/FE2** — Wire quest screen to the live quest API instead of `mockQuests`
+- [x] **FE1/FE2** — Wire quest screen to the live quest API instead of `mockQuests`
 - [ ] **FE2** — Saved sticky notes collection screen: browse, select, reuse text notes
 
 ---
@@ -92,7 +92,7 @@
 - [ ] **FE1** — Admin panel screens: reported content list with context, action buttons, soft-delete indicators, POI creation form (name, description, lat/lng, picture upload)
 - [ ] **FE1** — Analytics dashboard (simple stats grid)
 - [ ] **FE2** — Polish: error states, loading skeletons, empty states, edge cases (concurrent billboard replacement, Sydney-day posting limit, 24h inactive billboard expiry, 5-day billboard expiry, 1-placement/billboard limit)
-- [ ] **FE2** — Pull-to-refresh on map + billboard screen
+- [x] **FE2** — Realtime refresh on map + billboard screen via WebSocket (pull-to-refresh not needed)
 - [ ] **FE1** — Remove stale `events/index` and `events/[id]` stack declarations from `apps/app/app/_layout.tsx`
 - [x] **FE1** — Auth page polish: tighten Clerk footer gap between "Don't have an account? Sign up" and "Secured by Clerk" branding on `sign-in.web.tsx` / `sign-up.web.tsx` (CSS overrides in `lib/clerkAppearance.ts`)
 
@@ -210,7 +210,4 @@ Hardcoded in `constants/coordinates.ts`:
 
 ### Maps Backlog (post-hackathon)
 
-- Wire POI data to live API
-- Wire map billboard data to live API instead of local state
 - POI discovery toast on geofence enter
-- Real-time updates via Durable Object WebSocket
