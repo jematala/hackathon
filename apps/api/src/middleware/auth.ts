@@ -4,7 +4,7 @@ import type { MiddlewareHandler } from "hono";
 
 import { getDb } from "../db";
 import { unauthorized } from "../http";
-import type { AppBindings, AuthUser, Env } from "../types";
+import type { AppBindings, AppContext, AuthUser, Env } from "../types";
 
 type ClerkClaims = Record<string, unknown> & {
   email?: string;
@@ -124,12 +124,12 @@ async function resolveAuthClaims(
   };
 }
 
-async function upsertAuthUser(env: Env, payload: ClerkClaims): Promise<AuthUser> {
+async function upsertAuthUser(c: AppContext, payload: ClerkClaims): Promise<AuthUser> {
   if (!payload.sub) {
     unauthorized("Authentication token is missing a subject.");
   }
 
-  const db = getDb(env);
+  const db = getDb(c);
   const rows = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(74291013)`);
 
@@ -189,7 +189,7 @@ function authMiddleware({
     }
 
     if (resolveUser) {
-      c.set("authUser", await upsertAuthUser(c.env, payload));
+      c.set("authUser", await upsertAuthUser(c, payload));
     }
 
     await next();
@@ -210,7 +210,7 @@ export const optionalAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
   const payload = await resolveAuthClaims(c.env, c.req.raw, token);
 
   if (payload) {
-    c.set("authUser", await upsertAuthUser(c.env, payload));
+    c.set("authUser", await upsertAuthUser(c, payload));
   }
 
   await next();

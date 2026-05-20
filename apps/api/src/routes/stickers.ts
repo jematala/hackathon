@@ -54,7 +54,7 @@ stickersRoute.post(
   requireAuth,
   zValidator("json", createStickerInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = getDb(c);
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
     const moderation = await moderatePng(c.env, input.pngBase64);
@@ -93,7 +93,7 @@ stickersRoute.post(
 );
 
 stickersRoute.get("/users/me/saved-stickers", requireAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = getDb(c);
   const authUser = getAuthUser(c);
   const [rows, capacity] = await Promise.all([
     loadSavedStickers(db, authUser.id),
@@ -113,7 +113,7 @@ stickersRoute.post(
   requireAuth,
   zValidator("json", createSavedStickerInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = getDb(c);
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
     const capacity = await getUserCapacities(db, authUser.id);
@@ -153,7 +153,7 @@ stickersRoute.post(
 );
 
 stickersRoute.delete("/users/me/saved-stickers/:id", requireAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = getDb(c);
   const authUser = getAuthUser(c);
   const id = idSchema.safeParse(c.req.param("id"));
 
