@@ -193,6 +193,22 @@ export const poiVisits = appSchema.table(
   ],
 );
 
+export const poiDailyActivations = appSchema.table(
+  "poi_daily_activations",
+  {
+    campusId: uuid("campus_id")
+      .notNull()
+      .references(() => campuses.id, { onDelete: "cascade" }),
+    poiId: uuid("poi_id")
+      .notNull()
+      .references(() => pois.id, { onDelete: "cascade" }),
+    activeOn: date("active_on").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.campusId, table.poiId, table.activeOn] }),
+  ],
+);
+
 export const billboards = appSchema.table(
   "billboards",
   {

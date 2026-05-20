@@ -6,23 +6,6 @@ type Database = ReturnType<typeof getDb>;
 
 export async function ensureDailyRotations(db: Database) {
   await db.execute(sql`
-    insert into app.daily_quest_assignments (campus_id, active_on, daily_quest_pool_id)
-    select
-      campuses.id,
-      (timezone(campuses.timezone, now()))::date,
-      selected_pool.id
-    from app.campuses
-    cross join lateral (
-      select id
-      from app.daily_quest_pool
-      where active
-      order by random()
-      limit 1
-    ) selected_pool
-    on conflict (campus_id, active_on) do nothing
-  `);
-
-  await db.execute(sql`
     insert into app.poi_daily_activations (campus_id, poi_id, active_on)
     select
       campuses.id,
