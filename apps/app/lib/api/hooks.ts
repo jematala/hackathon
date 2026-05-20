@@ -1,4 +1,5 @@
 import {
+  claimQuestResponseSchema,
   createBillboardResponseSchema,
   createPlacementResponseSchema,
   createSavedStickerResponseSchema,
@@ -9,6 +10,8 @@ import {
   getCurrentUserResponseSchema,
   getUserProgressResponseSchema,
   listBillboardsResponseSchema,
+  listPoisResponseSchema,
+  listQuestsResponseSchema,
   listSavedStickersResponseSchema,
   type CreateBillboardInput,
   type CreatePlacementInput,
@@ -23,11 +26,22 @@ import { pushQuestProgress } from "@/lib/quests/toasts";
 import { apiFetch } from "./client";
 import { qk } from "./queryKeys";
 
-export function useBillboards(filter?: { campusId?: string }) {
+function useApiAuth() {
   const auth = useAuth({ treatPendingAsSignedOut: false });
+  const userId = auth.userId ?? "__signed-out__";
+
+  return {
+    enabled: auth.isLoaded && auth.isSignedIn,
+    getToken: auth.getToken,
+    userId,
+  };
+}
+
+export function useBillboards(filter?: { campusId?: string }) {
+  const auth = useApiAuth();
   return useQuery({
     queryKey: qk.billboards(filter),
-    enabled: auth.isLoaded && auth.isSignedIn,
+    enabled: auth.enabled,
     queryFn: () =>
       apiFetch({
         method: "GET",
@@ -42,10 +56,10 @@ export function useBillboards(filter?: { campusId?: string }) {
 }
 
 export function useBillboard(id: string | undefined) {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const auth = useApiAuth();
   return useQuery({
     queryKey: id ? qk.billboard(id) : qk.billboard("__none__"),
-    enabled: Boolean(id) && auth.isLoaded && auth.isSignedIn,
+    enabled: Boolean(id) && auth.enabled,
     queryFn: () =>
       apiFetch({
         method: "GET",
@@ -57,9 +71,26 @@ export function useBillboard(id: string | undefined) {
   });
 }
 
+export function usePois(filter?: { campusId?: string }) {
+  const auth = useApiAuth();
+  return useQuery({
+    queryKey: qk.pois(filter),
+    enabled: auth.enabled,
+    queryFn: () =>
+      apiFetch({
+        method: "GET",
+        path: filter?.campusId
+          ? `/api/pois?campusId=${encodeURIComponent(filter.campusId)}`
+          : "/api/pois",
+        getToken: auth.getToken,
+        schema: listPoisResponseSchema,
+      }),
+    select: (data) => data.pois,
+  });
+}
+
 export function useCreateBillboard() {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
-  const userId = auth.userId ?? "__signed-out__";
+  const auth = useApiAuth();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateBillboardInput) =>
@@ -73,14 +104,14 @@ export function useCreateBillboard() {
     onSuccess: (data) => {
       pushQuestProgress(data.questProgress);
       queryClient.invalidateQueries({ queryKey: ["billboards"] });
-      queryClient.invalidateQueries({ queryKey: qk.userProgress(userId) });
+      queryClient.invalidateQueries({ queryKey: qk.quests(auth.userId) });
+      queryClient.invalidateQueries({ queryKey: qk.userProgress(auth.userId) });
     },
   });
 }
 
 export function useDeleteBillboard() {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
-  const userId = auth.userId ?? "__signed-out__";
+  const auth = useApiAuth();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
@@ -93,13 +124,13 @@ export function useDeleteBillboard() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ["billboards"] });
       queryClient.invalidateQueries({ queryKey: qk.billboard(id) });
-      queryClient.invalidateQueries({ queryKey: qk.userProgress(userId) });
+      queryClient.invalidateQueries({ queryKey: qk.userProgress(auth.userId) });
     },
   });
 }
 
 export function useCreatePlacement(billboardId: string) {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const auth = useApiAuth();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreatePlacementInput) =>
@@ -114,12 +145,14 @@ export function useCreatePlacement(billboardId: string) {
       pushQuestProgress(data.questProgress);
       queryClient.invalidateQueries({ queryKey: qk.billboard(billboardId) });
       queryClient.invalidateQueries({ queryKey: ["billboards"] });
+      queryClient.invalidateQueries({ queryKey: qk.quests(auth.userId) });
+      queryClient.invalidateQueries({ queryKey: qk.userProgress(auth.userId) });
     },
   });
 }
 
 export function useCreateStickerAsset() {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const auth = useApiAuth();
   return useMutation({
     mutationFn: (input: CreateStickerInput) =>
       apiFetch({
@@ -133,11 +166,10 @@ export function useCreateStickerAsset() {
 }
 
 export function useSavedStickers() {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
-  const userId = auth.userId ?? "__signed-out__";
+  const auth = useApiAuth();
   return useQuery({
-    queryKey: qk.savedStickers(userId),
-    enabled: auth.isLoaded && auth.isSignedIn,
+    queryKey: qk.savedStickers(auth.userId),
+    enabled: auth.enabled,
     queryFn: () =>
       apiFetch({
         method: "GET",
@@ -149,8 +181,7 @@ export function useSavedStickers() {
 }
 
 export function useSaveSticker() {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
-  const userId = auth.userId ?? "__signed-out__";
+  const auth = useApiAuth();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateSavedStickerInput) =>
@@ -162,14 +193,13 @@ export function useSaveSticker() {
         schema: createSavedStickerResponseSchema,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.savedStickers(userId) });
+      queryClient.invalidateQueries({ queryKey: qk.savedStickers(auth.userId) });
     },
   });
 }
 
 export function useDeleteSavedSticker() {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
-  const userId = auth.userId ?? "__signed-out__";
+  const auth = useApiAuth();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
@@ -180,17 +210,51 @@ export function useDeleteSavedSticker() {
         schema: deleteSavedStickerResponseSchema,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.savedStickers(userId) });
+      queryClient.invalidateQueries({ queryKey: qk.savedStickers(auth.userId) });
+    },
+  });
+}
+
+export function useQuests() {
+  const auth = useApiAuth();
+  return useQuery({
+    queryKey: qk.quests(auth.userId),
+    enabled: auth.enabled,
+    queryFn: () =>
+      apiFetch({
+        method: "GET",
+        path: "/api/quests",
+        getToken: auth.getToken,
+        schema: listQuestsResponseSchema,
+      }),
+  });
+}
+
+export function useClaimQuest() {
+  const auth = useApiAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch({
+        method: "POST",
+        path: `/api/quests/${id}/claim`,
+        body: {},
+        getToken: auth.getToken,
+        schema: claimQuestResponseSchema,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.quests(auth.userId) });
+      queryClient.invalidateQueries({ queryKey: qk.userProgress(auth.userId) });
+      queryClient.invalidateQueries({ queryKey: qk.currentUser(auth.userId) });
     },
   });
 }
 
 export function useUserProgress() {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
-  const userId = auth.userId ?? "__signed-out__";
+  const auth = useApiAuth();
   return useQuery({
-    queryKey: qk.userProgress(userId),
-    enabled: auth.isLoaded && auth.isSignedIn,
+    queryKey: qk.userProgress(auth.userId),
+    enabled: auth.enabled,
     queryFn: () =>
       apiFetch({
         method: "GET",
@@ -203,11 +267,10 @@ export function useUserProgress() {
 }
 
 export function useCurrentUser() {
-  const auth = useAuth({ treatPendingAsSignedOut: false });
-  const userId = auth.userId ?? "__signed-out__";
+  const auth = useApiAuth();
   return useQuery({
-    queryKey: qk.currentUser(userId),
-    enabled: auth.isLoaded && auth.isSignedIn,
+    queryKey: qk.currentUser(auth.userId),
+    enabled: auth.enabled,
     queryFn: () =>
       apiFetch({
         method: "GET",
