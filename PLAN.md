@@ -13,7 +13,7 @@
 
 ## Phase 0 — Domain Alignment & Data Model (Everyone, together first)
 
-- [ ] **All 4** — Whiteboard the domain model: User, POI, Billboard, Placement (Sticker/StickyNote), Quest, DailyQuest, UserProgress, Report
+- [x] **All 4** — Whiteboard the domain model: User, POI, Billboard, Placement (Sticker/StickyNote), Quest, DailyQuest, UserProgress, Report
 - [x] **BE1** — Write `packages/db/supabase/reset.sql` with all real tables (POIs include picture column, users include avatar + is_admin columns)
 - [x] **BE1** — Write Drizzle schema in `packages/db/src/schema/` (POI: picture field; User: avatar field)
 - [x] **BE1** — Write shared Zod schemas in `packages/shared/src/` (poi includes optional picture, user includes avatar)
@@ -37,13 +37,13 @@
 
 ## Phase 1a — Foundation: Frontend
 
-- [x] **FE1** — Drop `/events` screens, add `/map`, `/profile`, `/quests` routes (no `/billboard` or `/studio` yet)
-- [ ] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks
+- [x] **FE1** — Drop `/events` screens, add `/map`, `/profile`, `/quests`, `/billboard`, and `/create` app routes
+- [x] **FE1** — Integrate Clerk (`@clerk/clerk-expo`) — sign-in/sign-up screens, `useAuth`/`useUser` hooks
 - [x] **FE1** — Build avatar drawing screen (64×64 pixel art canvas, 8-colour palette) as part of sign-up flow
 - [x] **FE1** — Install Leaflet and render a basic 2D top-down map on `/map`
 - [x] **FE1** — Set up global theme: Jersey 10 font, earthy colour palette tokens, pixel-art border styles
-- [ ] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
-- [ ] **FE2** — Build map overlay components: POI popup, billboard marker callout
+- [x] **FE2** — Build reusable UI components: `UsernamePill`, `BillboardCard`, `StickerGrid`, `LevelBadge`, `QuestCard`, `POIMarker`
+- [x] **FE2** — Build map overlay components: POI popup, billboard marker callout/modal entry
 
 ---
 
@@ -62,7 +62,7 @@
 - [x] **FE1** — Map: show POI markers with distinct glowing style
 - [X] **FE1** — Map: show billboard markers with note icon style
 - [x] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
-- [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger
+- [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger (quest-progress toast plumbing exists for API mutations; geofence trigger still pending)
 - [X] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
 - [X] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
 - [X] **FE2** — Sticky note composer: text input, preview as sticky note, post to billboard
@@ -75,11 +75,13 @@
 - [x] **BE1** — User profile API: `GET /api/users/:id`, `PATCH /api/users/me`
 - [x] **BE2** — Durable Object: WebSocket handler, Postgres connection, broadcast on mutations
 - [ ] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
-- [ ] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars
+- [x] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars (currently backed by mock quest data)
 - [x] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited)
-- [ ] **FE1** — Level-up celebration animation/overlay
+- [x] **FE1** — Level-up celebration animation/overlay
 - [ ] **FE2** — WebSocket connection in app: connect to DO, listen for updates, refresh displayed data
-- [ ] **FE2** — Saved stickers/sticky notes collection screen: browse, select, reuse
+- [x] **FE2** — Saved stickers collection picker: browse, select, reuse stickers inside the billboard placement flow
+- [ ] **FE1/FE2** — Wire quest screen to the live quest API instead of `mockQuests`
+- [ ] **FE2** — Saved sticky notes collection screen: browse, select, reuse text notes
 
 ---
 
@@ -91,7 +93,8 @@
 - [ ] **FE1** — Analytics dashboard (simple stats grid)
 - [ ] **FE2** — Polish: error states, loading skeletons, empty states, edge cases (concurrent billboard replacement, Sydney-day posting limit, 24h inactive billboard expiry, 5-day billboard expiry, 1-placement/billboard limit)
 - [ ] **FE2** — Pull-to-refresh on map + billboard screen
-- [ ] **FE1** — Auth page polish: tighten Clerk footer gap between "Don't have an account? Sign up" and "Secured by Clerk" branding on `sign-in.web.tsx` / `sign-up.web.tsx` (CSS overrides in `lib/clerkAppearance.ts`; pending visual verification in browser)
+- [ ] **FE1** — Remove stale `events/index` and `events/[id]` stack declarations from `apps/app/app/_layout.tsx`
+- [x] **FE1** — Auth page polish: tighten Clerk footer gap between "Don't have an account? Sign up" and "Secured by Clerk" branding on `sign-in.web.tsx` / `sign-up.web.tsx` (CSS overrides in `lib/clerkAppearance.ts`)
 
 ---
 
@@ -147,38 +150,47 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 | CSS filter   | `sepia(0.3) saturate(0.8) brightness(0.8) contrast(150%)`                 |
 | Pixel filter | `image-rendering: pixelated`                                              |
 | Center       | UNSW Kensington (-33.917, 151.231)                                        |
-| Default zoom | 18                                                                        |
+| Default zoom | 19 on web, 18 on native                                                   |
 | Max zoom     | 22 (scales z21 tiles at 22 via `maxNativeZoom: 21`)                       |
 
 ### File Structure
 
 ```
 components/map/
-├── Map.tsx       ← Leaflet ref-based wrapper (useEffect + useRef)
-├── markers.ts    ← L.divIcon factories (POI, user avatar)
-├── MapHUD.tsx    ← Floating bottom bar (Webfishing-style buttons)
+├── Map.tsx          ← platform export wrapper
+├── Map.web.tsx      ← Leaflet ref-based wrapper (useEffect + useRef)
+├── Map.native.tsx   ← MapLibre native map implementation
+├── markers.ts       ← Leaflet divIcon factories (POI, billboard, user avatar)
+├── MapHUD.tsx       ← Floating bottom bar (Webfishing-style buttons)
 ```
 
 ### Navigation
 
 ```
 app/
-├── _layout.tsx          ← Auth skeleton (sign-in gate), font loading, Leaflet CSS + map styles
-└── (tabs)/
-    ├── _layout.tsx      ← Tab navigator
-    ├── map/index.tsx    ← Map screen (Map + HUD)
-    ├── quests/index.tsx
-    ├── studio/index.tsx
-    └── profile/index.tsx
+├── _layout.tsx          ← ClerkProvider, QueryClientProvider, font loading, Leaflet CSS + map styles
+├── index.tsx            ← root redirect based on Clerk auth state
+├── (auth)/
+│   ├── sign-in.*.tsx
+│   └── sign-up.*.tsx
+└── (app)/
+    ├── _layout.tsx      ← authenticated app layout
+    ├── map.tsx          ← Map + HUD + local billboard creation/studio modals
+    ├── quests.tsx       ← quest UI currently using mock data
+    └── profile.tsx
 ```
 
 ### Components
 
-**Map.tsx** — Creates Leaflet map in a `useEffect` ref. Adds Thunderforest Neighbourhood tiles with CSS filter injection (sepia + saturation + brightness + contrast). Renders POI markers (wooden billboard divIcon) and user avatar marker (profile image with circular border + downward pointer triangle for location). Handles resize and cleanup. Avatar URL resolved via `expo-asset` (`Asset.fromModule`).
+**Map.web.tsx** — Creates Leaflet map in a `useEffect` ref. Adds Thunderforest Neighbourhood tiles with CSS filter injection (sepia + saturation + brightness + contrast). Renders POI markers with Leaflet popups, billboard markers that open the billboard panel flow, and the user avatar marker. Handles resize and cleanup. Avatar URL comes from the drawn profile state with an asset fallback.
 
-**markers.ts** — `createPOIIcon(title)` returns `L.divIcon` with small wooden billboard SVG. `createUserAvatarIcon(imageUrl)` returns avatar circle (profile image, `#5b7559` border) with a CSS triangle pointer at the bottom.
+**Map.native.tsx** — Uses `@maplibre/maplibre-react-native` with Thunderforest raster tiles. Renders demo POI markers, selected POI callout, and user avatar marker.
 
-**MapHUD.tsx** — Floating bottom bar (~20px from bottom, `absolute` positioning). Left section: profile picture (100×100) with elevation shadow, SVG data-URI XP progress ring (`#4A90D9`, 72%), and "lv22" level indicator (Jersey10, `#ffedd6`, 36px). Right section: "Quests" + "Studio" text buttons (forest green `#5b7559`, rounded 8px, Jersey10, `#ffedd6`).
+**markers.ts** — `createPOIIcon(title)`, `createBillboardIcon(title)`, and `createUserAvatarIcon(imageUrl)` return Leaflet `L.divIcon` instances for the web map.
+
+**MapHUD.tsx** — Floating bottom bar (~20px from bottom, `absolute` positioning). Left section: profile picture (100×100), XP progress ring, and level indicator. Right section: create billboard, quests, and studio actions.
+
+**app/(app)/map.tsx** — Owns the demo/local billboard state, create-billboard modal, sticker studio modal, and expanded billboard panel. Live API hooks exist for billboards/placements, but the main map screen is still using local state.
 
 ### Demo Data
 
@@ -186,17 +198,19 @@ Hardcoded in `constants/coordinates.ts`:
 
 - UNSW center (-33.917, 151.231)
 - 5 demo POIs around campus (Main Library, Science Theatre, Quad, Roundhouse, Mathews Building)
+- 1 seeded demo billboard plus locally created in-memory billboards
 
 ### Dependencies
 
 | Package          | Version |
 | ---------------- | ------- |
-| `leaflet`        | latest  |
-| `@types/leaflet` | latest  |
+| `leaflet`        | `^1.9.4` |
+| `@types/leaflet` | `^1.9.21` |
+| `@maplibre/maplibre-react-native` | `^11.2.1` |
 
 ### Maps Backlog (post-hackathon)
 
-- Swap renderer to `react-native-leaflet-view` for mobile
 - Wire POI data to live API
+- Wire map billboard data to live API instead of local state
 - POI discovery toast on geofence enter
 - Real-time updates via Durable Object WebSocket
