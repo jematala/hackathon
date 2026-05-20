@@ -193,21 +193,6 @@ export const poiVisits = appSchema.table(
   ],
 );
 
-export const poiDailyActivations = appSchema.table(
-  "poi_daily_activations",
-  {
-    campusId: uuid("campus_id")
-      .notNull()
-      .references(() => campuses.id, { onDelete: "cascade" }),
-    poiId: uuid("poi_id")
-      .notNull()
-      .references(() => pois.id, { onDelete: "cascade" }),
-    activeOn: date("active_on").notNull(),
-    createdAt,
-  },
-  (table) => [primaryKey({ columns: [table.campusId, table.poiId, table.activeOn] })],
-);
-
 export const billboards = appSchema.table(
   "billboards",
   {
@@ -444,24 +429,6 @@ export const dailyQuestPool = appSchema.table(
   (table) => [
     check("daily_quest_pool_target_count_check", sql`${table.targetCount} > 0`),
     check("daily_quest_pool_xp_reward_check", sql`${table.xpReward} >= 0`),
-  ],
-);
-
-export const dailyQuestAssignments = appSchema.table(
-  "daily_quest_assignments",
-  {
-    id: uuidPrimaryKey(),
-    campusId: uuid("campus_id")
-      .notNull()
-      .references(() => campuses.id, { onDelete: "cascade" }),
-    activeOn: date("active_on").notNull(),
-    dailyQuestPoolId: uuid("daily_quest_pool_id")
-      .notNull()
-      .references(() => dailyQuestPool.id, { onDelete: "restrict" }),
-    createdAt,
-  },
-  (table) => [
-    uniqueIndex("daily_quest_assignments_campus_day_idx").on(table.campusId, table.activeOn),
   ],
 );
 

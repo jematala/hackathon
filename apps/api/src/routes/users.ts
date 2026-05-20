@@ -404,15 +404,17 @@ export async function loadQuestRows(db: ReturnType<typeof getDb>, userId: string
       ) as description,
       level_quest_sets.level,
       level_quest_sets.sort_order as "sortOrder",
-      user_quest_progress.active_on as "activeOn"
+      daily_quest_assignments.active_on as "activeOn"
     from app.user_quest_progress
     left join app.level_quest_sets
       on user_quest_progress.source = 'level_quest'
       and user_quest_progress.source_id = level_quest_sets.id
     left join app.quest_templates on quest_templates.id = level_quest_sets.template_id
-    left join app.daily_quest_pool
+    left join app.daily_quest_assignments
       on user_quest_progress.source = 'daily_quest'
-      and daily_quest_pool.id = user_quest_progress.source_id
+      and user_quest_progress.source_id = daily_quest_assignments.id
+    left join app.daily_quest_pool
+      on daily_quest_pool.id = daily_quest_assignments.daily_quest_pool_id
     left join app.daily_quest_templates
       on daily_quest_templates.id = daily_quest_pool.template_id
     where user_quest_progress.user_id = ${userId}
