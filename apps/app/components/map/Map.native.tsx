@@ -6,6 +6,9 @@ import { Camera, Map as MapLibre, Marker } from "@maplibre/maplibre-react-native
 
 import { fonts } from "@/app/theme";
 import { UNSW_CENTER } from "@/constants/coordinates";
+import { useCurrentUser } from "@/lib/api/hooks";
+import { colors } from "@/lib/theme";
+import { avatarBase64ToUri, useUserProfile } from "@/lib/userProfile";
 
 import type { MapPoi, MapProps } from "./Map.types";
 
@@ -98,12 +101,17 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
 }
 
 export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function Map(
-  { billboards, onBillboardPress, pois, location },
+  { billboards, onBillboardPress, onPoiCheckIn, pois, location },
   _ref,
 ) {
   const [selectedPOI, setSelectedPOI] = useState<MapPoi | null>(null);
+  const currentUser = useCurrentUser();
+  const localProfile = useUserProfile();
 
-  const userAvatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
+  const userAvatarUrl =
+    avatarBase64ToUri(currentUser.data?.avatarBase64) ??
+    localProfile.avatarUri ??
+    Asset.fromModule(require("@/assets/images/avatar.png")).uri;
   const userCoord: [number, number] = location
     ? [location.longitude, location.latitude]
     : [UNSW_CENTER.lng, UNSW_CENTER.lat];
@@ -149,6 +157,16 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
               </TouchableOpacity>
             </View>
             <Text style={styles.calloutDescription}>{selectedPOI.description ?? ""}</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              disabled={selectedPOI.visited}
+              onPress={() => onPoiCheckIn?.(selectedPOI.id)}
+              style={[styles.checkInButton, selectedPOI.visited ? styles.checkInButtonDone : null]}
+            >
+              <Text style={styles.checkInText}>
+                {selectedPOI.visited ? "Checked in" : "Check in"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -340,5 +358,25 @@ const styles = StyleSheet.create({
     color: "#555",
     marginTop: 8,
     lineHeight: 20,
+  },
+  checkInButton: {
+    alignItems: "center",
+    backgroundColor: colors.sageDark,
+    borderColor: colors.sageDarker,
+    borderRadius: 10,
+    borderWidth: 2,
+    justifyContent: "center",
+    marginTop: 12,
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  checkInButtonDone: {
+    backgroundColor: colors.sageLight,
+    opacity: 0.72,
+  },
+  checkInText: {
+    color: colors.creamText,
+    fontFamily: fonts.family,
+    fontSize: 20,
   },
 });

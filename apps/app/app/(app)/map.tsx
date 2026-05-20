@@ -37,6 +37,7 @@ import {
   usePois,
   useQuests,
   useUserProgress,
+  useVisitPoi,
 } from "@/lib/api/hooks";
 import { colors } from "@/lib/theme";
 import { useUserProfile } from "@/lib/userProfile";
@@ -51,6 +52,7 @@ export default function MapScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [body, setBody] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [poiError, setPoiError] = useState<string | null>(null);
   const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
   const pois = usePois({ campusId: UNSW_CAMPUS_ID });
   const createBillboard = useCreateBillboard();
@@ -68,6 +70,7 @@ export default function MapScreen() {
       })),
     [billboards.data],
   );
+  const visitPoi = useVisitPoi({ campusId: UNSW_CAMPUS_ID });
 
   const closeCreate = () => {
     setCreateOpen(false);
@@ -120,6 +123,37 @@ export default function MapScreen() {
     setActiveBillboardId(id);
   }, []);
 
+  const checkInToPoi = useCallback(
+    (id: string) => {
+      const poi = pois.data?.find((candidate) => candidate.id === id);
+      if (!poi || visitPoi.isPending) return;
+
+      setPoiError(null);
+      if (!location) {
+        setPoiError("Enable location and wait for a position before checking in.");
+        return;
+      }
+
+      visitPoi.mutate(
+        {
+          id,
+          input: { lat: location.latitude, lng: location.longitude },
+        },
+        {
+          onSuccess: (data) => {
+            if (!data.withinRadius) {
+              setPoiError("Move closer to this POI to check in.");
+            }
+          },
+          onError: (err) => {
+            setPoiError(err instanceof ApiError ? err.message : "Could not check in here.");
+          },
+        },
+      );
+    },
+    [location, pois.data, visitPoi],
+  );
+
   return (
     <View style={styles.root}>
       <Map
@@ -127,6 +161,7 @@ export default function MapScreen() {
         location={location}
         billboards={mapBillboards}
         onBillboardPress={handleBillboardPress}
+        onPoiCheckIn={checkInToPoi}
         pois={(pois.data ?? []).map((poi) => ({
           id: poi.id,
           title: poi.title,
@@ -139,6 +174,11 @@ export default function MapScreen() {
       {billboards.isLoading || pois.isLoading ? (
         <View style={styles.mapStatus}>
           <ActivityIndicator color={colors.sageDark} />
+        </View>
+      ) : null}
+      {poiError ? (
+        <View style={styles.poiError}>
+          <Text style={styles.poiErrorText}>{poiError}</Text>
         </View>
       ) : null}
       <MapHUD
@@ -506,6 +546,40 @@ const styles = StyleSheet.create({
     right: 18,
     top: 18,
     width: 42,
+  },
+  poiError: {
+    alignSelf: "center",
+    backgroundColor: "#F6D7CE",
+    borderColor: colors.pinRedDark,
+    borderRadius: 12,
+    borderWidth: 2,
+    maxWidth: 360,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    position: "absolute",
+    top: 18,
+  },
+  poiErrorText: {
+    color: colors.pinRedDark,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  poiError: {
+    alignSelf: "center",
+    backgroundColor: "#F6D7CE",
+    borderColor: colors.pinRedDark,
+    borderRadius: 12,
+    borderWidth: 2,
+    maxWidth: 360,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    position: "absolute",
+    top: 18,
+  },
+  poiErrorText: {
+    color: colors.pinRedDark,
+    fontSize: 16,
+    textAlign: "center",
   },
   modalRoot: {
     flex: 1,

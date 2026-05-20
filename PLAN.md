@@ -62,7 +62,7 @@
 - [x] **FE1** — Map: show POI markers with distinct glowing style
 - [X] **FE1** — Map: show billboard markers with note icon style
 - [x] **FE1** — Map: show user's current location as their 64×64 avatar (instead of a standard dot)
-- [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger (quest-progress toast plumbing exists for API mutations; geofence trigger still pending)
+- [ ] **FE1** — POI discovery UX: toast when entering geofence + quest progress trigger (manual POI check-in now calls the live visit API; automatic geofence trigger still pending)
 - [X] **FE2** — Billboard expanded view (~60vh overlay): text + username pill + all placements (z-ordered)
 - [X] **FE2** — Pixel art sticker editor: 64×64 grid, 8-colour palette, tap-to-fill, save to collection
 - [X] **FE2** — Sticky note composer: text input, preview as sticky note, post to billboard
@@ -76,7 +76,7 @@
 - [x] **BE2** — Durable Object: WebSocket handler, Postgres connection, broadcast on mutations
 - [ ] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
 - [x] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars (currently backed by mock quest data)
-- [x] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited)
+- [x] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited), backed by the live user/progress API
 - [x] **FE1** — Level-up celebration animation/overlay
 - [x] **FE2** — WebSocket connection in app: connect to DO, listen for updates, refresh displayed data
 - [x] **FE2** — Saved stickers collection picker: browse, select, reuse stickers inside the billboard placement flow

@@ -21,5 +21,6 @@ export type MapProps = {
   location?: MapLocation | null;
   billboards: MapPoint[];
   onBillboardPress?: (id: string) => void;
+  onPoiCheckIn?: (id: string) => void;
   pois: MapPoi[];
 };
