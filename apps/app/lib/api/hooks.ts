@@ -15,25 +15,26 @@ import {
   type CreateSavedStickerInput,
   type CreateStickerInput,
 } from "@repo/shared";
+import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useDevUserId } from "@/lib/devUser";
 import { pushQuestProgress } from "@/lib/quests/toasts";
 
 import { apiFetch } from "./client";
 import { qk } from "./queryKeys";
 
 export function useBillboards(filter?: { campusId?: string }) {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
   return useQuery({
     queryKey: qk.billboards(filter),
+    enabled: auth.isLoaded && auth.isSignedIn,
     queryFn: () =>
       apiFetch({
         method: "GET",
         path: filter?.campusId
           ? `/api/billboards?campusId=${encodeURIComponent(filter.campusId)}`
           : "/api/billboards",
-        userId,
+        getToken: auth.getToken,
         schema: listBillboardsResponseSchema,
       }),
     select: (data) => data.billboards,
@@ -41,15 +42,15 @@ export function useBillboards(filter?: { campusId?: string }) {
 }
 
 export function useBillboard(id: string | undefined) {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
   return useQuery({
     queryKey: id ? qk.billboard(id) : qk.billboard("__none__"),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && auth.isLoaded && auth.isSignedIn,
     queryFn: () =>
       apiFetch({
         method: "GET",
         path: `/api/billboards/${id}`,
-        userId,
+        getToken: auth.getToken,
         schema: getBillboardResponseSchema,
       }),
     select: (data) => data.billboard,
@@ -57,7 +58,8 @@ export function useBillboard(id: string | undefined) {
 }
 
 export function useCreateBillboard() {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const userId = auth.userId ?? "__signed-out__";
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateBillboardInput) =>
@@ -65,7 +67,7 @@ export function useCreateBillboard() {
         method: "POST",
         path: "/api/billboards",
         body: input,
-        userId,
+        getToken: auth.getToken,
         schema: createBillboardResponseSchema,
       }),
     onSuccess: (data) => {
@@ -77,14 +79,15 @@ export function useCreateBillboard() {
 }
 
 export function useDeleteBillboard() {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const userId = auth.userId ?? "__signed-out__";
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch({
         method: "DELETE",
         path: `/api/billboards/${id}`,
-        userId,
+        getToken: auth.getToken,
         schema: deleteBillboardResponseSchema,
       }),
     onSuccess: (_data, id) => {
@@ -96,7 +99,7 @@ export function useDeleteBillboard() {
 }
 
 export function useCreatePlacement(billboardId: string) {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreatePlacementInput) =>
@@ -104,7 +107,7 @@ export function useCreatePlacement(billboardId: string) {
         method: "POST",
         path: `/api/billboards/${billboardId}/placements`,
         body: input,
-        userId,
+        getToken: auth.getToken,
         schema: createPlacementResponseSchema,
       }),
     onSuccess: (data) => {
@@ -116,35 +119,38 @@ export function useCreatePlacement(billboardId: string) {
 }
 
 export function useCreateStickerAsset() {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
   return useMutation({
     mutationFn: (input: CreateStickerInput) =>
       apiFetch({
         method: "POST",
         path: "/api/users/me/stickers",
         body: input,
-        userId,
+        getToken: auth.getToken,
         schema: createStickerResponseSchema,
       }),
   });
 }
 
 export function useSavedStickers() {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const userId = auth.userId ?? "__signed-out__";
   return useQuery({
     queryKey: qk.savedStickers(userId),
+    enabled: auth.isLoaded && auth.isSignedIn,
     queryFn: () =>
       apiFetch({
         method: "GET",
         path: "/api/users/me/saved-stickers",
-        userId,
+        getToken: auth.getToken,
         schema: listSavedStickersResponseSchema,
       }),
   });
 }
 
 export function useSaveSticker() {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const userId = auth.userId ?? "__signed-out__";
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateSavedStickerInput) =>
@@ -152,7 +158,7 @@ export function useSaveSticker() {
         method: "POST",
         path: "/api/users/me/saved-stickers",
         body: input,
-        userId,
+        getToken: auth.getToken,
         schema: createSavedStickerResponseSchema,
       }),
     onSuccess: () => {
@@ -162,14 +168,15 @@ export function useSaveSticker() {
 }
 
 export function useDeleteSavedSticker() {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const userId = auth.userId ?? "__signed-out__";
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch({
         method: "DELETE",
         path: `/api/users/me/saved-stickers/${id}`,
-        userId,
+        getToken: auth.getToken,
         schema: deleteSavedStickerResponseSchema,
       }),
     onSuccess: () => {
@@ -179,14 +186,16 @@ export function useDeleteSavedSticker() {
 }
 
 export function useUserProgress() {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const userId = auth.userId ?? "__signed-out__";
   return useQuery({
     queryKey: qk.userProgress(userId),
+    enabled: auth.isLoaded && auth.isSignedIn,
     queryFn: () =>
       apiFetch({
         method: "GET",
         path: "/api/users/me/progress",
-        userId,
+        getToken: auth.getToken,
         schema: getUserProgressResponseSchema,
       }),
     select: (data) => data.progress,
@@ -194,14 +203,16 @@ export function useUserProgress() {
 }
 
 export function useCurrentUser() {
-  const userId = useDevUserId();
+  const auth = useAuth({ treatPendingAsSignedOut: false });
+  const userId = auth.userId ?? "__signed-out__";
   return useQuery({
     queryKey: qk.currentUser(userId),
+    enabled: auth.isLoaded && auth.isSignedIn,
     queryFn: () =>
       apiFetch({
         method: "GET",
         path: "/api/users/me",
-        userId,
+        getToken: auth.getToken,
         schema: getCurrentUserResponseSchema,
       }),
     select: (data) => data.user,
