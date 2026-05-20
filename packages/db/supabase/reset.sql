@@ -85,6 +85,13 @@ create table app.poi_visits (
   primary key (user_id, poi_id)
 );
 
+create table app.poi_daily_activations (
+  campus_id uuid not null references app.campuses(id) on delete cascade,
+  poi_id uuid not null references app.pois(id) on delete cascade,
+  active_on date not null,
+  primary key (campus_id, poi_id, active_on)
+);
+
 create table app.billboards (
   id uuid primary key default gen_random_uuid(),
   campus_id uuid not null references app.campuses(id) on delete cascade,
