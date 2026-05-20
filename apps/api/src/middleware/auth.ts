@@ -16,7 +16,6 @@ type ClerkClaims = Record<string, unknown> & {
 
 type AuthOptions = {
   allowQueryToken?: boolean;
-  resolveUser?: boolean;
 };
 
 let cachedClerkClient: ClerkClient | undefined;
@@ -168,14 +167,11 @@ async function upsertAuthUser(env: Env, payload: ClerkClaims): Promise<AuthUser>
   return user;
 }
 
-function authMiddleware({
-  allowQueryToken = false,
-  resolveUser = true,
-}: AuthOptions = {}): MiddlewareHandler<AppBindings> {
+function authMiddleware(options: AuthOptions = {}): MiddlewareHandler<AppBindings> {
   return async (c, next) => {
     const token = getToken(
       c.req.header("authorization"),
-      allowQueryToken ? c.req.query("token") : undefined,
+      options.allowQueryToken ? c.req.query("token") : undefined,
     );
 
     if (!hasAuthMaterial(c.req.raw, token)) {
@@ -188,16 +184,14 @@ function authMiddleware({
       unauthorized();
     }
 
-    if (resolveUser) {
-      c.set("authUser", await upsertAuthUser(c.env, payload));
-    }
+    c.set("authUser", await upsertAuthUser(c.env, payload));
 
     await next();
   };
 }
 
 export const requireAuth = authMiddleware();
-export const requireRealtimeAuth = authMiddleware({ allowQueryToken: true, resolveUser: false });
+export const requireRealtimeAuth = authMiddleware({ allowQueryToken: true });
 
 export const optionalAuth: MiddlewareHandler<AppBindings> = async (c, next) => {
   const token = getToken(c.req.header("authorization"), undefined);
