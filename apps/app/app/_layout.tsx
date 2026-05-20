@@ -89,17 +89,22 @@ export default function RootLayout() {
         publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
       >
         <QueryClientProvider client={queryClient}>
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack
+            screenOptions={{
+              animation: "fade",
+              contentStyle: { backgroundColor: colors.pageBg },
+              headerShown: false,
+            }}
+          >
             <Stack.Screen name="(auth)/sign-in" />
             <Stack.Screen name="(auth)/sign-up" />
             <Stack.Screen name="(app)" />
-            <Stack.Screen name="avatar/create" />
-            <Stack.Screen name="billboard/[id]" />
-            <Stack.Screen name="billboards/index" />
-            <Stack.Screen name="events/index" />
-            <Stack.Screen name="events/[id]" />
+            <Stack.Screen name="avatar/create" options={{ animation: "slide_from_bottom" }} />
+            <Stack.Screen name="billboard/[id]" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="billboards/index" options={{ animation: "slide_from_right" }} />
+            <Stack.Screen name="create" />
             <Stack.Screen name="index" />
-            <Stack.Screen name="profile/[userId]" />
+            <Stack.Screen name="profile/[userId]" options={{ animation: "slide_from_right" }} />
           </Stack>
           <StatusBar style="dark" />
         </QueryClientProvider>

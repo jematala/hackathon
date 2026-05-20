@@ -11,7 +11,6 @@ import {
 } from "react-native";
 
 import { BillboardPanel } from "@/components/billboard/BillboardPanel";
-import { CreateStickerPanel } from "@/components/CreateStickerPanel";
 import { Map } from "@/components/map/Map";
 import { MapHUD } from "@/components/map/MapHUD";
 import { UNSW_CAMPUS_ID, UNSW_CENTER } from "@/constants/coordinates";
@@ -22,7 +21,6 @@ import { colors } from "@/lib/theme";
 export default function MapScreen() {
   const [activeBillboardId, setActiveBillboardId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [studioOpen, setStudioOpen] = useState(false);
   const [body, setBody] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
@@ -91,10 +89,7 @@ export default function MapScreen() {
           <ActivityIndicator color={colors.sageDark} />
         </View>
       ) : null}
-      <MapHUD
-        onCreateBillboard={() => setCreateOpen(true)}
-        onOpenStudio={() => setStudioOpen(true)}
-      />
+      <MapHUD onCreateBillboard={() => setCreateOpen(true)} />
       <Modal
         visible={activeBillboardId !== null}
         transparent
@@ -113,25 +108,6 @@ export default function MapScreen() {
                 id={activeBillboardId ?? undefined}
                 onClose={() => setActiveBillboardId(null)}
               />
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
-      <Modal
-        visible={studioOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setStudioOpen(false)}
-      >
-        <View style={styles.modalRoot}>
-          <Pressable style={styles.backdrop} onPress={() => setStudioOpen(false)} />
-          <ScrollView
-            style={styles.studioScroll}
-            contentContainerStyle={styles.studioScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.studioPanel} pointerEvents="box-none">
-              <CreateStickerPanel onClose={() => setStudioOpen(false)} />
             </View>
           </ScrollView>
         </View>
@@ -223,20 +199,6 @@ const styles = StyleSheet.create({
     gap: 18,
     maxWidth: 820,
     padding: 18,
-    width: "100%",
-  },
-  studioScroll: {
-    flex: 1,
-    width: "100%",
-  },
-  studioScrollContent: {
-    alignItems: "center",
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 18,
-  },
-  studioPanel: {
-    maxWidth: 460,
     width: "100%",
   },
   createPanel: {

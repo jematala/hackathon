@@ -93,7 +93,7 @@
 - [ ] **FE1** — Analytics dashboard (simple stats grid)
 - [ ] **FE2** — Polish: error states, loading skeletons, empty states, edge cases (concurrent billboard replacement, Sydney-day posting limit, 24h inactive billboard expiry, 5-day billboard expiry, 1-placement/billboard limit)
 - [x] **FE2** — Realtime refresh on map + billboard screen via WebSocket (pull-to-refresh not needed)
-- [ ] **FE1** — Remove stale `events/index` and `events/[id]` stack declarations from `apps/app/app/_layout.tsx`
+- [x] **FE1** — Remove stale `events/index` and `events/[id]` stack declarations from `apps/app/app/_layout.tsx`
 - [x] **FE1** — Auth page polish: tighten Clerk footer gap between "Don't have an account? Sign up" and "Secured by Clerk" branding on `sign-in.web.tsx` / `sign-up.web.tsx` (CSS overrides in `lib/clerkAppearance.ts`)
 
 ---

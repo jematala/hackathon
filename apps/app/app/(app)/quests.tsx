@@ -56,10 +56,15 @@ export default function QuestsScreen() {
   const level = quests.data?.level ?? userProgress.data?.level ?? 1;
   const streak = quests.data?.streak ?? userProgress.data?.dailyStreak ?? 0;
 
+  const goHome = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(app)/map" as any);
+  };
+
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable onPress={() => router.push("/map" as any)} style={styles.backButton}>
+        <Pressable onPress={goHome} style={styles.backButton}>
           <Text style={styles.backArrow}>{"<"}</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Quests</Text>
