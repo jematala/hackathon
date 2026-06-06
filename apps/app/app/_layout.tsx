@@ -13,8 +13,6 @@ import * as SecureStore from "expo-secure-store";
 import { FONT_FAMILY } from "@/app/theme";
 import { colors } from "@/lib/theme";
 
-const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-
 const MAP_STYLES = `
   html, body, #root {
     height: 100%;
@@ -25,19 +23,16 @@ const MAP_STYLES = `
     color: #6A401A;
     font-family: ${FONT_FAMILY}, sans-serif;
   }
-  .leaflet-container {
+  .maplibregl-map {
     height: 100%;
     width: 100%;
-    image-rendering: pixelated;
-  }
-   .leaflet-tile {
-    filter: sepia(0.3) saturate(0.8) brightness(0.8) contrast(150%);
   }
   .poi-marker { background: none; border: none; }
   .poi-marker-inner {
     filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
   }
   .user-avatar-marker { background: none; border: none; }
+  .billboard-marker { background: none; border: none; }
 `;
 
 export default function RootLayout() {
@@ -47,17 +42,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS !== "web") return;
 
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = LEAFLET_CSS;
-    document.head.appendChild(link);
-
     const style = document.createElement("style");
     style.textContent = MAP_STYLES;
     document.head.appendChild(style);
 
     return () => {
-      document.head.removeChild(link);
       document.head.removeChild(style);
     };
   }, []);
