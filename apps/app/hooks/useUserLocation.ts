@@ -8,15 +8,10 @@ export interface UserLocation {
   accuracy: number | null;
 }
 
-export interface PositionError {
-  code: number;
-  message: string;
-}
-
 function getLocationErrorMessage(error: unknown): string {
   if (error && typeof error === "object") {
     if ("code" in error) {
-      const posError = error as PositionError;
+      const posError = error as { code: number };
       switch (posError.code) {
         case 2:
           return "Turn on geolocation in your browser settings to see nearby quests & POIs";
@@ -39,6 +34,8 @@ export function useUserLocation() {
   const [locationLoading, setLocationLoading] = useState(false);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationReceivedRef = useRef(false);
+  const cancelledRef = useRef(false);
 
   const clearTimeoutRef = () => {
     if (timeoutRef.current !== null) {
@@ -48,7 +45,11 @@ export function useUserLocation() {
   };
 
   const stopWatching = useCallback(() => {
-    subscriptionRef.current?.remove();
+    try {
+      subscriptionRef.current?.remove();
+    } catch {
+      // On web, expo-location's EventEmitter may not support removeSubscription
+    }
     subscriptionRef.current = null;
     setIsTracking(false);
     clearTimeoutRef();
@@ -58,6 +59,22 @@ export function useUserLocation() {
     stopWatching();
     setLocationError(null);
     setLocationLoading(true);
+    locationReceivedRef.current = false;
+
+    const onLocationReceived = (loc: Location.LocationObject) => {
+      if (cancelledRef.current) return;
+      setLocation({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        heading: loc.coords.heading,
+        accuracy: loc.coords.accuracy,
+      });
+      locationReceivedRef.current = true;
+      setIsTracking(true);
+      setLocationLoading(false);
+      setLocationError(null);
+      clearTimeoutRef();
+    };
 
     try {
       const lastPos = await Location.getLastKnownPositionAsync({ maxAge: 60000 });
@@ -68,32 +85,27 @@ export function useUserLocation() {
           heading: lastPos.coords.heading,
           accuracy: lastPos.coords.accuracy,
         });
+        locationReceivedRef.current = true;
         setLocationLoading(false);
       }
     } catch {
-      // getLastKnownPositionAsync rarely throws; non-fatal
+      // non-fatal
     }
 
-    const markLocationReceived = () => {
-      setLocationLoading(false);
-      setLocationError(null);
-      clearTimeoutRef();
-    };
-
     try {
-      const currentPos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+      const timeoutPromise = new Promise<Location.LocationObject>((_, reject) => {
+        setTimeout(() => reject({ code: 3, message: "Location request timed out" }), 10000);
       });
-      setLocation({
-        latitude: currentPos.coords.latitude,
-        longitude: currentPos.coords.longitude,
-        heading: currentPos.coords.heading,
-        accuracy: currentPos.coords.accuracy,
-      });
-      markLocationReceived();
+      const currentPos = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        timeoutPromise,
+      ]);
+      onLocationReceived(currentPos);
     } catch (e) {
-      setLocationError(getLocationErrorMessage(e));
-      setLocationLoading(false);
+      if (!locationReceivedRef.current) {
+        setLocationError(getLocationErrorMessage(e));
+        setLocationLoading(false);
+      }
     }
 
     try {
@@ -103,36 +115,30 @@ export function useUserLocation() {
           timeInterval: 5000,
           distanceInterval: 5,
         },
-        (loc) => {
-          setLocation({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-            heading: loc.coords.heading,
-            accuracy: loc.coords.accuracy,
-          });
-          setIsTracking(true);
-          markLocationReceived();
-        },
+        (loc) => onLocationReceived(loc),
         (errorMessage) => {
-          setLocationError(errorMessage || "Location tracking encountered an error.");
+          if (!locationReceivedRef.current) {
+            setLocationError(errorMessage || "Location tracking encountered an error.");
+          }
         },
       );
-
       subscriptionRef.current = sub;
     } catch (e) {
-      setLocationError(getLocationErrorMessage(e));
-      setLocationLoading(false);
+      if (!locationReceivedRef.current) {
+        setLocationError(getLocationErrorMessage(e));
+        setLocationLoading(false);
+      }
     }
 
     timeoutRef.current = setTimeout(() => {
-      if (!location) {
+      if (!locationReceivedRef.current) {
         setLocationError(
           "Unable to access your location. Please check your browser's location settings.",
         );
         setLocationLoading(false);
       }
     }, 30000);
-  }, [stopWatching, location]);
+  }, [stopWatching]);
 
   const requestPermission = useCallback(async () => {
     const perm = await Location.requestForegroundPermissionsAsync();
@@ -144,11 +150,11 @@ export function useUserLocation() {
   }, [startWatching]);
 
   useEffect(() => {
-    let cancelled = false;
+    cancelledRef.current = false;
 
     (async () => {
       const perm = await Location.requestForegroundPermissionsAsync();
-      if (cancelled) return;
+      if (cancelledRef.current) return;
       setPermission(perm);
 
       if (perm.granted) {
@@ -157,7 +163,7 @@ export function useUserLocation() {
     })();
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       stopWatching();
     };
   }, [startWatching, stopWatching]);
