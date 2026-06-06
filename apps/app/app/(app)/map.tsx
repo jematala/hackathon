@@ -31,7 +31,8 @@ export default function MapScreen() {
   const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
   const pois = usePois({ campusId: UNSW_CAMPUS_ID });
   const createBillboard = useCreateBillboard();
-  const { location, isDenied, canAskAgain, requestPermission } = useUserLocation();
+  const { location, locationError, locationLoading, isDenied, canAskAgain, requestPermission } =
+    useUserLocation();
 
   const closeCreate = () => {
     setCreateOpen(false);
@@ -51,8 +52,8 @@ export default function MapScreen() {
       {
         campusId: UNSW_CAMPUS_ID,
         body: trimmed,
-        lat: UNSW_CENTER.lat,
-        lng: UNSW_CENTER.lng,
+        lat: location?.latitude ?? UNSW_CENTER.lat,
+        lng: location?.longitude ?? UNSW_CENTER.lng,
       },
       {
         onSuccess: (data) => {
@@ -122,6 +123,8 @@ export default function MapScreen() {
         onCreateBillboard={() => setCreateOpen(true)}
         isPermissionDenied={isDenied}
         onEnableLocation={handleEnableLocation}
+        locationError={locationError}
+        locationLoading={locationLoading}
       />
       <Modal
         visible={activeBillboardId !== null}

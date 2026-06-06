@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { fonts } from "@/app/theme";
 import { useUserProfile } from "@/lib/userProfile";
@@ -74,11 +74,25 @@ type MapHUDProps = {
   onCreateBillboard: () => void;
   isPermissionDenied?: boolean;
   onEnableLocation?: () => void;
+  locationError?: string | null;
+  locationLoading?: boolean;
 };
 
-export function MapHUD({ onCreateBillboard, isPermissionDenied, onEnableLocation }: MapHUDProps) {
+export function MapHUD({
+  onCreateBillboard,
+  isPermissionDenied,
+  onEnableLocation,
+  locationError,
+  locationLoading,
+}: MapHUDProps) {
   return (
     <View style={styles.container}>
+      {locationLoading && (
+        <View style={styles.loadingBanner}>
+          <ActivityIndicator color={styles.loadingText.color} />
+          <Text style={styles.loadingText}>Getting your location...</Text>
+        </View>
+      )}
       {isPermissionDenied && (
         <View style={styles.permissionBanner}>
           <Text style={styles.permissionText}>Enable location to see nearby quests & POIs</Text>
@@ -87,6 +101,17 @@ export function MapHUD({ onCreateBillboard, isPermissionDenied, onEnableLocation
             style={({ pressed }) => [styles.permissionButton, { opacity: pressed ? 0.7 : 1 }]}
           >
             <Text style={styles.permissionButtonText}>Enable</Text>
+          </Pressable>
+        </View>
+      )}
+      {!isPermissionDenied && locationError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{locationError}</Text>
+          <Pressable
+            onPress={() => Linking.openSettings()}
+            style={({ pressed }) => [styles.errorButton, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={styles.errorButtonText}>Settings</Text>
           </Pressable>
         </View>
       )}
@@ -207,6 +232,48 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family,
     fontSize: 36,
     lineHeight: 38,
+  },
+  loadingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#5b7559",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  loadingText: {
+    color: "#ffedd6",
+    fontFamily: fonts.family,
+    fontSize: 16,
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#8B3A3A",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  errorText: {
+    color: "#ffedd6",
+    fontFamily: fonts.family,
+    fontSize: 16,
+    flex: 1,
+  },
+  errorButton: {
+    backgroundColor: "#ffedd6",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    marginLeft: 12,
+  },
+  errorButtonText: {
+    color: "#8B3A3A",
+    fontFamily: fonts.family,
+    fontSize: 18,
   },
   levelLabel: {
     color: "#5b7559",
