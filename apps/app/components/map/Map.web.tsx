@@ -1,3 +1,5 @@
+import "maplibre-gl/dist/maplibre-gl.css";
+
 import { Asset } from "expo-asset";
 import maplibregl from "maplibre-gl";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
@@ -23,11 +25,14 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const { avatarUri } = useUserProfile();
+  const avatarUriRef = useRef(avatarUri);
+  avatarUriRef.current = avatarUri;
 
   useImperativeHandle(ref, () => ({
     invalidateSize: () => mapRef.current?.resize(),
   }));
 
+  // Create map once — never torn down on data changes
   useEffect(() => {
     if (Platform.OS !== "web") return;
     if (typeof window === "undefined") return;
@@ -43,6 +48,34 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
       minZoom: 18,
       attributionControl: false,
     });
+
+    map.once("load", () => map.resize());
+    mapRef.current = map;
+
+    return () => {
+      for (const m of markersRef.current) {
+        m.remove();
+      }
+      markersRef.current = [];
+      userMarkerRef.current = null;
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  // Manage POI and billboard markers when data changes
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    for (const m of markersRef.current) {
+      m.remove();
+    }
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+      userMarkerRef.current = null;
+    }
 
     const markers: maplibregl.Marker[] = [];
     let activePopup: maplibregl.Popup | null = null;
@@ -85,9 +118,10 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
     }
 
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
-    const useDrawn = Boolean(avatarUri);
+    const currentAvatarUri = avatarUriRef.current;
+    const useDrawn = Boolean(currentAvatarUri);
     const userEl = createUserAvatarElement(
-      avatarUri ?? fallbackUrl,
+      currentAvatarUri ?? fallbackUrl,
       useDrawn ? DRAWN_AVATAR_BG : undefined,
     );
     const userMarker = new maplibregl.Marker({ element: userEl })
@@ -96,20 +130,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
 
     userMarkerRef.current = userMarker;
     markersRef.current = markers;
-    mapRef.current = map;
-
-    return () => {
-      for (const m of markers) {
-        m.remove();
-      }
-      activePopup?.remove();
-      activePopup = null;
-      markersRef.current = [];
-      userMarkerRef.current = null;
-      map.remove();
-      mapRef.current = null;
-    };
-  }, [avatarUri, billboards, onBillboardPress, pois]);
+  }, [billboards, pois, onBillboardPress]);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;

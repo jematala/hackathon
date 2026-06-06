@@ -24,6 +24,7 @@ const MAP_STYLES = `
     font-family: ${FONT_FAMILY}, sans-serif;
   }
   .maplibregl-map {
+    position: relative;
     height: 100%;
     width: 100%;
   }

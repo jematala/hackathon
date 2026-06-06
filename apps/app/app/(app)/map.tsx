@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -80,26 +80,38 @@ export default function MapScreen() {
     }
   }, [canAskAgain, requestPermission]);
 
+  const billboardProps = useMemo(
+    () =>
+      (billboards.data ?? []).map((billboard) => ({
+        id: billboard.id,
+        title: billboard.body,
+        lat: billboard.lat,
+        lng: billboard.lng,
+      })),
+    [billboards.data],
+  );
+
+  const poiProps = useMemo(
+    () =>
+      (pois.data ?? []).map((poi) => ({
+        id: poi.id,
+        title: poi.title,
+        description: poi.description,
+        lat: poi.lat,
+        lng: poi.lng,
+        visited: poi.visited,
+      })),
+    [pois.data],
+  );
+
   return (
     <View style={styles.root}>
       <Map
         ref={mapRef}
         location={location}
-        billboards={(billboards.data ?? []).map((billboard) => ({
-          id: billboard.id,
-          title: billboard.body,
-          lat: billboard.lat,
-          lng: billboard.lng,
-        }))}
+        billboards={billboardProps}
         onBillboardPress={setActiveBillboardId}
-        pois={(pois.data ?? []).map((poi) => ({
-          id: poi.id,
-          title: poi.title,
-          description: poi.description,
-          lat: poi.lat,
-          lng: poi.lng,
-          visited: poi.visited,
-        }))}
+        pois={poiProps}
       />
       {billboards.isLoading || pois.isLoading ? (
         <View style={styles.mapStatus}>

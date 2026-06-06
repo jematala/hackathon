@@ -10,12 +10,16 @@ export const MAP_STYLE: any = {
       ],
       tileSize: 256,
       maxzoom: 21,
-      attribution:
-        '&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, ' +
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     },
   },
   layers: [
+    {
+      id: "background",
+      type: "background",
+      paint: {
+        "background-color": "#f0ebe0",
+      },
+    },
     {
       id: "thunderforest-tiles",
       type: "raster",
@@ -23,9 +27,7 @@ export const MAP_STYLE: any = {
       minzoom: 0,
       maxzoom: 22,
       paint: {
-        "raster-brightness-min": 0.8,
-        "raster-contrast": 1.5,
-        "raster-saturation": 0.8,
+        "raster-fade-duration": 0,
       },
     },
   ],
