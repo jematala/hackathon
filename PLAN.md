@@ -158,9 +158,9 @@ Phase 1b BE ──► Phase 4 BE (reporting, analytics)
 ```
 components/map/
 ├── Map.tsx          ← platform export wrapper
-├── Map.web.tsx      ← Leaflet ref-based wrapper (useEffect + useRef)
+├── Map.web.tsx      ← MapLibre GL JS ref-based wrapper (useEffect + useRef)
 ├── Map.native.tsx   ← MapLibre native map implementation
-├── markers.ts       ← Leaflet divIcon factories (POI, billboard, user avatar)
+├── markers.ts       ← MapLibre Marker factories (POI, billboard, user avatar)
 ├── MapHUD.tsx       ← Floating bottom bar (Webfishing-style buttons)
 ```
 
@@ -182,11 +182,11 @@ app/
 
 ### Components
 
-**Map.web.tsx** — Creates Leaflet map in a `useEffect` ref. Adds Thunderforest Neighbourhood tiles with CSS filter injection (sepia + saturation + brightness + contrast). Renders POI markers with Leaflet popups, billboard markers that open the billboard panel flow, and the user avatar marker. Handles resize and cleanup. Avatar URL comes from the drawn profile state with an asset fallback.
+**Map.web.tsx** — Creates MapLibre map in a `useEffect` ref. Adds Thunderforest Neighbourhood tiles with raster paint properties (brightness + contrast + saturation). Renders POI markers with MapLibre popups, billboard markers that open the billboard panel flow, and the user avatar marker. Handles resize and cleanup. Avatar URL comes from the drawn profile state with an asset fallback.
 
 **Map.native.tsx** — Uses `@maplibre/maplibre-react-native` with Thunderforest raster tiles. Renders demo POI markers, selected POI callout, and user avatar marker.
 
-**markers.ts** — `createPOIIcon(title)`, `createBillboardIcon(title)`, and `createUserAvatarIcon(imageUrl)` return Leaflet `L.divIcon` instances for the web map.
+**markers.ts** — `createPOIMarker(title)`, `createBillboardMarker(title)`, and `createUserAvatarMarker(imageUrl)` return MapLibre `Marker` instances for the web map.
 
 **MapHUD.tsx** — Floating bottom bar (~20px from bottom, `absolute` positioning). Left section: profile picture (100×100), XP progress ring, and level indicator. Right section: create billboard, quests, and studio actions.
 
@@ -204,9 +204,12 @@ Hardcoded in `constants/coordinates.ts`:
 
 | Package          | Version |
 | ---------------- | ------- |
-| `leaflet`        | `^1.9.4` |
-| `@types/leaflet` | `^1.9.21` |
+| `maplibre-gl` | `^5.24.0` |
 | `@maplibre/maplibre-react-native` | `^11.2.1` |
+
+### Migration History
+
+- [x] **FE1** — Migrate web map from Leaflet to MapLibre GL JS (`maplibre-gl@5.24.0`)
 
 ### Maps Backlog (post-hackathon)
 
