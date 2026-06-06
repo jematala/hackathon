@@ -113,15 +113,19 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
-    if (!userMarkerRef.current) return;
+    if (!userMarkerRef.current || !mapRef.current) return;
 
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
     const useDrawn = Boolean(avatarUri);
-    const newEl = createUserAvatarElement(
+    const lngLat = userMarkerRef.current.getLngLat();
+    userMarkerRef.current.remove();
+    const userEl = createUserAvatarElement(
       avatarUri ?? fallbackUrl,
       useDrawn ? DRAWN_AVATAR_BG : undefined,
     );
-    userMarkerRef.current.setElement(newEl);
+    userMarkerRef.current = new maplibregl.Marker({ element: userEl })
+      .setLngLat(lngLat)
+      .addTo(mapRef.current);
   }, [avatarUri]);
 
   useEffect(() => {
