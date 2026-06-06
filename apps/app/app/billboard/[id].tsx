@@ -23,7 +23,7 @@ export default function BillboardDetailScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: "Whiteboard", headerLeft: renderBackButton }} />
+      <Stack.Screen options={{ title: "Billboard", headerLeft: renderBackButton }} />
       <BillboardPanel id={id} />
     </Screen>
   );
