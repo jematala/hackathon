@@ -161,7 +161,7 @@ export function BillboardPanel({ id, onClose }: BillboardPanelProps) {
   if (billboard.isError || !billboard.data) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyTitle}>Whiteboard not found</Text>
+        <Text style={styles.emptyTitle}>Billboard not found</Text>
         <Text style={styles.emptyBody}>
           {(billboard.error as Error | undefined)?.message ?? "It may have expired."}
         </Text>

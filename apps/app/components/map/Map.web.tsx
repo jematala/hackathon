@@ -6,7 +6,7 @@ import { Platform, StyleSheet, View } from "react-native";
 import { UNSW_CENTER } from "@/constants/coordinates";
 import { useUserProfile } from "@/lib/userProfile";
 
-import type { MapPoint, MapPoi } from "./Map";
+import type { MapProps } from "./Map.types";
 import { createBillboardIcon, createPOIIcon, createUserAvatarIcon } from "./markers";
 
 const DRAWN_AVATAR_BG = "#faf7ef";
@@ -18,14 +18,8 @@ const TILE_ATTR =
 
 type MapHandle = { invalidateSize: () => void };
 
-type MapProps = {
-  billboards: MapPoint[];
-  onBillboardPress?: (id: string) => void;
-  pois: MapPoi[];
-};
-
 export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
-  { billboards, onBillboardPress, pois },
+  { location, billboards, onBillboardPress, pois },
   ref,
 ) {
   const containerRef = useRef<View | null>(null);
@@ -34,9 +28,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
   const { avatarUri } = useUserProfile();
 
   useImperativeHandle(ref, () => ({
-    invalidateSize: () => {
-      mapRef.current?.invalidateSize();
-    },
+    invalidateSize: () => mapRef.current?.invalidateSize(),
   }));
 
   useEffect(() => {
@@ -103,6 +95,16 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
       createUserAvatarIcon(avatarUri ?? fallbackUrl, useDrawn ? DRAWN_AVATAR_BG : undefined),
     );
   }, [avatarUri]);
+
+  useEffect(() => {
+    if (!mapRef.current || !userMarkerRef.current || !location) return;
+
+    const { latitude, longitude } = location;
+    mapRef.current.setView([latitude, longitude], mapRef.current.getZoom(), {
+      animate: true,
+    });
+    userMarkerRef.current.setLatLng([latitude, longitude]);
+  }, [location]);
 
   return <View ref={containerRef} style={styles.container} />;
 });

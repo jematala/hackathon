@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -11,14 +12,18 @@ import {
 } from "react-native";
 
 import { BillboardPanel } from "@/components/billboard/BillboardPanel";
-import { Map } from "@/components/map/Map";
+import { CanvasModal } from "@/components/CanvasModal";
+import Map from "@/components/map/Map";
 import { MapHUD } from "@/components/map/MapHUD";
 import { UNSW_CAMPUS_ID, UNSW_CENTER } from "@/constants/coordinates";
+import { useUserLocation } from "@/hooks/useUserLocation";
 import { ApiError } from "@/lib/api/client";
 import { useBillboards, useCreateBillboard, usePois } from "@/lib/api/hooks";
 import { colors } from "@/lib/theme";
 
 export default function MapScreen() {
+  const mapRef = useRef<{ invalidateSize: () => void }>(null);
+  const [isCanvasOpen, setIsCanvasOpen] = useState(false);
   const [activeBillboardId, setActiveBillboardId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [body, setBody] = useState("");
@@ -26,6 +31,7 @@ export default function MapScreen() {
   const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
   const pois = usePois({ campusId: UNSW_CAMPUS_ID });
   const createBillboard = useCreateBillboard();
+  const { location, isDenied, canAskAgain, requestPermission } = useUserLocation();
 
   const closeCreate = () => {
     setCreateOpen(false);
@@ -59,15 +65,26 @@ export default function MapScreen() {
             setCreateError(err.message);
             return;
           }
-          setCreateError("Could not pin this whiteboard.");
+          console.log(err.message);
+          setCreateError("Could not pin this billboard.");
         },
       },
     );
   };
 
+  const handleEnableLocation = useCallback(async () => {
+    if (canAskAgain) {
+      await requestPermission();
+    } else {
+      Linking.openURL("app-settings:");
+    }
+  }, [canAskAgain, requestPermission]);
+
   return (
     <View style={styles.root}>
       <Map
+        ref={mapRef}
+        location={location}
         billboards={(billboards.data ?? []).map((billboard) => ({
           id: billboard.id,
           title: billboard.body,
@@ -89,7 +106,11 @@ export default function MapScreen() {
           <ActivityIndicator color={colors.sageDark} />
         </View>
       ) : null}
-      <MapHUD onCreateBillboard={() => setCreateOpen(true)} />
+      <MapHUD
+        onCreateBillboard={() => setCreateOpen(true)}
+        isPermissionDenied={isDenied}
+        onEnableLocation={handleEnableLocation}
+      />
       <Modal
         visible={activeBillboardId !== null}
         transparent
@@ -117,7 +138,7 @@ export default function MapScreen() {
           <Pressable style={styles.backdrop} onPress={closeCreate} />
           <View style={styles.createPanel}>
             <View style={styles.createHeader}>
-              <Text style={styles.createTitle}>New whiteboard</Text>
+              <Text style={styles.createTitle}>New billboard</Text>
               <Pressable
                 onPress={closeCreate}
                 style={styles.closeButton}
@@ -153,6 +174,7 @@ export default function MapScreen() {
           </View>
         </View>
       </Modal>
+      <CanvasModal visible={isCanvasOpen} onClose={() => setIsCanvasOpen(false)} />
     </View>
   );
 }

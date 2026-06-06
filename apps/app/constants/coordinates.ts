@@ -4,7 +4,7 @@ export const UNSW_CENTER = { lat: -33.917, lng: 151.231 } as const;
 
 export const DEMO_BILLBOARD = {
   id: "00000000-0000-4000-8000-000000000b01",
-  title: "Campus Whiteboard",
+  title: "Campus Billboard",
   lat: -33.9173,
   lng: 151.2313,
 } as const;

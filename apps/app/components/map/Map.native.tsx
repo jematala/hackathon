@@ -7,7 +7,7 @@ import { Camera, Map as MapLibre, Marker } from "@maplibre/maplibre-react-native
 import { fonts } from "@/app/theme";
 import { UNSW_CENTER } from "@/constants/coordinates";
 
-import type { MapPoi, MapProps } from "./Map";
+import type { MapPoi, MapProps } from "./Map.types";
 
 const THUNDERFOREST_API_KEY = process.env.EXPO_PUBLIC_THUNDERFOREST_KEY ?? "YOUR_API_KEY_HERE";
 
@@ -45,21 +45,19 @@ interface POIMarkerProps {
 
 function POIMarker({ poi, isSelected, onPress }: POIMarkerProps) {
   return (
-    <Marker lngLat={[poi.lng, poi.lat]} anchor="bottom">
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-        <View style={poiStyles.markerContainer}>
-          <View style={poiStyles.topCircle} />
+    <Marker lngLat={[poi.lng, poi.lat]} anchor="bottom" onPress={onPress}>
+      <View style={poiStyles.markerContainer}>
+        <View style={poiStyles.topCircle} />
 
-          <View style={[poiStyles.mainBox, isSelected && poiStyles.mainBoxSelected]}>
-            {/* Embedded Cross Lines */}
-            <View style={poiStyles.verticalLine} />
-            <View style={poiStyles.horizontalLine} />
-          </View>
-
-          {/* Base Platform Bar (x=0, y=28, w=32, h=4) */}
-          <View style={poiStyles.baseBar} />
+        <View style={[poiStyles.mainBox, isSelected && poiStyles.mainBoxSelected]}>
+          {/* Embedded Cross Lines */}
+          <View style={poiStyles.verticalLine} />
+          <View style={poiStyles.horizontalLine} />
         </View>
-      </TouchableOpacity>
+
+        {/* Base Platform Bar (x=0, y=28, w=32, h=4) */}
+        <View style={poiStyles.baseBar} />
+      </View>
     </Marker>
   );
 }
@@ -76,15 +74,15 @@ function BillboardMarker({
   title: string;
 }) {
   return (
-    <Marker lngLat={[lng, lat]} anchor="bottom">
-      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+    <Marker lngLat={[lng, lat]} anchor="bottom" onPress={onPress}>
+      <View>
         <View style={billboardStyles.marker}>
           <Text style={billboardStyles.text} numberOfLines={1}>
             {title.slice(0, 2)}
           </Text>
         </View>
         <View style={billboardStyles.pin} />
-      </TouchableOpacity>
+      </View>
     </Marker>
   );
 }
@@ -110,22 +108,20 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
 }
 
 export default forwardRef<{ invalidateSize: () => void }, MapProps>(function Map(
-  { billboards, onBillboardPress, pois },
+  { location, billboards, onBillboardPress, pois },
   _ref,
 ) {
   const [selectedPOI, setSelectedPOI] = useState<MapPoi | null>(null);
 
   const userAvatarUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
+  const userCoord: [number, number] = location
+    ? [location.longitude, location.latitude]
+    : [UNSW_CENTER.lng, UNSW_CENTER.lat];
 
   return (
     <View style={styles.container}>
       <MapLibre style={styles.map} mapStyle={MAP_STYLE} onPress={() => setSelectedPOI(null)}>
-        <Camera
-          initialViewState={{
-            center: [UNSW_CENTER.lng, UNSW_CENTER.lat],
-            zoom: 18,
-          }}
-        />
+        <Camera center={userCoord} zoom={18} duration={1000} easing="fly" />
         {pois.map((poi) => (
           <POIMarker
             key={poi.id}
@@ -145,10 +141,7 @@ export default forwardRef<{ invalidateSize: () => void }, MapProps>(function Map
           />
         ))}
 
-        <UserAvatarMarker
-          coordinate={[UNSW_CENTER.lng, UNSW_CENTER.lat]}
-          imageUrl={userAvatarUrl}
-        />
+        <UserAvatarMarker coordinate={userCoord} imageUrl={userAvatarUrl} />
       </MapLibre>
 
       {selectedPOI && (
