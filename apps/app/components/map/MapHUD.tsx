@@ -1,5 +1,14 @@
 import { router } from "expo-router";
-import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { fonts } from "@/app/theme";
 import { useUserProfile } from "@/lib/userProfile";
@@ -107,12 +116,14 @@ export function MapHUD({
       {!isPermissionDenied && locationError && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{locationError}</Text>
-          <Pressable
-            onPress={() => Linking.openSettings()}
-            style={({ pressed }) => [styles.errorButton, { opacity: pressed ? 0.7 : 1 }]}
-          >
-            <Text style={styles.errorButtonText}>Settings</Text>
-          </Pressable>
+          {Platform.OS !== "web" && (
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              style={({ pressed }) => [styles.errorButton, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Text style={styles.errorButtonText}>Settings</Text>
+            </Pressable>
+          )}
         </View>
       )}
       <View style={styles.bottomRow}>
