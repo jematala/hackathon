@@ -115,7 +115,7 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
 }
 
 export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(
-  function Map({ billboards, onBillboardPress, pois }, _ref) {
+  function Map({ billboards, onBillboardPress, pois, location }, _ref) {
     const [selectedPOI, setSelectedPOI] = useState<MapPoi | null>(null);
 
     const userAvatarUrl = Asset.fromModule(
