@@ -109,7 +109,7 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
   );
 }
 
-export default forwardRef<{ invalidateSize: () => void }, MapProps>(function Map(
+export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function Map(
   { billboards, onBillboardPress, pois },
   _ref,
 ) {
@@ -173,6 +173,8 @@ export default forwardRef<{ invalidateSize: () => void }, MapProps>(function Map
     </View>
   );
 });
+
+export default Map;
 
 const poiStyles = StyleSheet.create({
   markerContainer: {
