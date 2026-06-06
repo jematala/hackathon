@@ -6,36 +6,9 @@ import { Camera, Map as MapLibre, Marker } from "@maplibre/maplibre-react-native
 
 import { fonts } from "@/app/theme";
 import { UNSW_CENTER } from "@/constants/coordinates";
+import { MAP_STYLE } from "@/constants/mapStyle";
 
 import type { MapPoi, MapProps } from "./Map.types";
-
-const THUNDERFOREST_API_KEY = process.env.EXPO_PUBLIC_THUNDERFOREST_KEY ?? "YOUR_API_KEY_HERE";
-
-const MAP_STYLE: any = JSON.stringify({
-  version: 8,
-  sources: {
-    "thunderforest-neighbourhood": {
-      type: "raster",
-      tiles: [
-        `https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}.png?apikey=${THUNDERFOREST_API_KEY}`,
-      ],
-      tileSize: 256,
-      maxzoom: 21,
-      attribution:
-        '&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, ' +
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    },
-  },
-  layers: [
-    {
-      id: "thunderforest-tiles",
-      type: "raster",
-      source: "thunderforest-neighbourhood",
-      minzoom: 0,
-      maxzoom: 22,
-    },
-  ],
-});
 
 interface POIMarkerProps {
   poi: MapPoi;
