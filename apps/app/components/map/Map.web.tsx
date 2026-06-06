@@ -1,20 +1,16 @@
 import { Asset } from "expo-asset";
-import L from "leaflet";
+import maplibregl from "maplibre-gl";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { UNSW_CENTER } from "@/constants/coordinates";
+import { MAP_STYLE } from "@/constants/mapStyle";
 import { useUserProfile } from "@/lib/userProfile";
 
 import type { MapProps } from "./Map.types";
-import { createBillboardIcon, createPOIIcon, createUserAvatarIcon } from "./markers";
+import { createBillboardElement, createPOIElement, createUserAvatarElement } from "./markers";
 
 const DRAWN_AVATAR_BG = "#faf7ef";
-
-const TILE_URL =
-  "https://api.thunderforest.com/neighbourhood/{z}/{x}/{y}{r}.png?apikey=0f64302472524b558aa92ebe1c088f04";
-const TILE_ATTR =
-  '&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 type MapHandle = { invalidateSize: () => void };
 
@@ -23,12 +19,13 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
   ref,
 ) {
   const containerRef = useRef<View | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const userMarkerRef = useRef<L.Marker | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const { avatarUri } = useUserProfile();
 
   useImperativeHandle(ref, () => ({
-    invalidateSize: () => mapRef.current?.invalidateSize(),
+    invalidateSize: () => mapRef.current?.resize(),
   }));
 
   useEffect(() => {
@@ -38,50 +35,79 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
     const container = containerRef.current as unknown as HTMLElement;
     if (!container) return;
 
-    const map = L.map(container, {
-      center: [UNSW_CENTER.lat, UNSW_CENTER.lng],
+    const map = new maplibregl.Map({
+      container,
+      style: MAP_STYLE,
+      center: [UNSW_CENTER.lng, UNSW_CENTER.lat],
       zoom: 19,
       minZoom: 18,
-      zoomControl: false,
       attributionControl: false,
     });
 
-    L.tileLayer(TILE_URL, {
-      attribution: TILE_ATTR,
-      maxZoom: 22,
-      maxNativeZoom: 21,
-    }).addTo(map);
+    const markers: maplibregl.Marker[] = [];
+    let activePopup: maplibregl.Popup | null = null;
 
     for (const poi of pois) {
-      L.marker([poi.lat, poi.lng], {
-        icon: createPOIIcon(poi.title),
-      })
-        .addTo(map)
-        .bindPopup(
+      const el = createPOIElement(poi.title);
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([poi.lng, poi.lat])
+        .addTo(map);
+
+      const popup = new maplibregl.Popup({ offset: [0, -44] })
+        .setHTML(
           `<strong>${escapeHtml(poi.title)}</strong><br/>${escapeHtml(poi.description ?? "")}`,
-        );
+        )
+        .setLngLat([poi.lng, poi.lat]);
+
+      el.addEventListener("click", () => {
+        if (activePopup === popup) {
+          popup.remove();
+          activePopup = null;
+          return;
+        }
+        activePopup?.remove();
+        activePopup = popup;
+        popup.addTo(map);
+      });
+
+      markers.push(marker);
     }
 
     for (const billboard of billboards) {
-      L.marker([billboard.lat, billboard.lng], {
-        icon: createBillboardIcon(billboard.title),
-      })
-        .addTo(map)
-        .on("click", () => onBillboardPress?.(billboard.id));
+      const el = createBillboardElement(billboard.title);
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([billboard.lng, billboard.lat])
+        .addTo(map);
+
+      el.addEventListener("click", () => onBillboardPress?.(billboard.id));
+
+      markers.push(marker);
     }
 
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
     const useDrawn = Boolean(avatarUri);
-    userMarkerRef.current = L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
-      icon: createUserAvatarIcon(avatarUri ?? fallbackUrl, useDrawn ? DRAWN_AVATAR_BG : undefined),
-    }).addTo(map);
+    const userEl = createUserAvatarElement(
+      avatarUri ?? fallbackUrl,
+      useDrawn ? DRAWN_AVATAR_BG : undefined,
+    );
+    const userMarker = new maplibregl.Marker({ element: userEl })
+      .setLngLat([UNSW_CENTER.lng, UNSW_CENTER.lat])
+      .addTo(map);
 
+    userMarkerRef.current = userMarker;
+    markersRef.current = markers;
     mapRef.current = map;
 
     return () => {
+      for (const m of markers) {
+        m.remove();
+      }
+      activePopup?.remove();
+      activePopup = null;
+      markersRef.current = [];
+      userMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
-      userMarkerRef.current = null;
     };
   }, [avatarUri, billboards, onBillboardPress, pois]);
 
@@ -91,19 +117,19 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
 
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
     const useDrawn = Boolean(avatarUri);
-    userMarkerRef.current.setIcon(
-      createUserAvatarIcon(avatarUri ?? fallbackUrl, useDrawn ? DRAWN_AVATAR_BG : undefined),
+    const newEl = createUserAvatarElement(
+      avatarUri ?? fallbackUrl,
+      useDrawn ? DRAWN_AVATAR_BG : undefined,
     );
+    userMarkerRef.current.setElement(newEl);
   }, [avatarUri]);
 
   useEffect(() => {
     if (!mapRef.current || !userMarkerRef.current || !location) return;
 
     const { latitude, longitude } = location;
-    mapRef.current.setView([latitude, longitude], mapRef.current.getZoom(), {
-      animate: true,
-    });
-    userMarkerRef.current.setLatLng([latitude, longitude]);
+    mapRef.current.easeTo({ center: [longitude, latitude] });
+    userMarkerRef.current.setLngLat([longitude, latitude]);
   }, [location]);
 
   return <View ref={containerRef} style={styles.container} />;
