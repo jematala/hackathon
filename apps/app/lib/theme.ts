@@ -30,6 +30,12 @@ export const colors = {
   // Cream text on dark sage
   creamText: "#F2EAD3",
 
+  // Auth screens (landing / login / register / verify) — sampled from mocks
+  authCream: "#FDEDD4",
+  authSage: "#5A7258",
+  authSageDark: "#4A5F49",
+  authError: "#C0392B",
+
   // Flower pin palette
   pinYellow: "#F2C84B",
   pinYellowDark: "#B68A20",
