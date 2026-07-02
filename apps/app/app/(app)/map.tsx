@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -32,6 +32,31 @@ export default function MapScreen() {
   const pois = usePois({ campusId: UNSW_CAMPUS_ID });
   const createBillboard = useCreateBillboard();
   const { location, isDenied, canAskAgain, requestPermission } = useUserLocation();
+
+  // Stable references: only rebuild these arrays when the query data actually
+  // changes, so the Map's effects don't re-run on every render.
+  const billboardMarkers = useMemo(
+    () =>
+      (billboards.data ?? []).map((billboard) => ({
+        id: billboard.id,
+        title: billboard.body,
+        lat: billboard.lat,
+        lng: billboard.lng,
+      })),
+    [billboards.data],
+  );
+  const poiMarkers = useMemo(
+    () =>
+      (pois.data ?? []).map((poi) => ({
+        id: poi.id,
+        title: poi.title,
+        description: poi.description,
+        lat: poi.lat,
+        lng: poi.lng,
+        visited: poi.visited,
+      })),
+    [pois.data],
+  );
 
   const closeCreate = () => {
     setCreateOpen(false);
@@ -85,21 +110,9 @@ export default function MapScreen() {
       <Map
         ref={mapRef}
         location={location}
-        billboards={(billboards.data ?? []).map((billboard) => ({
-          id: billboard.id,
-          title: billboard.body,
-          lat: billboard.lat,
-          lng: billboard.lng,
-        }))}
+        billboards={billboardMarkers}
         onBillboardPress={setActiveBillboardId}
-        pois={(pois.data ?? []).map((poi) => ({
-          id: poi.id,
-          title: poi.title,
-          description: poi.description,
-          lat: poi.lat,
-          lng: poi.lng,
-          visited: poi.visited,
-        }))}
+        pois={poiMarkers}
       />
       {billboards.isLoading || pois.isLoading ? (
         <View style={styles.mapStatus}>

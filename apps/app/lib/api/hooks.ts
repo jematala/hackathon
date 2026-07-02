@@ -13,10 +13,13 @@ import {
   listPoisResponseSchema,
   listQuestsResponseSchema,
   listSavedStickersResponseSchema,
+  upsertPoiResponseSchema,
   type CreateBillboardInput,
   type CreatePlacementInput,
+  type CreatePoiInput,
   type CreateSavedStickerInput,
   type CreateStickerInput,
+  type UpdatePoiInput,
 } from "@repo/shared";
 import { useAuth } from "@clerk/expo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -86,6 +89,24 @@ export function usePois(filter?: { campusId?: string }) {
         schema: listPoisResponseSchema,
       }),
     select: (data) => data.pois,
+  });
+}
+
+export function useUpsertPoi() {
+  const auth = useApiAuth();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePoiInput | UpdatePoiInput) =>
+      apiFetch({
+        method: "POST",
+        path: "/api/pois",
+        body: input,
+        getToken: auth.getToken,
+        schema: upsertPoiResponseSchema,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pois"] });
+    },
   });
 }
 

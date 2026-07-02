@@ -18,19 +18,42 @@ const TILE_ATTR =
 
 type MapHandle = { invalidateSize: () => void };
 
+const DRAFT_ICON = L.divIcon({
+  className: "poi-marker",
+  html: `<div class="poi-marker-inner" style="font-size:32px;line-height:32px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));">📍</div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 30],
+});
+
 export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
-  { location, billboards, onBillboardPress, pois },
+  { location, billboards, onBillboardPress, pois, onMapPress, draftPin },
   ref,
 ) {
   const containerRef = useRef<View | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
+  const draftMarkerRef = useRef<L.Marker | null>(null);
+  const poiMarkersRef = useRef<L.Marker[]>([]);
+  const billboardMarkersRef = useRef<L.Marker[]>([]);
   const { avatarUri } = useUserProfile();
+
+  // Latest-value refs so the create-once map effect and Leaflet event
+  // handlers always see fresh props without re-running the effect.
+  const onMapPressRef = useRef(onMapPress);
+  onMapPressRef.current = onMapPress;
+  const onBillboardPressRef = useRef(onBillboardPress);
+  onBillboardPressRef.current = onBillboardPress;
+  const locationRef = useRef(location);
+  locationRef.current = location;
+  const avatarUriRef = useRef(avatarUri);
+  avatarUriRef.current = avatarUri;
 
   useImperativeHandle(ref, () => ({
     invalidateSize: () => mapRef.current?.invalidateSize(),
   }));
 
+  // Create the map exactly once. Marker data must never tear this down —
+  // billboards/POIs are managed by their own effects below.
   useEffect(() => {
     if (Platform.OS !== "web") return;
     if (typeof window === "undefined") return;
@@ -38,8 +61,12 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
     const container = containerRef.current as unknown as HTMLElement;
     if (!container) return;
 
+    const initialCenter = locationRef.current
+      ? { lat: locationRef.current.latitude, lng: locationRef.current.longitude }
+      : UNSW_CENTER;
+
     const map = L.map(container, {
-      center: [UNSW_CENTER.lat, UNSW_CENTER.lng],
+      center: [initialCenter.lat, initialCenter.lng],
       zoom: 19,
       minZoom: 18,
       zoomControl: false,
@@ -52,28 +79,17 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
       maxNativeZoom: 21,
     }).addTo(map);
 
-    for (const poi of pois) {
-      L.marker([poi.lat, poi.lng], {
-        icon: createPOIIcon(poi.title),
-      })
-        .addTo(map)
-        .bindPopup(
-          `<strong>${escapeHtml(poi.title)}</strong><br/>${escapeHtml(poi.description ?? "")}`,
-        );
-    }
-
-    for (const billboard of billboards) {
-      L.marker([billboard.lat, billboard.lng], {
-        icon: createBillboardIcon(billboard.title),
-      })
-        .addTo(map)
-        .on("click", () => onBillboardPress?.(billboard.id));
-    }
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      onMapPressRef.current?.(e.latlng.lat, e.latlng.lng);
+    });
 
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
-    const useDrawn = Boolean(avatarUri);
-    userMarkerRef.current = L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
-      icon: createUserAvatarIcon(avatarUri ?? fallbackUrl, useDrawn ? DRAWN_AVATAR_BG : undefined),
+    const initialAvatar = avatarUriRef.current;
+    userMarkerRef.current = L.marker([initialCenter.lat, initialCenter.lng], {
+      icon: createUserAvatarIcon(
+        initialAvatar ?? fallbackUrl,
+        initialAvatar ? DRAWN_AVATAR_BG : undefined,
+      ),
     }).addTo(map);
 
     mapRef.current = map;
@@ -82,8 +98,66 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
       map.remove();
       mapRef.current = null;
       userMarkerRef.current = null;
+      draftMarkerRef.current = null;
+      poiMarkersRef.current = [];
+      billboardMarkersRef.current = [];
     };
-  }, [avatarUri, billboards, onBillboardPress, pois]);
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    for (const marker of poiMarkersRef.current) marker.remove();
+    poiMarkersRef.current = pois.map((poi) =>
+      L.marker([poi.lat, poi.lng], {
+        icon: createPOIIcon(poi.title),
+      })
+        .addTo(map)
+        .bindPopup(
+          `<strong>${escapeHtml(poi.title)}</strong><br/>${escapeHtml(poi.description ?? "")}`,
+        ),
+    );
+  }, [pois]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    for (const marker of billboardMarkersRef.current) marker.remove();
+    billboardMarkersRef.current = billboards.map((billboard) =>
+      L.marker([billboard.lat, billboard.lng], {
+        icon: createBillboardIcon(billboard.title),
+      })
+        .addTo(map)
+        .on("click", () => onBillboardPressRef.current?.(billboard.id)),
+    );
+  }, [billboards]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!draftPin) {
+      if (draftMarkerRef.current) {
+        draftMarkerRef.current.remove();
+        draftMarkerRef.current = null;
+      }
+      return;
+    }
+
+    if (draftMarkerRef.current) {
+      draftMarkerRef.current.setLatLng([draftPin.lat, draftPin.lng]);
+    } else {
+      draftMarkerRef.current = L.marker([draftPin.lat, draftPin.lng], {
+        icon: DRAFT_ICON,
+        zIndexOffset: 1000,
+      }).addTo(map);
+    }
+  }, [draftPin]);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;

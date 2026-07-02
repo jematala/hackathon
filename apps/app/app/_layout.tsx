@@ -100,6 +100,7 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)/sign-in" />
             <Stack.Screen name="(auth)/sign-up" />
             <Stack.Screen name="(app)" />
+            <Stack.Screen name="admin/pois" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="avatar/create" options={{ animation: "slide_from_bottom" }} />
             <Stack.Screen name="billboard/[id]" options={{ animation: "slide_from_right" }} />
             <Stack.Screen name="billboards/index" options={{ animation: "slide_from_right" }} />

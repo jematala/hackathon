@@ -115,8 +115,20 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
 }
 
 export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(
-  function Map({ billboards, onBillboardPress, pois, location }, _ref) {
+  function Map(
+    { billboards, onBillboardPress, pois, location, onMapPress, draftPin },
+    _ref,
+  ) {
     const [selectedPOI, setSelectedPOI] = useState<MapPoi | null>(null);
+
+    const handleMapPress = (event: any) => {
+      setSelectedPOI(null);
+      const coords = event?.geometry?.coordinates;
+      if (onMapPress && Array.isArray(coords) && coords.length >= 2) {
+        const [lng, lat] = coords;
+        onMapPress(lat, lng);
+      }
+    };
 
     const userAvatarUrl = Asset.fromModule(
       require('@/assets/images/avatar.png'),
@@ -127,12 +139,16 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(
 
     return (
       <View style={styles.container}>
-        <MapLibre
-          style={styles.map}
-          mapStyle={MAP_STYLE}
-          onPress={() => setSelectedPOI(null)}
-        >
+        <MapLibre style={styles.map} mapStyle={MAP_STYLE} onPress={handleMapPress}>
           <Camera center={userCoord} zoom={18} duration={1000} easing="fly" />
+          {draftPin && (
+            <Marker lngLat={[draftPin.lng, draftPin.lat]} anchor="bottom">
+              <View style={poiStyles.markerContainer}>
+                <View style={[poiStyles.mainBox, poiStyles.mainBoxSelected]} />
+                <View style={poiStyles.baseBar} />
+              </View>
+            </Marker>
+          )}
           {pois.map((poi) => (
             <POIMarker
               key={poi.id}

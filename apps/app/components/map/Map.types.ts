@@ -22,4 +22,8 @@ export type MapProps = {
   billboards: MapPoint[];
   onBillboardPress?: (id: string) => void;
   pois: MapPoi[];
+  /** Called with the tapped coordinates when the map surface is pressed. */
+  onMapPress?: (lat: number, lng: number) => void;
+  /** A pending/draft pin to render (e.g. while placing a new POI). */
+  draftPin?: { lat: number; lng: number } | null;
 };

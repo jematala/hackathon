@@ -19,12 +19,14 @@ import {
   MapPin,
   MessageSquare,
   Pencil,
+  Shield,
   Sparkles,
   Sticker,
 } from "lucide-react-native";
 
 import { Screen } from "@/components/Screen";
 import { colors, fonts, pixelBorder, stickerPalette } from "@/app/theme";
+import { useCurrentUser } from "@/lib/api/hooks";
 import { setUsername, useUserProfile } from "@/lib/userProfile";
 
 const AVATAR_SIZE = 132;
@@ -163,6 +165,7 @@ function SectionLabel({ children }: { children: string }) {
 
 export default function ProfileScreen() {
   const { signOut } = useAuth();
+  const currentUser = useCurrentUser();
   const xpProgress = useMemo(() => DEMO_USER.xpCurrent / DEMO_USER.xpForNext, []);
   const profile = useUserProfile();
   const unlockedCount = PERKS.filter((p) => p.unlocked).length;
@@ -333,6 +336,18 @@ export default function ProfileScreen() {
       <Text style={styles.slotsHint}>
         {SAVED_STICKERS.length}/12 slots used · unlock more at level 7
       </Text>
+
+      {/* ── Admin ─────────────────────────────────── */}
+      {currentUser.data?.isAdmin ? (
+        <Pressable
+          accessibilityLabel="Open POI dashboard"
+          onPress={() => router.push("/admin/pois" as any)}
+          style={({ pressed }) => [styles.adminBtn, pressed && styles.pressed]}
+        >
+          <Shield color={colors.primary} size={16} />
+          <Text style={styles.adminLabel}>POI dashboard</Text>
+        </Pressable>
+      ) : null}
 
       {/* ── Sign out ──────────────────────────────── */}
       <Pressable
@@ -764,6 +779,25 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family,
     fontSize: 14,
     marginTop: -4,
+  },
+
+  // ── ADMIN ─────────────────────────────
+  adminBtn: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: colors.card,
+    borderColor: colors.primary,
+    borderWidth: 2,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+  },
+  adminLabel: {
+    color: colors.primary,
+    fontFamily: fonts.family,
+    fontSize: 18,
   },
 
   // ── SIGN OUT ──────────────────────────
