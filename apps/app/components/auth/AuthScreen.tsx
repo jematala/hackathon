@@ -45,15 +45,15 @@ const styles = StyleSheet.create({
   },
   wordmarkWrap: {
     alignSelf: "center",
-    borderBottomWidth: 4,
+    borderBottomWidth: 5,
     borderColor: colors.authSage,
-    marginBottom: 40,
+    marginBottom: 48,
     paddingBottom: 2,
   },
   wordmark: {
     color: colors.authSage,
     fontFamily: fonts.family,
-    fontSize: 52,
-    lineHeight: 52,
+    fontSize: 68,
+    lineHeight: 68,
   },
 });

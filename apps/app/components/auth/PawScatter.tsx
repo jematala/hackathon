@@ -10,16 +10,17 @@ type PawSpot = {
   rotate: string;
 };
 
-// Fixed layout (deterministic — no per-render randomness), lower third of the
-// screen, arrangement matched to the mock.
+// Fixed layout (deterministic — no per-render randomness) matched to the
+// Figma mock: a walking trail climbing diagonally from the bottom-left corner
+// to the right edge, steps alternating like footprints.
 const LAYOUT: PawSpot[] = [
-  { left: "6%", bottom: 28, size: 48, rotate: "-18deg" },
-  { left: "28%", bottom: 8, size: 56, rotate: "8deg" },
-  { left: "34%", bottom: 108, size: 44, rotate: "-6deg" },
-  { left: "56%", bottom: 62, size: 40, rotate: "16deg" },
-  { left: "64%", bottom: 172, size: 52, rotate: "-10deg" },
-  { left: "82%", bottom: 124, size: 48, rotate: "12deg" },
-  { left: "88%", bottom: 14, size: 44, rotate: "-4deg" },
+  { left: "-3%", bottom: 14, size: 66, rotate: "16deg" },
+  { left: "24%", bottom: 4, size: 70, rotate: "36deg" },
+  { left: "27%", bottom: 106, size: 62, rotate: "14deg" },
+  { left: "54%", bottom: 70, size: 66, rotate: "34deg" },
+  { left: "60%", bottom: 176, size: 58, rotate: "16deg" },
+  { left: "86%", bottom: 130, size: 66, rotate: "38deg" },
+  { left: "92%", bottom: 232, size: 56, rotate: "18deg" },
 ];
 
 // react-native-web passes this through to the DOM; keeps the pixel art crisp

@@ -62,7 +62,8 @@ const styles = StyleSheet.create({
     backgroundColor: authColors.authSage,
     borderColor: authColors.authSage,
     borderRadius: 6,
-    minWidth: 140,
+    minHeight: 56,
+    minWidth: 190,
   },
   sageActive: {
     backgroundColor: authColors.authSageDark,
@@ -84,5 +85,6 @@ const styles = StyleSheet.create({
   },
   labelSage: {
     color: authColors.authCream,
+    fontSize: fonts.sizes.xl,
   },
 });
