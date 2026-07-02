@@ -1,16 +1,19 @@
 import { useAuth } from "@clerk/expo";
-import { Redirect } from "expo-router";
-import { StyleSheet, View } from "react-native";
+import { Redirect, useRouter } from "expo-router";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
-import { ThemedText } from "@/components/ThemedText";
+import { AuthScreen } from "@/components/auth/AuthScreen";
+import { Button } from "@/components/Button";
+import { colors } from "@/lib/theme";
 
 export default function HomeScreen() {
   const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const router = useRouter();
 
   if (!isLoaded) {
     return (
-      <View style={styles.loadingContainer}>
-        <ThemedText type="default">Loading...</ThemedText>
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.authSage} size="large" />
       </View>
     );
   }
@@ -19,13 +22,25 @@ export default function HomeScreen() {
     return <Redirect href="/(app)/map" />;
   }
 
-  return <Redirect href="/(auth)/sign-in" />;
+  return (
+    <AuthScreen>
+      <View style={styles.buttons}>
+        <Button label="login" onPress={() => router.push("/(auth)/sign-in")} variant="sage" />
+        <Button label="register" onPress={() => router.push("/(auth)/sign-up")} variant="sage" />
+      </View>
+    </AuthScreen>
+  );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
+  loading: {
     alignItems: "center",
+    backgroundColor: colors.authCream,
     flex: 1,
     justifyContent: "center",
+  },
+  buttons: {
+    alignSelf: "center",
+    gap: 12,
   },
 });
