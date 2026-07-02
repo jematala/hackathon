@@ -44,7 +44,7 @@ export default function SignUpScreen() {
         return;
       }
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      router.push("/(auth)/verify" as any);
+      router.push("/(auth)/verify");
     } catch (err) {
       setError(clerkErrorMessage(err));
     } finally {
