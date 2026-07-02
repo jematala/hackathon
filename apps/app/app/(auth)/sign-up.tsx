@@ -1,1 +1,1 @@
-export { default } from "./sign-in.web";
+export { default } from "./sign-up.web";
