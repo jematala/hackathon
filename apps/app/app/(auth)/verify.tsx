@@ -18,6 +18,7 @@ export default function VerifyScreen() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) {
@@ -62,15 +63,18 @@ export default function VerifyScreen() {
   };
 
   const resend = async () => {
-    if (!isLoaded || cooldown > 0) {
+    if (!isLoaded || resending || cooldown > 0) {
       return;
     }
+    setResending(true);
     setError(null);
     try {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setCooldown(30);
     } catch (err) {
       setError(clerkErrorMessage(err));
+    } finally {
+      setResending(false);
     }
   };
 

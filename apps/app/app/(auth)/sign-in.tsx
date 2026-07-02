@@ -1,5 +1,6 @@
+import { useAuth } from "@clerk/expo";
 import { useSignIn } from "@clerk/expo/legacy";
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
@@ -16,6 +17,12 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  const { isSignedIn } = useAuth();
+
+  if (isSignedIn) {
+    return <Redirect href="/(app)/map" />;
+  }
 
   const submit = async () => {
     if (!isLoaded || pending) {
