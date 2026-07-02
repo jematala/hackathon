@@ -13,7 +13,7 @@ import { Button } from "@/components/Button";
 export default function SignInScreen() {
   const { isLoaded, setActive, signIn } = useSignIn();
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -31,7 +31,7 @@ export default function SignInScreen() {
     setError(null);
     setPending(true);
     try {
-      const attempt = await signIn.create({ identifier: username.trim(), password });
+      const attempt = await signIn.create({ identifier: identifier.trim(), password });
       if (attempt.status === "complete") {
         await setActive({ session: attempt.createdSessionId });
         router.replace("/(app)/map");
@@ -50,9 +50,10 @@ export default function SignInScreen() {
       <PixelInput
         autoCapitalize="none"
         autoCorrect={false}
-        onChangeText={setUsername}
-        placeholder="username..."
-        value={username}
+        keyboardType="email-address"
+        onChangeText={setIdentifier}
+        placeholder="username or email..."
+        value={identifier}
       />
       <PixelInput
         onChangeText={setPassword}
