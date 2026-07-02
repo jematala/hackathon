@@ -34,7 +34,6 @@ export const colors = {
   authCream: "#FDEDD4",
   authSage: "#5A7258",
   authSageDark: "#4A5F49",
-  authError: "#C0392B",
 
   // Flower pin palette
   pinYellow: "#F2C84B",

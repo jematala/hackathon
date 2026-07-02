@@ -11,8 +11,6 @@ import { PixelInput } from "@/components/auth/PixelInput";
 import { Button } from "@/components/Button";
 import { colors } from "@/lib/theme";
 
-const RESEND_COOLDOWN_SECONDS = 30;
-
 export default function VerifyScreen() {
   const { isLoaded, setActive, signUp } = useSignUp();
   const router = useRouter();
@@ -70,7 +68,7 @@ export default function VerifyScreen() {
     setError(null);
     try {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setCooldown(RESEND_COOLDOWN_SECONDS);
+      setCooldown(30);
     } catch (err) {
       setError(clerkErrorMessage(err));
     }

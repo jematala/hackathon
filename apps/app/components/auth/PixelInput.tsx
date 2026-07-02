@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import { StyleSheet, TextInput } from "react-native";
 
-import { fonts } from "@/app/theme";
+import { colors as appColors, fonts } from "@/app/theme";
 import { colors } from "@/lib/theme";
 
 type PixelInputProps = {
@@ -33,6 +33,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   error: {
-    borderColor: colors.authError,
+    borderColor: appColors.danger,
   },
 });

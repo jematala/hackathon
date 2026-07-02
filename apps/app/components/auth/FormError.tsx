@@ -1,7 +1,6 @@
 import { StyleSheet, Text } from "react-native";
 
-import { fonts } from "@/app/theme";
-import { colors } from "@/lib/theme";
+import { colors as appColors, fonts } from "@/app/theme";
 
 export function FormError({ message }: { message: string | null }) {
   if (!message) {
@@ -12,7 +11,7 @@ export function FormError({ message }: { message: string | null }) {
 
 const styles = StyleSheet.create({
   text: {
-    color: colors.authError,
+    color: appColors.danger,
     fontFamily: fonts.family,
     fontSize: fonts.sizes.sm,
     marginTop: 8,
