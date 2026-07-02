@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/expo";
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -161,6 +162,7 @@ function SectionLabel({ children }: { children: string }) {
 }
 
 export default function ProfileScreen() {
+  const { signOut } = useAuth();
   const xpProgress = useMemo(() => DEMO_USER.xpCurrent / DEMO_USER.xpForNext, []);
   const profile = useUserProfile();
   const unlockedCount = PERKS.filter((p) => p.unlocked).length;
@@ -178,6 +180,18 @@ export default function ProfileScreen() {
     setUsername(draftName);
     setNameModalOpen(false);
   }, [draftName]);
+
+  const [signingOut, setSigningOut] = useState(false);
+  const handleSignOut = useCallback(async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/");
+    } catch {
+      setSigningOut(false);
+    }
+  }, [signingOut, signOut]);
 
   return (
     <Screen>
@@ -320,9 +334,13 @@ export default function ProfileScreen() {
       </Text>
 
       {/* ── Sign out ──────────────────────────────── */}
-      <Pressable style={({ pressed }) => [styles.signOutBtn, pressed && styles.pressed]}>
+      <Pressable
+        disabled={signingOut}
+        onPress={handleSignOut}
+        style={({ pressed }) => [styles.signOutBtn, pressed && styles.pressed]}
+      >
         <LogOut color={colors.danger} size={16} />
-        <Text style={styles.signOutLabel}>sign out</Text>
+        <Text style={styles.signOutLabel}>{signingOut ? "signing out…" : "sign out"}</Text>
       </Pressable>
 
       <Modal
