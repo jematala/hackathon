@@ -1,4 +1,5 @@
 import type { ComponentProps } from "react";
+import { useState } from "react";
 import { StyleSheet, TextInput } from "react-native";
 
 import { colors as appColors, fonts } from "@/app/theme";
@@ -8,9 +9,26 @@ type PixelInputProps = {
   hasError?: boolean;
 } & ComponentProps<typeof TextInput>;
 
-export function PixelInput({ hasError = false, style, ...props }: PixelInputProps) {
+export function PixelInput({
+  hasError = false,
+  onBlur,
+  onFocus,
+  placeholder,
+  style,
+  ...props
+}: PixelInputProps) {
+  const [focused, setFocused] = useState(false);
   return (
     <TextInput
+      onBlur={(e) => {
+        setFocused(false);
+        onBlur?.(e);
+      }}
+      onFocus={(e) => {
+        setFocused(true);
+        onFocus?.(e);
+      }}
+      placeholder={focused ? undefined : placeholder}
       placeholderTextColor={colors.authSage}
       style={[styles.input, hasError ? styles.error : null, style]}
       {...props}
