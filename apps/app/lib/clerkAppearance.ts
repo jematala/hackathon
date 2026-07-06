@@ -9,7 +9,7 @@ const C = {
   paperSoft: "#FAF3DF",
   paperEdge: "#DDD3A8",
   sage: "#7A8F65",
-  sageDark: "#4D5E40",
+  sageDark: "#5A7258",
   sageDarker: "#384730",
   ink: "#3E3528",
   inkSoft: "#6B5E50",

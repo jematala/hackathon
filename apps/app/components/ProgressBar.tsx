@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   fill: {
-    backgroundColor: "#5b7559",
+    backgroundColor: "#5A7258",
     height: "100%",
   },
   label: {

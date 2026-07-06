@@ -1,104 +1,124 @@
-import { router } from "expo-router";
+import { Menu, X } from "lucide-react-native";
+import { useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { fonts } from "@/app/theme";
+import { colors } from "@/lib/theme";
 import { useUserProfile } from "@/lib/userProfile";
 
-const HUD_BUTTON_SIZE = 100;
-const COLOR_FG = "#5b7559";
-const XP_COLOR = "#4A90D9";
-const RING_SIZE = HUD_BUTTON_SIZE + 10;
-const RING_STROKE = 3;
+const PROFILE_SIZE = 128;
+const AVATAR_SIZE = PROFILE_SIZE;
+const MENU_BUTTON_SIZE = 54;
+const COLOR_FG = colors.sageDark;
+const COLOR_FG_DARK = colors.sageDarker;
+const COLOR_BG = colors.pageBgSoft;
+const COLOR_TEXT = colors.creamText;
 
-// progress: float between 0 and 1
-function makeXpRingUri(progress: number): string {
-  const r = (RING_SIZE - RING_STROKE) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ * (1 - progress);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${RING_SIZE}" height="${RING_SIZE}" viewBox="0 0 ${RING_SIZE} ${RING_SIZE}">
-    <circle cx="${RING_SIZE / 2}" cy="${RING_SIZE / 2}" r="${r}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="${RING_STROKE}"/>
-    <circle cx="${RING_SIZE / 2}" cy="${RING_SIZE / 2}" r="${r}" fill="none" stroke="${XP_COLOR}" stroke-width="${RING_STROKE}"
-      stroke-dasharray="${circ}" stroke-dashoffset="${offset}" transform="rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})" stroke-linecap="round"/>
-  </svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-
-function ProfileButton() {
+function ProfileButton({ onOpenProfile }: { onOpenProfile: () => void }) {
   const { avatarUri } = useUserProfile();
   const useDrawn = Boolean(avatarUri);
   const source = avatarUri ? { uri: avatarUri } : require("@/assets/images/avatar.png");
+
   return (
     <View style={styles.leftSection}>
-      <Text style={styles.levelLabel}>lv22</Text>
-
-      <View style={styles.profileWrapper}>
-        <Image source={{ uri: makeXpRingUri(0.72) }} style={styles.xpRing} />
-        <Pressable
-          onPress={() => router.push("/profile" as any)}
-          style={({ pressed }) => [styles.profileButton, { opacity: pressed ? 0.7 : 1 }]}
-        >
+      <Pressable
+        onPress={onOpenProfile}
+        accessibilityLabel="Open profile"
+        style={({ pressed }) => [styles.profileButton, { opacity: pressed ? 0.78 : 1 }]}
+      >
+        <View style={styles.avatarFrame}>
           <Image
             source={source}
             style={[styles.profileImage, useDrawn && styles.profileImageDrawn]}
           />
-        </Pressable>
+        </View>
+      </Pressable>
+      <View style={styles.levelBadge}>
+        <Text style={styles.levelLabel}>lv22</Text>
       </View>
     </View>
   );
 }
 
-function TextButton({ label, onPress }: { label: string; onPress: () => void }) {
+function MenuItem({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.textButton, { opacity: pressed ? 0.7 : 1 }]}
+      style={({ pressed }) => [styles.menuItem, { opacity: pressed ? 0.78 : 1 }]}
     >
-      <Text style={styles.textLabel}>{label}</Text>
+      <Text style={styles.menuItemLabel}>{label}</Text>
     </Pressable>
   );
 }
 
-function AddButton({ onPress }: { onPress: () => void }) {
+function MenuToggle({ isOpen, onPress }: { isOpen: boolean; onPress: () => void }) {
+  const Icon = isOpen ? X : Menu;
+
   return (
     <Pressable
       onPress={onPress}
-      accessibilityLabel="Create billboard"
-      style={({ pressed }) => [styles.addButton, { opacity: pressed ? 0.7 : 1 }]}
+      accessibilityLabel={isOpen ? "Close map menu" : "Open map menu"}
+      style={({ pressed }) => [styles.menuToggle, { opacity: pressed ? 0.78 : 1 }]}
     >
-      <Text style={styles.addLabel}>+</Text>
+      <Icon color={COLOR_TEXT} size={34} strokeWidth={3.5} />
     </Pressable>
   );
 }
 
 type MapHUDProps = {
   onCreateBillboard: () => void;
+  onOpenProfile: () => void;
+  onOpenQuests: () => void;
+  onOpenStudio: () => void;
   isPermissionDenied?: boolean;
   onEnableLocation?: () => void;
 };
 
-export function MapHUD({ onCreateBillboard, isPermissionDenied, onEnableLocation }: MapHUDProps) {
+export function MapHUD({
+  onCreateBillboard,
+  onOpenProfile,
+  onOpenQuests,
+  onOpenStudio,
+  isPermissionDenied,
+  onEnableLocation,
+}: MapHUDProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const openFromMenu = (action: () => void) => {
+    setIsMenuOpen(false);
+    action();
+  };
+
+  const handleCreateBillboard = () => {
+    setIsMenuOpen(false);
+    onCreateBillboard();
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="box-none">
       {isPermissionDenied && (
         <View style={styles.permissionBanner}>
           <Text style={styles.permissionText}>Enable location to see nearby quests & POIs</Text>
           <Pressable
             onPress={onEnableLocation}
-            style={({ pressed }) => [styles.permissionButton, { opacity: pressed ? 0.7 : 1 }]}
+            style={({ pressed }) => [styles.permissionButton, { opacity: pressed ? 0.78 : 1 }]}
           >
             <Text style={styles.permissionButtonText}>Enable</Text>
           </Pressable>
         </View>
       )}
-      <View style={styles.bottomRow}>
-        <ProfileButton />
-        <View style={styles.rightStack}>
-          <AddButton onPress={onCreateBillboard} />
-          <View style={styles.rightCluster}>
-            <TextButton label="Quests" onPress={() => router.push("/quests" as any)} />
-            <View style={{ width: 10 }} />
-            <TextButton label="Studio" onPress={() => router.push("/studio" as any)} />
-          </View>
+      <View style={styles.bottomRow} pointerEvents="box-none">
+        <ProfileButton onOpenProfile={onOpenProfile} />
+        <View style={styles.menuStack}>
+          {isMenuOpen && (
+            <View style={styles.menuItems}>
+              <MenuItem label="quests" onPress={() => openFromMenu(onOpenQuests)} />
+              <MenuItem label="create" onPress={handleCreateBillboard} />
+              <MenuItem label="studio" onPress={() => openFromMenu(onOpenStudio)} />
+              <MenuItem label="profile" onPress={() => openFromMenu(onOpenProfile)} />
+            </View>
+          )}
+          <MenuToggle isOpen={isMenuOpen} onPress={() => setIsMenuOpen((open) => !open)} />
         </View>
       </View>
     </View>
@@ -108,119 +128,131 @@ export function MapHUD({ onCreateBillboard, isPermissionDenied, onEnableLocation
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    left: 15,
-    right: 15,
-    bottom: 15,
+    left: 14,
+    right: 12,
+    bottom: 12,
   },
   bottomRow: {
+    alignItems: "flex-end",
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
   },
   permissionBanner: {
-    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#5b7559",
-    borderRadius: 12,
+    backgroundColor: COLOR_FG,
+    borderColor: COLOR_FG_DARK,
+    borderRadius: 8,
+    borderWidth: 3,
+    flexDirection: "row",
+    marginBottom: 10,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    marginBottom: 10,
   },
   permissionText: {
-    color: "#ffedd6",
+    color: COLOR_TEXT,
+    flex: 1,
     fontFamily: fonts.family,
     fontSize: 16,
-    flex: 1,
   },
   permissionButton: {
-    backgroundColor: "#ffedd6",
+    backgroundColor: COLOR_BG,
     borderRadius: 8,
+    marginLeft: 12,
     paddingHorizontal: 16,
     paddingVertical: 6,
-    marginLeft: 12,
   },
   permissionButtonText: {
-    color: "#5b7559",
+    color: COLOR_FG,
     fontFamily: fonts.family,
     fontSize: 18,
   },
   leftSection: {
-    flexDirection: "column",
     alignItems: "center",
-  },
-  profileWrapper: {
-    alignItems: "center",
-    height: RING_SIZE,
-    justifyContent: "center",
-    width: RING_SIZE,
-  },
-  xpRing: {
-    height: RING_SIZE,
-    position: "absolute",
-    width: RING_SIZE,
+    height: PROFILE_SIZE + 14,
+    justifyContent: "flex-end",
+    marginBottom: 10,
+    width: PROFILE_SIZE + 20,
   },
   profileButton: {
     alignItems: "center",
-    borderColor: COLOR_FG,
-    borderRadius: HUD_BUTTON_SIZE / 2,
-    borderWidth: 3,
-    elevation: 8,
-    height: HUD_BUTTON_SIZE,
+    backgroundColor: "rgba(250, 243, 223, 0.72)",
+    borderRadius: 24,
+    height: PROFILE_SIZE,
     justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: { width: 2, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    width: HUD_BUTTON_SIZE,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    width: PROFILE_SIZE,
+  },
+  avatarFrame: {
+    alignItems: "center",
+    backgroundColor: COLOR_FG,
+    borderColor: COLOR_FG,
+    borderRadius: 24,
+    borderWidth: 6,
+    height: AVATAR_SIZE,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: AVATAR_SIZE,
   },
   profileImage: {
-    borderRadius: HUD_BUTTON_SIZE / 2 - 3,
-    height: HUD_BUTTON_SIZE - 6,
-    width: HUD_BUTTON_SIZE - 6,
+    height: AVATAR_SIZE,
+    width: AVATAR_SIZE,
   },
   profileImageDrawn: {
-    backgroundColor: "#faf7ef",
+    backgroundColor: "#FAF7EF",
   },
-  textButton: {
+  levelBadge: {
     alignItems: "center",
     backgroundColor: COLOR_FG,
+    borderColor: COLOR_FG,
     borderRadius: 8,
+    borderWidth: 3,
+    bottom: -10,
     justifyContent: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-  },
-  textLabel: {
-    color: "#ffedd6",
-    fontFamily: fonts.family,
-    fontSize: 28,
-  },
-  addButton: {
-    alignItems: "center",
-    backgroundColor: COLOR_FG,
-    borderRadius: 8,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
-  },
-  addLabel: {
-    color: "#ffedd6",
-    fontFamily: fonts.family,
-    fontSize: 36,
-    lineHeight: 38,
+    minHeight: 50,
+    minWidth: 78,
+    paddingHorizontal: 10,
+    position: "absolute",
+    right: 0,
   },
   levelLabel: {
-    color: "#5b7559",
+    color: COLOR_TEXT,
     fontFamily: fonts.family,
-    fontSize: 36,
-    alignSelf: "center",
+    fontSize: 30,
+    lineHeight: 32,
   },
-  rightCluster: {
-    alignSelf: "flex-end",
-    flexDirection: "row",
-  },
-  rightStack: {
+  menuStack: {
     alignItems: "flex-end",
-    alignSelf: "flex-end",
     gap: 10,
+  },
+  menuItems: {
+    alignItems: "flex-end",
+    gap: 10,
+  },
+  menuItem: {
+    alignItems: "center",
+    backgroundColor: COLOR_FG,
+    borderRadius: 8,
+    justifyContent: "center",
+    minHeight: 54,
+    minWidth: 142,
+    paddingHorizontal: 18,
+  },
+  menuItemLabel: {
+    color: COLOR_TEXT,
+    fontFamily: fonts.family,
+    fontSize: 32,
+    lineHeight: 34,
+    textTransform: "lowercase",
+  },
+  menuToggle: {
+    alignItems: "center",
+    backgroundColor: COLOR_FG,
+    borderRadius: 8,
+    height: MENU_BUTTON_SIZE,
+    justifyContent: "center",
+    width: MENU_BUTTON_SIZE,
   },
 });

@@ -5,7 +5,7 @@ export const colors = {
 
   // Sage greens — frame, buttons, primary accent
   sage: "#7A8F65",
-  sageDark: "#4D5E40",
+  sageDark: "#5A7258",
   sageDarker: "#384730",
   sageLight: "#9FB287",
 
