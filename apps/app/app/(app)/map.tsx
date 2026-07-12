@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -268,6 +269,7 @@ function HudSheetModal({
   onClose: () => void;
   onCreateBillboard: () => void;
 }) {
+  const { height } = useWindowDimensions();
   const title =
     activeModal === "profile" ? "Profile" : activeModal === "quests" ? "Quests" : "Studio";
   const isStudio = activeModal === "studio";
@@ -277,7 +279,7 @@ function HudSheetModal({
       <View style={styles.modalRoot}>
         <Pressable style={styles.backdrop} onPress={onClose} />
         <ScrollView
-          style={styles.hudModalScroll}
+          style={[styles.hudModalScroll, { maxHeight: Math.max(360, height - 32) }]}
           contentContainerStyle={[
             styles.hudModalScrollContent,
             isStudio && styles.studioModalScrollContent,
@@ -534,7 +536,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   hudModalScroll: {
-    maxHeight: "92%",
     width: "100%",
   },
   hudModalScrollContent: {
@@ -543,8 +544,9 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   studioModalScrollContent: {
-    paddingHorizontal: 32,
-    paddingTop: 86,
+    paddingBottom: 28,
+    paddingHorizontal: 16,
+    paddingTop: 18,
   },
   hudModalPanel: {
     backgroundColor: colors.pageBg,

@@ -1,5 +1,13 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { fonts } from "@/app/theme";
 import { ApiError } from "@/lib/api/client";
 import { useCreateStickerAsset, useSaveSticker } from "@/lib/api/hooks";
@@ -32,6 +40,7 @@ export function CreateStickerPanel({
   onAvatarSaved,
 }: CreateStickerPanelProps) {
   const isAvatar = variant === "avatar";
+  const { height, width } = useWindowDimensions();
   const ref = useRef<PixelCanvasRef>(null);
   const [brushColor, setBrushColor] = useState(COLORS[0]?.value ?? "#ff5b6b");
   const [stickerName, setStickerName] = useState("");
@@ -40,6 +49,12 @@ export function CreateStickerPanel({
   const createAsset = useCreateStickerAsset();
   const saveSticker = useSaveSticker();
   const isSubmitting = !isAvatar && (createAsset.isPending || saveSticker.isPending);
+  const isCompact = width < 390 || height < 720;
+  const horizontalPanelPadding = isCompact ? 18 : 38;
+  const reservedHeight = isAvatar ? 280 : 370;
+  const canvasSize = Math.floor(
+    Math.max(184, Math.min(320, width - horizontalPanelPadding * 2 - 42, height - reservedHeight)),
+  );
 
   const handleSubmit = useCallback(async () => {
     if (!ref.current) {
@@ -102,7 +117,15 @@ export function CreateStickerPanel({
   }, [createAsset, saveSticker, isAvatar, onAvatarSaved, stickerName]);
 
   return (
-    <View style={styles.panel}>
+    <View
+      style={[
+        styles.panel,
+        {
+          paddingHorizontal: horizontalPanelPadding,
+          paddingTop: isCompact ? 22 : 32,
+        },
+      ]}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>{isAvatar ? "create avatar" : "create sticker"}</Text>
 
@@ -118,12 +141,12 @@ export function CreateStickerPanel({
       </View>
 
       <View style={styles.canvasCard}>
-        <PixelCanvas ref={ref} brushColor={brushColor} />
+        <PixelCanvas ref={ref} brushColor={brushColor} size={canvasSize} />
       </View>
 
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Colours</Text>
-        <View style={styles.palette}>
+        <View style={[styles.palette, isCompact ? styles.paletteCompact : null]}>
           {COLORS.map((c) => (
             <Pressable
               accessibilityLabel={`Select ${c.label}`}
@@ -131,6 +154,7 @@ export function CreateStickerPanel({
               onPress={() => setBrushColor(c.value)}
               style={[
                 styles.swatch,
+                isCompact ? styles.swatchCompact : null,
                 { backgroundColor: c.value },
                 brushColor === c.value && styles.swatchActive,
               ]}
@@ -202,7 +226,6 @@ const styles = StyleSheet.create({
     gap: 12,
     maxWidth: 490,
     paddingBottom: 24,
-    paddingHorizontal: 38,
     paddingTop: 32,
     shadowColor: "#2a1f15",
     shadowOffset: { width: 0, height: 8 },
@@ -233,8 +256,8 @@ const styles = StyleSheet.create({
     height: 30,
     justifyContent: "center",
     position: "absolute",
-    right: -28,
-    top: -46,
+    right: 0,
+    top: 0,
     width: 30,
   },
   closeText: {
@@ -278,6 +301,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
+  paletteCompact: {
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   swatch: {
     alignItems: "center",
     borderColor: "transparent",
@@ -286,6 +314,10 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: "center",
     width: 36,
+  },
+  swatchCompact: {
+    height: 30,
+    width: 30,
   },
   swatchActive: {
     borderColor: "#92323a",

@@ -1,27 +1,28 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
-import type { PixelCanvasRef, StickerExport } from "./PixelCanvas.types";
+import type { PixelCanvasProps, PixelCanvasRef, StickerExport } from "./PixelCanvas.types";
 
 export type { PixelCanvasRef, StickerExport };
 
 const GRID = 64;
 const SIZE = 320;
 
-const HTML = `<!DOCTYPE html>
+function makeHtml(size: number) {
+  return `<!DOCTYPE html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
- html,body{width:${SIZE}px;height:${SIZE}px;background:transparent;display:flex;justify-content:center;align-items:center;overflow:hidden}
-canvas{image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;width:${SIZE}px;height:${SIZE}px}
+ html,body{width:${size}px;height:${size}px;background:transparent;display:flex;justify-content:center;align-items:center;overflow:hidden}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;width:${size}px;height:${size}px}
 </style>
 </head>
 <body>
-<canvas id="c" width="${SIZE}" height="${SIZE}"></canvas>
+<canvas id="c" width="${size}" height="${size}"></canvas>
 <script>
-var GRID=${GRID},SIZE=${SIZE},CELL=SIZE/GRID;
+var GRID=${GRID},SIZE=${size},CELL=SIZE/GRID;
 var c=document.getElementById('c'),ctx=c.getContext('2d');
 var brushColor='#111827';
 var grid=Array.from({length:GRID},function(){return Array(GRID).fill('')});
@@ -40,17 +41,15 @@ window.addEventListener('message',onMsg);document.addEventListener('message',onM
 </script>
 </body>
 </html>`;
-
-type PixelCanvasProps = {
-  brushColor?: string;
-};
+}
 
 export const PixelCanvas = forwardRef<PixelCanvasRef, PixelCanvasProps>(function PixelCanvas(
-  { brushColor = "#111827" },
+  { brushColor = "#111827", size = SIZE },
   ref,
 ) {
   const webviewRef = useRef<WebView>(null);
   const exportResolveRef = useRef<((value: StickerExport | null) => void) | null>(null);
+  const canvasSize = Math.round(size);
 
   useImperativeHandle(
     ref,
@@ -89,9 +88,9 @@ export const PixelCanvas = forwardRef<PixelCanvasRef, PixelCanvasProps>(function
     <View style={styles.container}>
       <WebView
         ref={webviewRef}
-        source={{ html: HTML }}
+        source={{ html: makeHtml(canvasSize) }}
         onMessage={handleMessage}
-        style={styles.webview}
+        style={[styles.webview, { height: canvasSize, width: canvasSize }]}
         scrollEnabled={false}
         bounces={false}
         overScrollMode="never"
@@ -106,8 +105,6 @@ export const PixelCanvas = forwardRef<PixelCanvasRef, PixelCanvasProps>(function
 
 const styles = StyleSheet.create({
   container: {
-    width: SIZE,
-    height: SIZE,
     overflow: "hidden",
   },
   webview: {
