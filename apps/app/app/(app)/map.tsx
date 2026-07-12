@@ -1,4 +1,4 @@
-import type { BillboardPlacement, ClaimQuestResponse, QuestProgress } from "@repo/shared";
+import type { ClaimQuestResponse, QuestProgress } from "@repo/shared";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,11 +16,6 @@ import {
 
 import { fonts } from "@/app/theme";
 import { BillboardPanel } from "@/components/billboard/BillboardPanel";
-import {
-  LOCAL_AUTHOR_ID,
-  LOCAL_AUTHOR_USERNAME,
-  LocalBillboardPanel,
-} from "@/components/billboard/LocalBillboardPanel";
 import { Card } from "@/components/Card";
 import { CanvasModal } from "@/components/CanvasModal";
 import { CreateStickerPanel } from "@/components/CreateStickerPanel";
@@ -45,7 +40,6 @@ import { colors } from "@/lib/theme";
 import { useUserProfile } from "@/lib/userProfile";
 
 type HudModal = "profile" | "quests" | "studio";
-const EXAMPLE_LOCATION_BILLBOARD_ID = "example-current-location-billboard";
 
 export default function MapScreen() {
   const mapRef = useRef<{ invalidateSize: () => void }>(null);
@@ -55,7 +49,6 @@ export default function MapScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [body, setBody] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
-  const [examplePlacements, setExamplePlacements] = useState<BillboardPlacement[]>([]);
   const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
   const pois = usePois({ campusId: UNSW_CAMPUS_ID });
   const createBillboard = useCreateBillboard();
@@ -64,34 +57,14 @@ export default function MapScreen() {
     ? { lat: location.latitude, lng: location.longitude }
     : UNSW_CENTER;
   const mapBillboards = useMemo(
-    () => [
-      {
-        id: EXAMPLE_LOCATION_BILLBOARD_ID,
-        title: "Example billboard",
-        lat: billboardLocation.lat,
-        lng: billboardLocation.lng,
-      },
-      ...(billboards.data ?? []).map((billboard) => ({
+    () =>
+      (billboards.data ?? []).map((billboard) => ({
         id: billboard.id,
         title: billboard.body,
         lat: billboard.lat,
         lng: billboard.lng,
       })),
-    ],
-    [billboardLocation.lat, billboardLocation.lng, billboards.data],
-  );
-  const exampleBillboard = useMemo(
-    () => ({
-      id: EXAMPLE_LOCATION_BILLBOARD_ID,
-      authorId: LOCAL_AUTHOR_ID,
-      authorUsername: LOCAL_AUTHOR_USERNAME,
-      body: "Example billboard at my location",
-      lat: billboardLocation.lat,
-      lng: billboardLocation.lng,
-      expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-      placements: examplePlacements,
-    }),
-    [billboardLocation.lat, billboardLocation.lng, examplePlacements],
+    [billboards.data],
   );
 
   const closeCreate = () => {
@@ -188,20 +161,10 @@ export default function MapScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.modalPanel}>
-              {activeBillboardId === EXAMPLE_LOCATION_BILLBOARD_ID ? (
-                <LocalBillboardPanel
-                  billboard={exampleBillboard}
-                  onAddPlacement={(placement) =>
-                    setExamplePlacements((placements) => [...placements, placement])
-                  }
-                  onClose={() => setActiveBillboardId(null)}
-                />
-              ) : (
-                <BillboardPanel
-                  id={activeBillboardId ?? undefined}
-                  onClose={() => setActiveBillboardId(null)}
-                />
-              )}
+              <BillboardPanel
+                id={activeBillboardId ?? undefined}
+                onClose={() => setActiveBillboardId(null)}
+              />
             </View>
           </ScrollView>
         </View>
