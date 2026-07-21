@@ -529,7 +529,6 @@ function QuestSection({ title, children }: { title: string; children: React.Reac
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -546,23 +545,6 @@ const styles = StyleSheet.create({
     right: 18,
     top: 18,
     width: 42,
-  },
-  poiError: {
-    alignSelf: "center",
-    backgroundColor: "#F6D7CE",
-    borderColor: colors.pinRedDark,
-    borderRadius: 12,
-    borderWidth: 2,
-    maxWidth: 360,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    position: "absolute",
-    top: 18,
-  },
-  poiErrorText: {
-    color: colors.pinRedDark,
-    fontSize: 16,
-    textAlign: "center",
   },
   poiError: {
     alignSelf: "center",
