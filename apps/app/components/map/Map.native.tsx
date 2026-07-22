@@ -101,12 +101,13 @@ function UserAvatarMarker({ coordinate, imageUrl }: UserAvatarMarkerProps) {
 }
 
 export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function Map(
-  { billboards, onBillboardPress, onPoiCheckIn, pois, location },
+  { billboards, isPoiCheckInPending, onBillboardPress, onPoiCheckIn, pois, location },
   _ref,
 ) {
-  const [selectedPOI, setSelectedPOI] = useState<MapPoi | null>(null);
+  const [selectedPoiId, setSelectedPoiId] = useState<string | null>(null);
   const currentUser = useCurrentUser();
   const localProfile = useUserProfile();
+  const selectedPOI = pois.find((poi) => poi.id === selectedPoiId) ?? null;
 
   const userAvatarUrl =
     avatarBase64ToUri(currentUser.data?.avatarBase64) ??
@@ -118,14 +119,14 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
 
   return (
     <View style={styles.container}>
-      <MapLibre style={styles.map} mapStyle={MAP_STYLE} onPress={() => setSelectedPOI(null)}>
+      <MapLibre style={styles.map} mapStyle={MAP_STYLE} onPress={() => setSelectedPoiId(null)}>
         <Camera center={userCoord} zoom={18} duration={1000} easing="fly" />
         {pois.map((poi) => (
           <POIMarker
             key={poi.id}
             poi={poi}
-            isSelected={selectedPOI?.id === poi.id}
-            onPress={() => setSelectedPOI((prev) => (prev?.id === poi.id ? null : poi))}
+            isSelected={selectedPoiId === poi.id}
+            onPress={() => setSelectedPoiId((current) => (current === poi.id ? null : poi.id))}
           />
         ))}
 
@@ -150,7 +151,7 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
                 <Text style={styles.calloutTitle}>{selectedPOI.title}</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setSelectedPOI(null)}
+                onPress={() => setSelectedPoiId(null)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text style={styles.calloutDismiss}>✕</Text>
@@ -159,12 +160,16 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
             <Text style={styles.calloutDescription}>{selectedPOI.description ?? ""}</Text>
             <TouchableOpacity
               activeOpacity={0.8}
-              disabled={selectedPOI.visited}
+              disabled={selectedPOI.visited || isPoiCheckInPending}
               onPress={() => onPoiCheckIn?.(selectedPOI.id)}
               style={[styles.checkInButton, selectedPOI.visited ? styles.checkInButtonDone : null]}
             >
               <Text style={styles.checkInText}>
-                {selectedPOI.visited ? "Checked in" : "Check in"}
+                {selectedPOI.visited
+                  ? "Checked in"
+                  : isPoiCheckInPending
+                    ? "Checking in..."
+                    : "Check in"}
               </Text>
             </TouchableOpacity>
           </View>

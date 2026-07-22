@@ -29,10 +29,13 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
   const currentUser = useCurrentUser();
   const localProfile = useUserProfile();
   const avatarUri = avatarBase64ToUri(currentUser.data?.avatarBase64) ?? localProfile.avatarUri;
-  // ponytail: the init effect re-runs whenever billboards/pois/avatar change, so
-  // read the latest location from a ref instead of snapping back to UNSW.
+  // Keep callbacks and location current without rebuilding Leaflet for unrelated renders.
   const locationRef = useRef(location);
+  const onBillboardPressRef = useRef(onBillboardPress);
+  const onPoiCheckInRef = useRef(onPoiCheckIn);
   locationRef.current = location;
+  onBillboardPressRef.current = onBillboardPress;
+  onPoiCheckInRef.current = onPoiCheckIn;
 
   useImperativeHandle(ref, () => ({
     invalidateSize: () => mapRef.current?.invalidateSize(),
@@ -69,7 +72,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
         icon: createPOIIcon(poi.title),
       })
         .addTo(map)
-        .bindPopup(createPoiPopupContent(poi, onPoiCheckIn));
+        .bindPopup(createPoiPopupContent(poi, (id) => onPoiCheckInRef.current?.(id)));
     }
 
     for (const billboard of billboards) {
@@ -77,7 +80,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
         icon: createBillboardIcon(billboard.title),
       })
         .addTo(map)
-        .on("click", () => onBillboardPress?.(billboard.id));
+        .on("click", () => onBillboardPressRef.current?.(billboard.id));
     }
 
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
@@ -93,7 +96,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
       mapRef.current = null;
       userMarkerRef.current = null;
     };
-  }, [avatarUri, billboards, onBillboardPress, onPoiCheckIn, pois]);
+  }, [billboards, pois]);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;

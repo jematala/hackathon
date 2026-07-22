@@ -41,7 +41,7 @@ import {
   useVisitPoi,
 } from "@/lib/api/hooks";
 import { colors } from "@/lib/theme";
-import { avatarBase64ToUri, useUserProfile } from "@/lib/userProfile";
+import { avatarBase64ToUri, resetUserProfile, useUserProfile } from "@/lib/userProfile";
 
 type HudModal = "profile" | "quests" | "studio";
 
@@ -70,6 +70,18 @@ export default function MapScreen() {
         lng: billboard.lng,
       })),
     [billboards.data],
+  );
+  const mapPois = useMemo(
+    () =>
+      (pois.data ?? []).map((poi) => ({
+        id: poi.id,
+        title: poi.title,
+        description: poi.description,
+        lat: poi.lat,
+        lng: poi.lng,
+        visited: poi.visited,
+      })),
+    [pois.data],
   );
   const visitPoi = useVisitPoi({ campusId: UNSW_CAMPUS_ID });
 
@@ -161,16 +173,10 @@ export default function MapScreen() {
         ref={mapRef}
         location={location}
         billboards={mapBillboards}
+        isPoiCheckInPending={visitPoi.isPending}
         onBillboardPress={handleBillboardPress}
         onPoiCheckIn={checkInToPoi}
-        pois={(pois.data ?? []).map((poi) => ({
-          id: poi.id,
-          title: poi.title,
-          description: poi.description,
-          lat: poi.lat,
-          lng: poi.lng,
-          visited: poi.visited,
-        }))}
+        pois={mapPois}
       />
       {billboards.isLoading || pois.isLoading ? (
         <View style={styles.mapStatus}>
@@ -260,6 +266,10 @@ export default function MapScreen() {
           setActiveHudModal(null);
           setCreateOpen(true);
         }}
+        onOpenFullProfile={() => {
+          setActiveHudModal(null);
+          router.push("/(app)/profile" as any);
+        }}
       />
       <CanvasModal visible={isCanvasOpen} onClose={() => setIsCanvasOpen(false)} />
     </View>
@@ -270,10 +280,12 @@ function HudSheetModal({
   activeModal,
   onClose,
   onCreateBillboard,
+  onOpenFullProfile,
 }: {
   activeModal: HudModal | null;
   onClose: () => void;
   onCreateBillboard: () => void;
+  onOpenFullProfile: () => void;
 }) {
   const { height } = useWindowDimensions();
   // The modal stays mounted through its fade-out, so keep showing the last
@@ -322,7 +334,10 @@ function HudSheetModal({
               </View>
 
               {shown === "profile" ? (
-                <ProfileModalContent onCreateBillboard={onCreateBillboard} />
+                <ProfileModalContent
+                  onCreateBillboard={onCreateBillboard}
+                  onOpenFullProfile={onOpenFullProfile}
+                />
               ) : null}
               {shown === "quests" ? <QuestsModalContent /> : null}
             </View>
@@ -333,7 +348,13 @@ function HudSheetModal({
   );
 }
 
-function ProfileModalContent({ onCreateBillboard }: { onCreateBillboard: () => void }) {
+function ProfileModalContent({
+  onCreateBillboard,
+  onOpenFullProfile,
+}: {
+  onCreateBillboard: () => void;
+  onOpenFullProfile: () => void;
+}) {
   const profile = useUserProfile();
   const currentUser = useCurrentUser();
   const userProgress = useUserProgress();
@@ -350,6 +371,7 @@ function ProfileModalContent({ onCreateBillboard }: { onCreateBillboard: () => v
     setSigningOut(true);
     try {
       await signOut();
+      resetUserProfile();
       router.replace("/");
     } catch {
       setSigningOut(false);
@@ -373,6 +395,13 @@ function ProfileModalContent({ onCreateBillboard }: { onCreateBillboard: () => v
         <StatPill label="stickers" value={String(stats?.stickersSaved ?? 0)} />
         <StatPill label="pois" value={String(stats?.poisVisited ?? 0)} />
       </View>
+
+      <Pressable
+        onPress={onOpenFullProfile}
+        style={({ pressed }) => [styles.profileActionSecondary, pressed && styles.pressed]}
+      >
+        <Text style={styles.profileActionSecondaryText}>view and edit profile</Text>
+      </Pressable>
 
       <Pressable
         onPress={onCreateBillboard}
@@ -769,6 +798,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     minHeight: 48,
     justifyContent: "center",
+  },
+  profileActionSecondary: {
+    alignItems: "center",
+    borderColor: colors.sageDark,
+    borderRadius: 10,
+    borderWidth: 2,
+    justifyContent: "center",
+    minHeight: 46,
+  },
+  profileActionSecondaryText: {
+    color: colors.sageDark,
+    fontFamily: fonts.family,
+    fontSize: 22,
   },
   pressed: {
     opacity: 0.78,

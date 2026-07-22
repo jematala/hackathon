@@ -33,7 +33,12 @@ import {
   useUpdateCurrentUser,
   useUserProgress,
 } from "@/lib/api/hooks";
-import { avatarBase64ToUri, setUsername, useUserProfile } from "@/lib/userProfile";
+import {
+  avatarBase64ToUri,
+  resetUserProfile,
+  setUsername,
+  useUserProfile,
+} from "@/lib/userProfile";
 
 const AVATAR_SIZE = 132;
 const RING_SIZE = AVATAR_SIZE + 18;
@@ -246,6 +251,7 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await signOut();
+      resetUserProfile();
       router.replace("/");
     } catch {
       setSigningOut(false);

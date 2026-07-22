@@ -5,10 +5,11 @@ type UserProfile = {
   avatarUri: string | null;
 };
 
-let state: UserProfile = {
-  username: "fern_walker",
+const initialState: UserProfile = {
+  username: "explorer",
   avatarUri: null,
 };
+let state = initialState;
 
 const listeners = new Set<() => void>();
 
@@ -41,6 +42,11 @@ export function setUsername(name: string) {
 export function setAvatarUri(uri: string | null) {
   if (uri === state.avatarUri) return;
   state = { ...state, avatarUri: uri };
+  emit();
+}
+
+export function resetUserProfile() {
+  state = initialState;
   emit();
 }
 
