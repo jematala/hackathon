@@ -27,6 +27,7 @@ can track what's done. Use `- [x]` for completed items.
 | `bun run lint:fix` | Auto-fix lint issues |
 | `bun run format` | Auto-format code |
 | `bun run typecheck` | Type-check all packages |
+| `bun run test` | Run API regression tests |
 
 ### Project Structure
 

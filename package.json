@@ -12,6 +12,7 @@
     "build": "bun run build:app && bun run build:api",
     "build:app": "bun --cwd apps/app build:web",
     "build:api": "bun --cwd apps/api build",
+    "test": "bun test apps/api/test",
     "typecheck": "bun run typecheck:app && bun run typecheck:api && bun run typecheck:shared && bun run typecheck:db",
     "typecheck:app": "bun --cwd apps/app typecheck",
     "typecheck:api": "bun --cwd apps/api typecheck",

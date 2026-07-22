@@ -13,6 +13,39 @@ import { setAvatarUri } from "@/lib/userProfile";
 type Mode = "draw" | "upload";
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2MB before resize
+const AVATAR_SIZE = 64;
+const PNG_DATA_URL_PREFIX = "data:image/png;base64,";
+
+function normalizeAvatarPng(dataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = document.createElement("img");
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = AVATAR_SIZE;
+      canvas.height = AVATAR_SIZE;
+      const context = canvas.getContext("2d");
+      if (!context || image.naturalWidth < 1 || image.naturalHeight < 1) {
+        reject(new Error("Could not process image."));
+        return;
+      }
+
+      const scale = Math.max(AVATAR_SIZE / image.naturalWidth, AVATAR_SIZE / image.naturalHeight);
+      const width = image.naturalWidth * scale;
+      const height = image.naturalHeight * scale;
+      context.imageSmoothingEnabled = false;
+      context.drawImage(
+        image,
+        (AVATAR_SIZE - width) / 2,
+        (AVATAR_SIZE - height) / 2,
+        width,
+        height,
+      );
+      resolve(canvas.toDataURL("image/png"));
+    };
+    image.onerror = () => reject(new Error("Could not decode PNG image."));
+    image.src = dataUrl;
+  });
+}
 
 export default function CreateAvatarScreen() {
   const [mode, setMode] = useState<Mode>("draw");
@@ -78,21 +111,27 @@ export default function CreateAvatarScreen() {
     setUploadTone("info");
     setUploadStatus("Reading image…");
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const result = typeof reader.result === "string" ? reader.result : null;
       if (!result) {
         setUploadTone("error");
         setUploadStatus("Could not read image.");
         return;
       }
-      if (!result.startsWith("data:image/png;base64,")) {
+      if (!result.startsWith(PNG_DATA_URL_PREFIX)) {
         setUploadTone("error");
         setUploadStatus("Pick a PNG image.");
         return;
       }
-      setUploadDataUrl(result);
-      setUploadTone("success");
-      setUploadStatus(`Loaded ${file.name}`);
+      try {
+        const normalized = await normalizeAvatarPng(result);
+        setUploadDataUrl(normalized);
+        setUploadTone("success");
+        setUploadStatus(`Loaded and resized ${file.name}`);
+      } catch (error) {
+        setUploadTone("error");
+        setUploadStatus(error instanceof Error ? error.message : "Could not process image.");
+      }
     };
     reader.onerror = () => {
       setUploadTone("error");
@@ -106,7 +145,7 @@ export default function CreateAvatarScreen() {
     setUploadTone("info");
     setUploadStatus("Saving avatar...");
     try {
-      await saveAvatar(uploadDataUrl, uploadDataUrl);
+      await saveAvatar(uploadDataUrl.slice(PNG_DATA_URL_PREFIX.length), uploadDataUrl);
       setUploadTone("success");
       setUploadStatus("Avatar saved!");
     } catch (err) {

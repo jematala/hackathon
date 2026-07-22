@@ -12,7 +12,7 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
 import { getDb } from "../db";
-import { conflict, forbidden, notFound } from "../http";
+import { badRequest, conflict, forbidden, notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import {
   ensureQuestProgress,
@@ -112,6 +112,7 @@ usersRoute.patch(
     const input = c.req.valid("json");
     const authUser = getAuthUser(c);
     const db = getDb(c.env);
+    validateAvatarPng(input.avatarBase64);
     const rows = await db.execute<UserRow>(sql`
       update app.users
       set avatar_base64 = ${input.avatarBase64}, updated_at = now()
@@ -276,8 +277,44 @@ export function requireAdmin(user: { isAdmin: boolean }) {
   }
 }
 
-function isUniqueViolation(error: unknown) {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
+export function isUniqueViolation(error: unknown, depth = 0): boolean {
+  if (depth > 4 || typeof error !== "object" || error === null) {
+    return false;
+  }
+  if ("code" in error && error.code === "23505") {
+    return true;
+  }
+  return "cause" in error && isUniqueViolation(error.cause, depth + 1);
+}
+
+export function validateAvatarPng(value: string) {
+  const payload = value.startsWith("data:image/png;base64,") ? value.slice(22) : value;
+  let header: string;
+  try {
+    header = atob(payload.slice(0, 32));
+  } catch {
+    badRequest("Avatar must be a valid PNG.");
+  }
+
+  const bytes = Uint8Array.from(header, (character) => character.charCodeAt(0));
+  const isPng =
+    bytes.length >= 24 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[12] === 0x49 &&
+    bytes[13] === 0x48 &&
+    bytes[14] === 0x44 &&
+    bytes[15] === 0x52;
+  if (!isPng) {
+    badRequest("Avatar must be a valid PNG.");
+  }
+
+  const view = new DataView(bytes.buffer);
+  if (view.getUint32(16) !== 64 || view.getUint32(20) !== 64) {
+    badRequest("Avatar PNG must be 64x64 pixels.");
+  }
 }
 
 function publicUser(user: UserRow) {
