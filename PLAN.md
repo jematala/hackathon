@@ -21,6 +21,7 @@
 - [x] **All 4** — Agree on sticker storage format (base64 PNG), admin role mechanism (is_admin), map provider for mobile (react-native-leaflet-view), quest system (parameterised templates), daily quest pool (~5), push timing (8–9am), billboard limits (concurrent cap + Sydney-day posting cap)
 
 - [x] **All 4** — Document commit practice: update PLAN.md before each commit (`CONTRIBUTING.md`)
+- [x] **All 4** — Pin TypeScript 5.9 across workspaces so local and CI typechecks use the same compiler
 
 > **Dependency edge:** Everything else depends on the shared schemas and DB schema.
 
