@@ -1,3 +1,10 @@
+# AI assistant working files (specs, plans, session settings)
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.superpowers/
+docs/superpowers/
+
 # Logs
 logs
 *.log
