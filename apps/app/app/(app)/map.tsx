@@ -1,4 +1,6 @@
 import type { ClaimQuestResponse, QuestProgress } from "@repo/shared";
+import { useAuth } from "@clerk/expo";
+import { router } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -292,9 +294,22 @@ function HudSheetModal({
 
 function ProfileModalContent({ onCreateBillboard }: { onCreateBillboard: () => void }) {
   const profile = useUserProfile();
+  const { signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
   const avatarSource = profile.avatarUri
     ? { uri: profile.avatarUri }
     : require("@/assets/images/avatar.png");
+
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/");
+    } catch {
+      setSigningOut(false);
+    }
+  };
 
   return (
     <View style={styles.profileContent}>
@@ -319,6 +334,14 @@ function ProfileModalContent({ onCreateBillboard }: { onCreateBillboard: () => v
         style={({ pressed }) => [styles.profileAction, pressed && styles.pressed]}
       >
         <Text style={styles.profileActionText}>create billboard</Text>
+      </Pressable>
+
+      <Pressable
+        disabled={signingOut}
+        onPress={handleSignOut}
+        style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}
+      >
+        <Text style={styles.signOutText}>{signingOut ? "signing out..." : "log out"}</Text>
       </Pressable>
     </View>
   );
@@ -693,6 +716,19 @@ const styles = StyleSheet.create({
     color: colors.creamText,
     fontFamily: fonts.family,
     fontSize: 24,
+  },
+  signOutButton: {
+    alignItems: "center",
+    borderColor: colors.pinRedDark,
+    borderRadius: 10,
+    borderWidth: 2,
+    justifyContent: "center",
+    minHeight: 44,
+  },
+  signOutText: {
+    color: colors.pinRedDark,
+    fontFamily: fonts.family,
+    fontSize: 22,
   },
   questsContent: {
     gap: 16,

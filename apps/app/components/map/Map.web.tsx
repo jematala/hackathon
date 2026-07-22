@@ -26,6 +26,10 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
   const mapRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const { avatarUri } = useUserProfile();
+  // ponytail: the init effect re-runs whenever billboards/pois/avatar change, so
+  // read the latest location from a ref instead of snapping back to UNSW.
+  const locationRef = useRef(location);
+  locationRef.current = location;
 
   useImperativeHandle(ref, () => ({
     invalidateSize: () => mapRef.current?.invalidateSize(),
@@ -38,8 +42,13 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
     const container = containerRef.current as unknown as HTMLElement;
     if (!container) return;
 
+    const here = locationRef.current;
+    const center: [number, number] = here
+      ? [here.latitude, here.longitude]
+      : [UNSW_CENTER.lat, UNSW_CENTER.lng];
+
     const map = L.map(container, {
-      center: [UNSW_CENTER.lat, UNSW_CENTER.lng],
+      center,
       zoom: 19,
       minZoom: 18,
       zoomControl: false,
@@ -72,7 +81,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
 
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
     const useDrawn = Boolean(avatarUri);
-    userMarkerRef.current = L.marker([UNSW_CENTER.lat, UNSW_CENTER.lng], {
+    userMarkerRef.current = L.marker(center, {
       icon: createUserAvatarIcon(avatarUri ?? fallbackUrl, useDrawn ? DRAWN_AVATAR_BG : undefined),
     }).addTo(map);
 
