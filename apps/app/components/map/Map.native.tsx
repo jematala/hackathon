@@ -62,23 +62,13 @@ function POIMarker({ poi, isSelected, onPress }: POIMarkerProps) {
   );
 }
 
-function BillboardMarker({
-  lat,
-  lng,
-  onPress,
-  title,
-}: {
-  lat: number;
-  lng: number;
-  onPress: () => void;
-  title: string;
-}) {
+function BillboardMarker({ lat, lng, onPress }: { lat: number; lng: number; onPress: () => void }) {
   return (
     <Marker lngLat={[lng, lat]} anchor="bottom" onPress={onPress}>
-      <View>
+      <View style={billboardStyles.container}>
         <View style={billboardStyles.marker}>
           <Text style={billboardStyles.text} numberOfLines={1}>
-            {title.slice(0, 2)}
+            ?
           </Text>
         </View>
         <View style={billboardStyles.pin} />
@@ -136,7 +126,6 @@ export const Map = forwardRef<{ invalidateSize: () => void }, MapProps>(function
             key={billboard.id}
             lat={billboard.lat}
             lng={billboard.lng}
-            title={billboard.title}
             onPress={() => onBillboardPress?.(billboard.id)}
           />
         ))}
@@ -236,7 +225,7 @@ const avatarStyles = StyleSheet.create({
     borderRadius: 24,
     overflow: "hidden",
     borderWidth: 3,
-    borderColor: "#5b7559",
+    borderColor: "#5A7258",
     backgroundColor: "#ffffff",
   },
   avatarImage: {
@@ -254,33 +243,46 @@ const avatarStyles = StyleSheet.create({
     borderTopWidth: 10,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: "#5b7559",
+    borderTopColor: "#5A7258",
     marginTop: -3,
   },
 });
 
 const billboardStyles = StyleSheet.create({
-  marker: {
-    width: 34,
-    height: 28,
+  container: {
     alignItems: "center",
+    height: 84,
+    width: 94,
+  },
+  marker: {
+    alignItems: "center",
+    backgroundColor: "#F7E7CD",
+    borderColor: "#5A7258",
+    borderRadius: 16,
+    borderWidth: 5,
+    height: 60,
     justifyContent: "center",
-    backgroundColor: "#F7D978",
-    borderColor: "#6A401A",
-    borderRadius: 3,
-    borderWidth: 2,
+    width: 88,
   },
   pin: {
-    alignSelf: "center",
-    backgroundColor: "#6A401A",
-    height: 9,
+    backgroundColor: "transparent",
+    borderLeftColor: "transparent",
+    borderLeftWidth: 15,
+    borderRightColor: "transparent",
+    borderRightWidth: 15,
+    borderStyle: "solid",
+    borderTopColor: "#5A7258",
+    borderTopWidth: 24,
+    height: 0,
     marginTop: -1,
-    width: 4,
+    width: 0,
   },
   text: {
-    color: "#6A401A",
+    color: "#5A7258",
     fontFamily: fonts.family,
-    fontSize: 14,
+    fontSize: 38,
+    lineHeight: 38,
+    textAlign: "center",
   },
 });
 

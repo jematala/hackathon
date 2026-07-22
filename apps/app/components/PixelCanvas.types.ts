@@ -9,3 +9,8 @@ export type PixelCanvasRef = {
   clear: () => void;
   exportAsBase64: () => Promise<StickerExport | null>;
 };
+
+export type PixelCanvasProps = {
+  brushColor?: string;
+  size?: number;
+};

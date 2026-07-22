@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   },
   claimButton: {
     alignItems: "center",
-    backgroundColor: "#5b7559",
+    backgroundColor: "#5A7258",
     borderRadius: 8,
     justifyContent: "center",
     paddingHorizontal: 16,

@@ -298,9 +298,7 @@ const styles = StyleSheet.create({
   closeButton: {
     alignItems: "center",
     backgroundColor: colors.pageBgSoft,
-    borderColor: colors.sageDark,
     borderRadius: 999,
-    borderWidth: 2,
     height: 32,
     justifyContent: "center",
     width: 32,
@@ -379,9 +377,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     alignItems: "center",
     backgroundColor: "#fff8e8",
-    borderColor: "#5f4a2d",
     borderRadius: 8,
-    borderWidth: 2,
     justifyContent: "center",
     minHeight: 44,
     paddingHorizontal: 20,
@@ -395,9 +391,7 @@ const styles = StyleSheet.create({
   placeButton: {
     alignItems: "center",
     backgroundColor: colors.sageDark,
-    borderColor: colors.sageDarker,
     borderRadius: 14,
-    borderWidth: 2,
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 26,
@@ -415,9 +409,7 @@ const styles = StyleSheet.create({
   addButton: {
     alignItems: "center",
     backgroundColor: colors.sageDark,
-    borderColor: colors.sageDarker,
     borderRadius: 14,
-    borderWidth: 2,
     flex: 1,
     paddingVertical: 14,
   },

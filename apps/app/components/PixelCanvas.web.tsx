@@ -1,6 +1,6 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 import { BrushTool, Dotting, DottingRef } from "dotting";
-import type { PixelCanvasRef, StickerExport } from "./PixelCanvas.types";
+import type { PixelCanvasProps, PixelCanvasRef, StickerExport } from "./PixelCanvas.types";
 
 export type { PixelCanvasRef, StickerExport };
 
@@ -16,16 +16,13 @@ function makeInitData() {
   );
 }
 
-type PixelCanvasProps = {
-  brushColor?: string;
-};
-
 export const PixelCanvas = forwardRef<PixelCanvasRef, PixelCanvasProps>(function PixelCanvas(
-  { brushColor = "#111827" },
+  { brushColor = "#111827", size = 320 },
   ref,
 ) {
   const dottingRef = useRef<DottingRef>(null);
   const initLayers = useMemo(() => [{ id: "layer1", data: makeInitData() }], []);
+  const canvasSize = Math.round(size);
 
   useImperativeHandle(
     ref,
@@ -64,8 +61,8 @@ export const PixelCanvas = forwardRef<PixelCanvasRef, PixelCanvasProps>(function
   return (
     <Dotting
       ref={dottingRef}
-      width={320}
-      height={320}
+      width={canvasSize}
+      height={canvasSize}
       brushColor={brushColor}
       brushTool={BrushTool.DOT}
       isGridFixed
@@ -74,6 +71,7 @@ export const PixelCanvas = forwardRef<PixelCanvasRef, PixelCanvasProps>(function
       maxColumnCount={GRID}
       minRowCount={GRID}
       maxRowCount={GRID}
+      gridSquareLength={canvasSize / GRID}
       isGridVisible={false}
       initAutoScale={false}
       defaultPixelColor="transparent"

@@ -1,5 +1,13 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { fonts } from "@/app/theme";
 import { ApiError } from "@/lib/api/client";
 import { useCreateStickerAsset, useSaveSticker } from "@/lib/api/hooks";
@@ -8,14 +16,14 @@ import { PixelCanvas, type PixelCanvasRef } from "@/components/PixelCanvas";
 const STICKER_SIZE = 64;
 
 const COLORS = [
-  { label: "Dark", value: "#111827" },
-  { label: "Teal", value: "#0f766e" },
-  { label: "Green", value: "#4A7C59" },
-  { label: "Tan", value: "#D4A574" },
-  { label: "Brown", value: "#8B6914" },
-  { label: "Red", value: "#b91c1c" },
-  { label: "White", value: "#ffffff" },
-  { label: "Black", value: "#000000" },
+  { label: "Pink", value: "#ff5b6b" },
+  { label: "Orange", value: "#ff914d" },
+  { label: "Yellow", value: "#ffca3a" },
+  { label: "Lime", value: "#82c91e" },
+  { label: "Mint", value: "#52ad7d" },
+  { label: "Blue", value: "#1e91d6" },
+  { label: "Indigo", value: "#4169b1" },
+  { label: "Purple", value: "#6f4bb3" },
 ];
 
 type CreateStickerPanelVariant = "sticker" | "avatar";
@@ -32,23 +40,21 @@ export function CreateStickerPanel({
   onAvatarSaved,
 }: CreateStickerPanelProps) {
   const isAvatar = variant === "avatar";
+  const { height, width } = useWindowDimensions();
   const ref = useRef<PixelCanvasRef>(null);
-  const [brushColor, setBrushColor] = useState("#111827");
+  const [brushColor, setBrushColor] = useState(COLORS[0]?.value ?? "#ff5b6b");
+  const [stickerName, setStickerName] = useState("");
   const [submitStatus, setSubmitStatus] = useState<string | null>(null);
   const [submitTone, setSubmitTone] = useState<"info" | "success" | "error">("info");
   const createAsset = useCreateStickerAsset();
   const saveSticker = useSaveSticker();
   const isSubmitting = !isAvatar && (createAsset.isPending || saveSticker.isPending);
-
-  const handleDownload = useCallback(() => {
-    void ref.current?.exportAsBase64().then((payload) => {
-      if (!payload || typeof document === "undefined") return;
-      const link = document.createElement("a");
-      link.href = payload.dataUrl;
-      link.download = payload.filename;
-      link.click();
-    });
-  }, []);
+  const isCompact = width < 390 || height < 720;
+  const horizontalPanelPadding = isCompact ? 18 : 38;
+  const reservedHeight = isAvatar ? 280 : 370;
+  const canvasSize = Math.floor(
+    Math.max(184, Math.min(320, width - horizontalPanelPadding * 2 - 42, height - reservedHeight)),
+  );
 
   const handleSubmit = useCallback(async () => {
     if (!ref.current) {
@@ -85,8 +91,13 @@ export function CreateStickerPanel({
         stickerAssetId: sticker.id,
       });
       setSubmitTone("success");
-      setSubmitStatus("Saved to your collection!");
+      setSubmitStatus(
+        stickerName.trim()
+          ? `${stickerName.trim()} saved to your collection!`
+          : "Saved to your collection!",
+      );
       ref.current?.clear();
+      setStickerName("");
     } catch (err) {
       setSubmitTone("error");
       if (err instanceof ApiError) {
@@ -103,19 +114,20 @@ export function CreateStickerPanel({
         setSubmitStatus("Couldn't save sticker. Try again.");
       }
     }
-  }, [createAsset, saveSticker, isAvatar, onAvatarSaved]);
+  }, [createAsset, saveSticker, isAvatar, onAvatarSaved, stickerName]);
 
   return (
-    <View style={styles.panel}>
+    <View
+      style={[
+        styles.panel,
+        {
+          paddingHorizontal: horizontalPanelPadding,
+          paddingTop: isCompact ? 22 : 32,
+        },
+      ]}
+    >
       <View style={styles.header}>
-        <View style={styles.heading}>
-          <Text style={styles.title}>{isAvatar ? "Avatar Maker" : "Sticker Maker"}</Text>
-          <Text style={styles.subtitle}>
-            {isAvatar
-              ? "Draw a 64x64 pixel art portrait — this becomes your profile picture."
-              : "Draw a 64x64 sticker to post!"}
-          </Text>
-        </View>
+        <Text style={styles.title}>{isAvatar ? "create avatar" : "create sticker"}</Text>
 
         {onClose ? (
           <Pressable
@@ -129,39 +141,46 @@ export function CreateStickerPanel({
       </View>
 
       <View style={styles.canvasCard}>
-        <PixelCanvas ref={ref} brushColor={brushColor} />
+        <PixelCanvas ref={ref} brushColor={brushColor} size={canvasSize} />
       </View>
 
-      <View style={styles.paletteHeader}>
+      <View style={styles.fieldGroup}>
         <Text style={styles.label}>Colours</Text>
+        <View style={[styles.palette, isCompact ? styles.paletteCompact : null]}>
+          {COLORS.map((c) => (
+            <Pressable
+              accessibilityLabel={`Select ${c.label}`}
+              key={c.value}
+              onPress={() => setBrushColor(c.value)}
+              style={[
+                styles.swatch,
+                isCompact ? styles.swatchCompact : null,
+                { backgroundColor: c.value },
+                brushColor === c.value && styles.swatchActive,
+              ]}
+            />
+          ))}
+        </View>
       </View>
 
-      <View style={styles.palette}>
-        {COLORS.map((c) => (
-          <Pressable
-            accessibilityLabel={`Select ${c.label}`}
-            key={c.value}
-            onPress={() => setBrushColor(c.value)}
-            style={[
-              styles.swatch,
-              { backgroundColor: c.value },
-              brushColor === c.value && styles.swatchActive,
-            ]}
-          >
-            {brushColor === c.value && <Text style={styles.check}>✓</Text>}
-          </Pressable>
-        ))}
-      </View>
+      {!isAvatar ? (
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>name your sticker :</Text>
+          <TextInput
+            value={stickerName}
+            onChangeText={setStickerName}
+            maxLength={32}
+            placeholder="sticker name..."
+            placeholderTextColor="#b5b5a8"
+            selectionColor="#5A7258"
+            style={styles.nameInput}
+          />
+        </View>
+      ) : null}
 
       <View style={styles.actions}>
         <Pressable style={styles.actionButton} onPress={() => ref.current?.clear()}>
           <Text style={styles.actionLabel}>Clear</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.actionButton, styles.actionButtonPrimary]}
-          onPress={handleDownload}
-        >
-          <Text style={[styles.actionLabel, styles.actionLabelPrimary]}>Download</Text>
         </Pressable>
         <Pressable
           accessibilityLabel={isAvatar ? "Save avatar" : "Save sticker to collection"}
@@ -177,7 +196,7 @@ export function CreateStickerPanel({
             <ActivityIndicator color="#fff8e8" size="small" />
           ) : (
             <Text style={[styles.actionLabel, styles.actionLabelSubmit]}>
-              {isAvatar ? "Set as Avatar" : "Save"}
+              {isAvatar ? "set avatar" : "create"}
             </Text>
           )}
         </Pressable>
@@ -200,12 +219,14 @@ export function CreateStickerPanel({
 
 const styles = StyleSheet.create({
   panel: {
-    backgroundColor: "#f4ead7",
-    borderColor: "#5f4a2d",
-    borderRadius: 8,
-    borderWidth: 3,
-    gap: 14,
-    padding: 16,
+    backgroundColor: "#f7e7cd",
+    borderColor: "#5A7258",
+    borderRadius: 18,
+    borderWidth: 4,
+    gap: 12,
+    maxWidth: 490,
+    paddingBottom: 24,
+    paddingTop: 32,
     shadowColor: "#2a1f15",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
@@ -213,150 +234,152 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   header: {
-    alignItems: "flex-start",
+    alignItems: "center",
     flexDirection: "row",
     gap: 12,
-    justifyContent: "space-between",
-  },
-  heading: {
-    flex: 1,
-    gap: 3,
-  },
-  eyebrow: {
-    color: "#2f6b42",
-    fontFamily: fonts.family,
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "uppercase",
+    justifyContent: "center",
+    minHeight: 34,
   },
   title: {
-    color: "#2d2418",
+    color: "#667f60",
+    flex: 1,
     fontFamily: fonts.family,
-    fontSize: 26,
-    fontWeight: "800",
-  },
-  subtitle: {
-    color: "#69563f",
-    fontFamily: fonts.family,
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 36,
+    lineHeight: 38,
+    textAlign: "center",
+    textTransform: "lowercase",
   },
   closeButton: {
     alignItems: "center",
-    backgroundColor: "#e1c59b",
-    borderColor: "#5f4a2d",
+    backgroundColor: "#5A7258",
     borderRadius: 8,
-    borderWidth: 2,
-    height: 36,
+    height: 30,
     justifyContent: "center",
-    width: 36,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: 30,
   },
   closeText: {
-    color: "#2d2418",
+    color: "#fff7e8",
     fontFamily: fonts.family,
-    fontSize: 20,
-    fontWeight: "800",
-    lineHeight: 22,
+    fontSize: 28,
+    lineHeight: 28,
   },
   canvasCard: {
     alignItems: "center",
     alignSelf: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#5f4a2d",
-    borderRadius: 8,
-    borderWidth: 2,
+    backgroundColor: "#fffaf2",
+    borderColor: "#5A7258",
+    borderRadius: 0,
+    borderStyle: "dashed",
+    borderWidth: 3,
     maxWidth: "100%",
     overflow: "hidden",
+    padding: 0,
   },
-  paletteHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
+  fieldGroup: {
+    gap: 8,
   },
   label: {
-    color: "#3d3224",
+    color: "#5A7258",
     fontFamily: fonts.family,
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  currentColour: {
-    borderColor: "#5f4a2d",
-    borderRadius: 4,
-    borderWidth: 2,
-    height: 18,
-    width: 36,
+    fontSize: 24,
+    lineHeight: 26,
+    textTransform: "lowercase",
   },
   palette: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: "#ffdca7",
+    borderColor: "#d0a66f",
+    borderRadius: 999,
+    borderWidth: 3,
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
+    gap: 12,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  paletteCompact: {
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   swatch: {
     alignItems: "center",
-    borderColor: "#9c7b51",
-    borderRadius: 8,
-    borderWidth: 2,
+    borderColor: "transparent",
+    borderRadius: 18,
+    borderWidth: 3,
     height: 36,
     justifyContent: "center",
     width: 36,
   },
-  swatchActive: {
-    borderColor: "#2d2418",
-    transform: [{ translateY: -2 }],
+  swatchCompact: {
+    height: 30,
+    width: 30,
   },
-  check: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "700",
-    textShadowColor: "rgba(0,0,0,0.6)",
-    textShadowRadius: 2,
+  swatchActive: {
+    borderColor: "#92323a",
+    transform: [{ scale: 1.08 }],
+  },
+  nameInput: {
+    alignSelf: "center",
+    backgroundColor: "#fffaf2",
+    borderColor: "#5A7258",
+    borderRadius: 10,
+    borderWidth: 4,
+    color: "#5A7258",
+    fontFamily: fonts.family,
+    fontSize: 22,
+    height: 54,
+    maxWidth: 300,
+    paddingHorizontal: 16,
+    textAlign: "center",
+    width: "78%",
   },
   actions: {
     flexDirection: "row",
-    gap: 12,
+    gap: 14,
+    justifyContent: "center",
   },
   actionButton: {
     alignItems: "center",
-    backgroundColor: "#fff8e8",
-    borderColor: "#5f4a2d",
-    borderRadius: 8,
-    borderWidth: 2,
+    backgroundColor: "#5A7258",
+    borderRadius: 3,
     flex: 1,
     justifyContent: "center",
-    minHeight: 44,
+    maxWidth: 185,
+    minHeight: 42,
     paddingHorizontal: 16,
   },
   actionButtonPrimary: {
-    backgroundColor: "#e1c59b",
+    backgroundColor: "#5A7258",
   },
   actionButtonSubmit: {
-    backgroundColor: "#2f6b42",
+    backgroundColor: "#5A7258",
   },
   actionButtonDisabled: {
     opacity: 0.6,
   },
   actionLabel: {
-    color: "#2d2418",
+    color: "#fff7e8",
     fontFamily: fonts.family,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  actionLabelPrimary: {
-    color: "#2d2418",
+    fontSize: 28,
+    lineHeight: 30,
+    textTransform: "lowercase",
   },
   actionLabelSubmit: {
-    color: "#fff8e8",
+    color: "#fff7e8",
   },
   submitStatus: {
-    color: "#3d3224",
+    color: "#5A7258",
     fontFamily: fonts.family,
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 18,
     textAlign: "center",
   },
   submitStatusSuccess: {
-    color: "#2f6b42",
+    color: "#5A7258",
   },
   submitStatusError: {
     color: "#b91c1c",

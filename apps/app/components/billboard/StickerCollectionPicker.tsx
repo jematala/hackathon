@@ -140,9 +140,7 @@ const styles = StyleSheet.create({
   closeButton: {
     alignItems: "center",
     backgroundColor: colors.pageBg,
-    borderColor: colors.sageDark,
     borderRadius: 999,
-    borderWidth: 2,
     height: 32,
     justifyContent: "center",
     width: 32,
@@ -183,9 +181,7 @@ const styles = StyleSheet.create({
   },
   cta: {
     backgroundColor: colors.sageDark,
-    borderColor: colors.sageDarker,
     borderRadius: 12,
-    borderWidth: 2,
     marginTop: 8,
     paddingHorizontal: 18,
     paddingVertical: 10,

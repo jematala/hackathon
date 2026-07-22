@@ -78,7 +78,7 @@ export default function QuestsScreen() {
       {quests.isLoading ? (
         <Card>
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#5b7559" />
+            <ActivityIndicator color="#5A7258" />
             <Text style={styles.emptyText}>Loading quests...</Text>
           </View>
         </Card>
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
-    color: "#5b7559",
+    color: "#5A7258",
     fontFamily: fonts.family,
     fontSize: 26,
   },

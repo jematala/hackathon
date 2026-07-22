@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   sectionHeading: {
-    color: "#5b7559",
+    color: "#5A7258",
     fontFamily: fonts.family,
     fontSize: 22,
     marginBottom: 4,
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   continueButton: {
     alignItems: "center",
     alignSelf: "center",
-    backgroundColor: "#5b7559",
+    backgroundColor: "#5A7258",
     borderRadius: 8,
     marginTop: 4,
     paddingHorizontal: 28,
