@@ -7,6 +7,7 @@ import { StyleSheet, View } from "react-native";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { clerkErrorMessage } from "@/components/auth/clerkError";
 import { FormError } from "@/components/auth/FormError";
+import { GoogleButton } from "@/components/auth/GoogleButton";
 import { PixelInput } from "@/components/auth/PixelInput";
 import { Button } from "@/components/Button";
 
@@ -69,6 +70,7 @@ export default function SignInScreen() {
           onPress={submit}
           variant="sage"
         />
+        <GoogleButton onError={setError} />
       </View>
       <FormError message={error} />
     </AuthScreen>
@@ -78,6 +80,7 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   submit: {
     alignSelf: "center",
+    gap: 12,
     marginTop: 8,
   },
 });
