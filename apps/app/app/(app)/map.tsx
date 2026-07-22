@@ -233,9 +233,22 @@ function HudSheetModal({
   onCreateBillboard: () => void;
 }) {
   const { height } = useWindowDimensions();
+  // The modal stays mounted through its fade-out, so keep showing the last
+  // sheet instead of falling through to the Studio branch on the way out.
+  const [shown, setShown] = useState(activeModal);
+  if (activeModal && activeModal !== shown) {
+    setShown(activeModal);
+  }
+  // No fall-through default: an unexpected value must never read as "Studio".
   const title =
-    activeModal === "profile" ? "Profile" : activeModal === "quests" ? "Quests" : "Studio";
-  const isStudio = activeModal === "studio";
+    shown === "profile"
+      ? "Profile"
+      : shown === "quests"
+        ? "Quests"
+        : shown === "studio"
+          ? "Studio"
+          : "";
+  const isStudio = shown === "studio";
 
   return (
     <Modal visible={activeModal !== null} transparent animationType="fade" onRequestClose={onClose}>
@@ -265,10 +278,10 @@ function HudSheetModal({
                 </Pressable>
               </View>
 
-              {activeModal === "profile" ? (
+              {shown === "profile" ? (
                 <ProfileModalContent onCreateBillboard={onCreateBillboard} />
               ) : null}
-              {activeModal === "quests" ? <QuestsModalContent /> : null}
+              {shown === "quests" ? <QuestsModalContent /> : null}
             </View>
           )}
         </ScrollView>
