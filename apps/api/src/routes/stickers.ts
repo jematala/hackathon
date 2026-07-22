@@ -51,6 +51,8 @@ type SavedStickerRow = {
   userId: string;
 };
 
+type DatabaseExecutor = Pick<ReturnType<typeof getDb>, "execute">;
+
 export const stickersRoute = new Hono<AppBindings>();
 
 stickersRoute.post(
@@ -120,44 +122,48 @@ stickersRoute.post(
     const db = getDb(c.env);
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
-    const capacity = await getUserCapacities(db, authUser.id);
-    const countRows = await db.execute<{ count: number }>(sql`
-      select count(*)::int as count
-      from app.saved_stickers
-      where user_id = ${authUser.id} and deleted_at is null
-    `);
+    const response = await db.transaction(async (tx) => {
+      await tx.execute(sql`select id from app.users where id = ${authUser.id} for update`);
 
-    if ((countRows[0]?.count ?? 0) >= capacity.stickerSlots) {
-      conflict("Saved sticker capacity reached.");
-    }
+      const capacity = await getUserCapacities(tx, authUser.id);
+      const countRows = await tx.execute<{ count: number }>(sql`
+        select count(*)::int as count
+        from app.saved_stickers
+        where user_id = ${authUser.id} and deleted_at is null
+      `);
 
-    const rows = await db.execute<{ id: string }>(sql`
-      insert into app.saved_stickers (user_id, kind, sticker_asset_id, body, label)
-      values (
-        ${authUser.id},
-        ${input.kind},
-        ${input.kind === "sticker" ? input.stickerAssetId : null},
-        ${input.kind === "sticky_note" ? input.body : null},
-        ${input.label ?? null}
-      )
-      returning id
-    `);
-    const saved = (await loadSavedStickers(db, authUser.id)).find(
-      (item) => item.id === rows[0]!.id,
-    );
+      if ((countRows[0]?.count ?? 0) >= capacity.stickerSlots) {
+        conflict("Saved sticker capacity reached.");
+      }
 
-    if (!saved) {
-      throw new Error("Saved sticker was inserted but could not be loaded.");
-    }
+      const rows = await tx.execute<{ id: string }>(sql`
+        insert into app.saved_stickers (user_id, kind, sticker_asset_id, body, label)
+        values (
+          ${authUser.id},
+          ${input.kind},
+          ${input.kind === "sticker" ? input.stickerAssetId : null},
+          ${input.kind === "sticky_note" ? input.body : null},
+          ${input.label ?? null}
+        )
+        returning id
+      `);
+      const saved = (await loadSavedStickers(tx, authUser.id)).find(
+        (item) => item.id === rows[0]!.id,
+      );
 
-    const progress = await incrementQuestProgress(db, authUser.id, "save_stickers");
+      if (!saved) {
+        throw new Error("Saved sticker was inserted but could not be loaded.");
+      }
 
-    return c.json(
-      createSavedStickerResponseSchema.parse({
+      const progress = await incrementQuestProgress(tx, authUser.id, "save_stickers");
+
+      return createSavedStickerResponseSchema.parse({
         questProgress: progress.map(questProgressUpdate),
         savedSticker: savedSticker(saved),
-      }),
-    );
+      });
+    });
+
+    return c.json(response);
   },
 );
 
@@ -207,7 +213,7 @@ async function loadStickerAsset(db: ReturnType<typeof getDb>, id: string) {
   return sticker;
 }
 
-async function loadSavedStickers(db: ReturnType<typeof getDb>, userId: string) {
+async function loadSavedStickers(db: DatabaseExecutor, userId: string) {
   return db.execute<SavedStickerRow>(sql`
     select
       saved_stickers.id,
