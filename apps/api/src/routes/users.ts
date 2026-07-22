@@ -12,7 +12,7 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
 import { getDb } from "../db";
-import { forbidden, notFound } from "../http";
+import { conflict, forbidden, notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import {
   ensureQuestProgress,
@@ -68,29 +68,37 @@ usersRoute.patch(
     const input = c.req.valid("json");
     const authUser = getAuthUser(c);
     const db = getDb(c.env);
-    const rows = await db.execute<UserRow>(sql`
-      update app.users
-      set
-        username = coalesce(${input.username ?? null}, username),
-        display_name = coalesce(${input.displayName ?? null}, display_name),
-        updated_at = now()
-      where id = ${authUser.id}
-      returning
-        id,
-        username,
-        display_name as "displayName",
-        avatar_base64 as "avatarBase64",
-        is_admin as "isAdmin",
-        level,
-        xp,
-        daily_streak as "dailyStreak",
-        streak_updated_on as "streakUpdatedOn",
-        last_daily_claimed_on as "lastDailyClaimedOn",
-        banned_at as "bannedAt",
-        deleted_at as "deletedAt",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-    `);
+    let rows: UserRow[];
+    try {
+      rows = await db.execute<UserRow>(sql`
+        update app.users
+        set
+          username = coalesce(${input.username ?? null}, username),
+          display_name = coalesce(${input.displayName ?? null}, display_name),
+          updated_at = now()
+        where id = ${authUser.id}
+        returning
+          id,
+          username,
+          display_name as "displayName",
+          avatar_base64 as "avatarBase64",
+          is_admin as "isAdmin",
+          level,
+          xp,
+          daily_streak as "dailyStreak",
+          streak_updated_on as "streakUpdatedOn",
+          last_daily_claimed_on as "lastDailyClaimedOn",
+          banned_at as "bannedAt",
+          deleted_at as "deletedAt",
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+      `);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        conflict("Username is already taken.");
+      }
+      throw error;
+    }
 
     return c.json(updateCurrentUserResponseSchema.parse({ user: currentUser(rows[0]!) }));
   },
@@ -266,6 +274,10 @@ export function requireAdmin(user: { isAdmin: boolean }) {
   if (!user.isAdmin) {
     forbidden("Admin access required.");
   }
+}
+
+function isUniqueViolation(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
 }
 
 function publicUser(user: UserRow) {

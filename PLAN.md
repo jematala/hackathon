@@ -76,10 +76,10 @@
 - [x] **BE2** — Durable Object: WebSocket handler, Postgres connection, broadcast on mutations
 - [ ] **BE2** — Expo Push Notification integration: register token, send on reply + daily reminder
 - [x] **FE1** — Quest screen: main quest tiers + daily quest + streak counter + progress bars (currently backed by mock quest data)
-- [x] **FE1** — Profile screen: level, perks unlocked, stats (notes placed, stickers saved, POIs visited), backed by the live user/progress API
+- [x] **FE1** — Profile screen and map HUD modal: level, avatar, perks, stats, and saved stickers backed by the live user/progress API
 - [x] **FE1** — Level-up celebration animation/overlay
 - [x] **FE2** — WebSocket connection in app: connect to DO, listen for updates, refresh displayed data
-- [x] **FE2** — Saved stickers collection picker: browse, select, reuse stickers inside the billboard placement flow
+- [x] **FE2** — Saved stickers collection picker: preserve names, browse, select, reuse stickers, and refresh quest/profile progress after saves
 - [x] **FE1/FE2** — Wire quest screen to the live quest API instead of `mockQuests`
 - [ ] **FE2** — Saved sticky notes collection screen: browse, select, reuse text notes
 

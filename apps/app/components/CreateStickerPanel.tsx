@@ -100,6 +100,7 @@ export function CreateStickerPanel({
       await saveSticker.mutateAsync({
         kind: "sticker",
         stickerAssetId: sticker.id,
+        label: stickerName.trim() || undefined,
       });
       setSubmitTone("success");
       setSubmitStatus(

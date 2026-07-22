@@ -15,7 +15,11 @@ import { getDb } from "../db";
 import { conflict, forbidden, notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import { jsonObject, isoDateTime } from "../serialize";
-import { getUserCapacities, incrementQuestProgress } from "../services/progression";
+import {
+  getUserCapacities,
+  incrementQuestProgress,
+  questProgressUpdate,
+} from "../services/progression";
 import { moderatePng, recordModerationLog } from "../services/moderation";
 import type { AppBindings } from "../types";
 
@@ -146,9 +150,14 @@ stickersRoute.post(
       throw new Error("Saved sticker was inserted but could not be loaded.");
     }
 
-    await incrementQuestProgress(db, authUser.id, "save_stickers");
+    const progress = await incrementQuestProgress(db, authUser.id, "save_stickers");
 
-    return c.json(createSavedStickerResponseSchema.parse({ savedSticker: savedSticker(saved) }));
+    return c.json(
+      createSavedStickerResponseSchema.parse({
+        questProgress: progress.map(questProgressUpdate),
+        savedSticker: savedSticker(saved),
+      }),
+    );
   },
 );
 

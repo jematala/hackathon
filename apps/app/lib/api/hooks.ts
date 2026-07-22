@@ -218,8 +218,11 @@ export function useSaveSticker() {
         getToken: auth.getToken,
         schema: createSavedStickerResponseSchema,
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      pushQuestProgress(data.questProgress);
       queryClient.invalidateQueries({ queryKey: qk.savedStickers(auth.userId) });
+      queryClient.invalidateQueries({ queryKey: qk.quests(auth.userId) });
+      queryClient.invalidateQueries({ queryKey: qk.userProgress(auth.userId) });
     },
   });
 }
@@ -237,6 +240,7 @@ export function useDeleteSavedSticker() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.savedStickers(auth.userId) });
+      queryClient.invalidateQueries({ queryKey: qk.userProgress(auth.userId) });
     },
   });
 }

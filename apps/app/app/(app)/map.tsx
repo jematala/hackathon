@@ -34,13 +34,14 @@ import {
   useBillboards,
   useClaimQuest,
   useCreateBillboard,
+  useCurrentUser,
   usePois,
   useQuests,
   useUserProgress,
   useVisitPoi,
 } from "@/lib/api/hooks";
 import { colors } from "@/lib/theme";
-import { useUserProfile } from "@/lib/userProfile";
+import { avatarBase64ToUri, useUserProfile } from "@/lib/userProfile";
 
 type HudModal = "profile" | "quests" | "studio";
 
@@ -334,11 +335,15 @@ function HudSheetModal({
 
 function ProfileModalContent({ onCreateBillboard }: { onCreateBillboard: () => void }) {
   const profile = useUserProfile();
+  const currentUser = useCurrentUser();
+  const userProgress = useUserProgress();
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
-  const avatarSource = profile.avatarUri
-    ? { uri: profile.avatarUri }
-    : require("@/assets/images/avatar.png");
+  const avatarUri = avatarBase64ToUri(currentUser.data?.avatarBase64) ?? profile.avatarUri;
+  const avatarSource = avatarUri ? { uri: avatarUri } : require("@/assets/images/avatar.png");
+  const username = currentUser.data?.username ?? profile.username;
+  const level = userProgress.data?.level ?? currentUser.data?.level ?? 1;
+  const stats = userProgress.data?.stats;
 
   const handleSignOut = async () => {
     if (signingOut) return;
@@ -358,15 +363,15 @@ function ProfileModalContent({ onCreateBillboard }: { onCreateBillboard: () => v
           <Image source={avatarSource} style={styles.profileAvatar} />
         </View>
         <View style={styles.profileCopy}>
-          <Text style={styles.profileName}>@{profile.username}</Text>
-          <Text style={styles.profileMeta}>lv22 explorer</Text>
+          <Text style={styles.profileName}>@{username}</Text>
+          <Text style={styles.profileMeta}>lv{level} explorer</Text>
         </View>
       </View>
 
       <View style={styles.profileStatsRow}>
-        <StatPill label="notes" value="12" />
-        <StatPill label="stickers" value="24" />
-        <StatPill label="pois" value="8" />
+        <StatPill label="pins" value={String(stats?.placementsCreated ?? 0)} />
+        <StatPill label="stickers" value={String(stats?.stickersSaved ?? 0)} />
+        <StatPill label="pois" value={String(stats?.poisVisited ?? 0)} />
       </View>
 
       <Pressable
