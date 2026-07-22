@@ -4,9 +4,10 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { UNSW_CENTER } from "@/constants/coordinates";
-import { useUserProfile } from "@/lib/userProfile";
+import { useCurrentUser } from "@/lib/api/hooks";
+import { avatarBase64ToUri, useUserProfile } from "@/lib/userProfile";
 
-import type { MapProps } from "./Map.types";
+import type { MapPoi, MapProps } from "./Map.types";
 import { createBillboardIcon, createPOIIcon, createUserAvatarIcon } from "./markers";
 
 const DRAWN_AVATAR_BG = "#faf7ef";
@@ -19,17 +20,22 @@ const TILE_ATTR =
 type MapHandle = { invalidateSize: () => void };
 
 export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
-  { location, billboards, onBillboardPress, pois },
+  { location, billboards, onBillboardPress, onPoiCheckIn, pois },
   ref,
 ) {
   const containerRef = useRef<View | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
-  const { avatarUri } = useUserProfile();
-  // ponytail: the init effect re-runs whenever billboards/pois/avatar change, so
-  // read the latest location from a ref instead of snapping back to UNSW.
+  const currentUser = useCurrentUser();
+  const localProfile = useUserProfile();
+  const avatarUri = avatarBase64ToUri(currentUser.data?.avatarBase64) ?? localProfile.avatarUri;
+  // Keep callbacks and location current without rebuilding Leaflet for unrelated renders.
   const locationRef = useRef(location);
+  const onBillboardPressRef = useRef(onBillboardPress);
+  const onPoiCheckInRef = useRef(onPoiCheckIn);
   locationRef.current = location;
+  onBillboardPressRef.current = onBillboardPress;
+  onPoiCheckInRef.current = onPoiCheckIn;
 
   useImperativeHandle(ref, () => ({
     invalidateSize: () => mapRef.current?.invalidateSize(),
@@ -66,9 +72,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
         icon: createPOIIcon(poi.title),
       })
         .addTo(map)
-        .bindPopup(
-          `<strong>${escapeHtml(poi.title)}</strong><br/>${escapeHtml(poi.description ?? "")}`,
-        );
+        .bindPopup(createPoiPopupContent(poi, (id) => onPoiCheckInRef.current?.(id)));
     }
 
     for (const billboard of billboards) {
@@ -76,7 +80,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
         icon: createBillboardIcon(billboard.title),
       })
         .addTo(map)
-        .on("click", () => onBillboardPress?.(billboard.id));
+        .on("click", () => onBillboardPressRef.current?.(billboard.id));
     }
 
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
@@ -92,7 +96,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
       mapRef.current = null;
       userMarkerRef.current = null;
     };
-  }, [avatarUri, billboards, onBillboardPress, pois]);
+  }, [billboards, pois]);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -120,21 +124,48 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
 
 export default Map;
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => {
-    switch (char) {
-      case "&":
-        return "&amp;";
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case '"':
-        return "&quot;";
-      default:
-        return "&#39;";
-    }
+function createPoiPopupContent(poi: MapPoi, onPoiCheckIn?: (id: string) => void): HTMLElement {
+  const root = document.createElement("div");
+  root.style.minWidth = "180px";
+  root.style.color = "#3E3528";
+  root.style.fontFamily = "Jersey10_400Regular, Jersey10, sans-serif";
+
+  const title = document.createElement("strong");
+  title.textContent = poi.title;
+  title.style.display = "block";
+  title.style.fontSize = "18px";
+  root.appendChild(title);
+
+  if (poi.description) {
+    const description = document.createElement("p");
+    description.textContent = poi.description;
+    description.style.fontSize = "15px";
+    description.style.lineHeight = "1.15";
+    description.style.margin = "6px 0 10px";
+    root.appendChild(description);
+  }
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.disabled = Boolean(poi.visited);
+  button.textContent = poi.visited ? "Checked in" : "Check in";
+  button.style.background = poi.visited ? "#9FB287" : "#4D5E40";
+  button.style.border = "2px solid #384730";
+  button.style.borderRadius = "10px";
+  button.style.color = "#F2EAD3";
+  button.style.cursor = poi.visited ? "default" : "pointer";
+  button.style.fontFamily = "inherit";
+  button.style.fontSize = "17px";
+  button.style.opacity = poi.visited ? "0.72" : "1";
+  button.style.padding = "8px 12px";
+  button.style.width = "100%";
+  button.addEventListener("click", () => {
+    if (poi.visited) return;
+    onPoiCheckIn?.(poi.id);
   });
+
+  root.appendChild(button);
+  return root;
 }
 
 const styles = StyleSheet.create({

@@ -34,12 +34,14 @@ import {
   useBillboards,
   useClaimQuest,
   useCreateBillboard,
+  useCurrentUser,
   usePois,
   useQuests,
   useUserProgress,
+  useVisitPoi,
 } from "@/lib/api/hooks";
 import { colors } from "@/lib/theme";
-import { useUserProfile } from "@/lib/userProfile";
+import { avatarBase64ToUri, resetUserProfile, useUserProfile } from "@/lib/userProfile";
 
 type HudModal = "profile" | "quests" | "studio";
 
@@ -51,6 +53,7 @@ export default function MapScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [body, setBody] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [poiError, setPoiError] = useState<string | null>(null);
   const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
   const pois = usePois({ campusId: UNSW_CAMPUS_ID });
   const createBillboard = useCreateBillboard();
@@ -68,6 +71,19 @@ export default function MapScreen() {
       })),
     [billboards.data],
   );
+  const mapPois = useMemo(
+    () =>
+      (pois.data ?? []).map((poi) => ({
+        id: poi.id,
+        title: poi.title,
+        description: poi.description,
+        lat: poi.lat,
+        lng: poi.lng,
+        visited: poi.visited,
+      })),
+    [pois.data],
+  );
+  const visitPoi = useVisitPoi({ campusId: UNSW_CAMPUS_ID });
 
   const closeCreate = () => {
     setCreateOpen(false);
@@ -120,25 +136,56 @@ export default function MapScreen() {
     setActiveBillboardId(id);
   }, []);
 
+  const checkInToPoi = useCallback(
+    (id: string) => {
+      const poi = pois.data?.find((candidate) => candidate.id === id);
+      if (!poi || visitPoi.isPending) return;
+
+      setPoiError(null);
+      if (!location) {
+        setPoiError("Enable location and wait for a position before checking in.");
+        return;
+      }
+
+      visitPoi.mutate(
+        {
+          id,
+          input: { lat: location.latitude, lng: location.longitude },
+        },
+        {
+          onSuccess: (data) => {
+            if (!data.withinRadius) {
+              setPoiError("Move closer to this POI to check in.");
+            }
+          },
+          onError: (err) => {
+            setPoiError(err instanceof ApiError ? err.message : "Could not check in here.");
+          },
+        },
+      );
+    },
+    [location, pois.data, visitPoi],
+  );
+
   return (
     <View style={styles.root}>
       <Map
         ref={mapRef}
         location={location}
         billboards={mapBillboards}
+        isPoiCheckInPending={visitPoi.isPending}
         onBillboardPress={handleBillboardPress}
-        pois={(pois.data ?? []).map((poi) => ({
-          id: poi.id,
-          title: poi.title,
-          description: poi.description,
-          lat: poi.lat,
-          lng: poi.lng,
-          visited: poi.visited,
-        }))}
+        onPoiCheckIn={checkInToPoi}
+        pois={mapPois}
       />
       {billboards.isLoading || pois.isLoading ? (
         <View style={styles.mapStatus}>
           <ActivityIndicator color={colors.sageDark} />
+        </View>
+      ) : null}
+      {poiError ? (
+        <View style={styles.poiError}>
+          <Text style={styles.poiErrorText}>{poiError}</Text>
         </View>
       ) : null}
       <MapHUD
@@ -219,6 +266,10 @@ export default function MapScreen() {
           setActiveHudModal(null);
           setCreateOpen(true);
         }}
+        onOpenFullProfile={() => {
+          setActiveHudModal(null);
+          router.push("/(app)/profile" as any);
+        }}
       />
       <CanvasModal visible={isCanvasOpen} onClose={() => setIsCanvasOpen(false)} />
     </View>
@@ -229,10 +280,12 @@ function HudSheetModal({
   activeModal,
   onClose,
   onCreateBillboard,
+  onOpenFullProfile,
 }: {
   activeModal: HudModal | null;
   onClose: () => void;
   onCreateBillboard: () => void;
+  onOpenFullProfile: () => void;
 }) {
   const { height } = useWindowDimensions();
   // The modal stays mounted through its fade-out, so keep showing the last
@@ -281,7 +334,10 @@ function HudSheetModal({
               </View>
 
               {shown === "profile" ? (
-                <ProfileModalContent onCreateBillboard={onCreateBillboard} />
+                <ProfileModalContent
+                  onCreateBillboard={onCreateBillboard}
+                  onOpenFullProfile={onOpenFullProfile}
+                />
               ) : null}
               {shown === "quests" ? <QuestsModalContent /> : null}
             </View>
@@ -292,19 +348,30 @@ function HudSheetModal({
   );
 }
 
-function ProfileModalContent({ onCreateBillboard }: { onCreateBillboard: () => void }) {
+function ProfileModalContent({
+  onCreateBillboard,
+  onOpenFullProfile,
+}: {
+  onCreateBillboard: () => void;
+  onOpenFullProfile: () => void;
+}) {
   const profile = useUserProfile();
+  const currentUser = useCurrentUser();
+  const userProgress = useUserProgress();
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
-  const avatarSource = profile.avatarUri
-    ? { uri: profile.avatarUri }
-    : require("@/assets/images/avatar.png");
+  const avatarUri = avatarBase64ToUri(currentUser.data?.avatarBase64) ?? profile.avatarUri;
+  const avatarSource = avatarUri ? { uri: avatarUri } : require("@/assets/images/avatar.png");
+  const username = currentUser.data?.username ?? profile.username;
+  const level = userProgress.data?.level ?? currentUser.data?.level ?? 1;
+  const stats = userProgress.data?.stats;
 
   const handleSignOut = async () => {
     if (signingOut) return;
     setSigningOut(true);
     try {
       await signOut();
+      resetUserProfile();
       router.replace("/");
     } catch {
       setSigningOut(false);
@@ -318,16 +385,23 @@ function ProfileModalContent({ onCreateBillboard }: { onCreateBillboard: () => v
           <Image source={avatarSource} style={styles.profileAvatar} />
         </View>
         <View style={styles.profileCopy}>
-          <Text style={styles.profileName}>@{profile.username}</Text>
-          <Text style={styles.profileMeta}>lv22 explorer</Text>
+          <Text style={styles.profileName}>@{username}</Text>
+          <Text style={styles.profileMeta}>lv{level} explorer</Text>
         </View>
       </View>
 
       <View style={styles.profileStatsRow}>
-        <StatPill label="notes" value="12" />
-        <StatPill label="stickers" value="24" />
-        <StatPill label="pois" value="8" />
+        <StatPill label="pins" value={String(stats?.placementsCreated ?? 0)} />
+        <StatPill label="stickers" value={String(stats?.stickersSaved ?? 0)} />
+        <StatPill label="pois" value={String(stats?.poisVisited ?? 0)} />
       </View>
+
+      <Pressable
+        onPress={onOpenFullProfile}
+        style={({ pressed }) => [styles.profileActionSecondary, pressed && styles.pressed]}
+      >
+        <Text style={styles.profileActionSecondaryText}>view and edit profile</Text>
+      </Pressable>
 
       <Pressable
         onPress={onCreateBillboard}
@@ -489,7 +563,6 @@ function QuestSection({ title, children }: { title: string; children: React.Reac
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -506,6 +579,23 @@ const styles = StyleSheet.create({
     right: 18,
     top: 18,
     width: 42,
+  },
+  poiError: {
+    alignSelf: "center",
+    backgroundColor: "#F6D7CE",
+    borderColor: colors.pinRedDark,
+    borderRadius: 12,
+    borderWidth: 2,
+    maxWidth: 360,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    position: "absolute",
+    top: 18,
+  },
+  poiErrorText: {
+    color: colors.pinRedDark,
+    fontSize: 16,
+    textAlign: "center",
   },
   modalRoot: {
     flex: 1,
@@ -708,6 +798,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     minHeight: 48,
     justifyContent: "center",
+  },
+  profileActionSecondary: {
+    alignItems: "center",
+    borderColor: colors.sageDark,
+    borderRadius: 10,
+    borderWidth: 2,
+    justifyContent: "center",
+    minHeight: 46,
+  },
+  profileActionSecondaryText: {
+    color: colors.sageDark,
+    fontFamily: fonts.family,
+    fontSize: 22,
   },
   pressed: {
     opacity: 0.78,

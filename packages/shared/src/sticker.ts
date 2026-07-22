@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-import { base64PngSchema, contentStatusSchema, idSchema, isoDateTimeSchema } from "./common";
+import {
+  base64PngSchema,
+  contentStatusSchema,
+  idSchema,
+  isoDateTimeSchema,
+  questProgressUpdateSchema,
+} from "./common";
 
 export const savedStickerKindSchema = z.enum(["sticker", "sticky_note"]);
 
@@ -55,6 +61,7 @@ export const createStickerResponseSchema = z.object({
 });
 
 export const createSavedStickerResponseSchema = z.object({
+  questProgress: z.array(questProgressUpdateSchema),
   savedSticker: savedStickerSchema,
 });
 

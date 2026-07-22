@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import type { getDb } from "../db";
 import { isoDate, isoDateTime, nullableIsoDateTime } from "../serialize";
 
-type Database = ReturnType<typeof getDb>;
+type Database = Pick<ReturnType<typeof getDb>, "execute">;
 
 export type QuestTriggerType =
   | "leave_billboards"

@@ -1,7 +1,8 @@
 import { useAuth } from "@clerk/expo";
 import { router } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -25,7 +26,19 @@ import {
 
 import { Screen } from "@/components/Screen";
 import { colors, fonts, pixelBorder, stickerPalette } from "@/app/theme";
-import { setUsername, useUserProfile } from "@/lib/userProfile";
+import {
+  useCurrentUser,
+  useQuests,
+  useSavedStickers,
+  useUpdateCurrentUser,
+  useUserProgress,
+} from "@/lib/api/hooks";
+import {
+  avatarBase64ToUri,
+  resetUserProfile,
+  setUsername,
+  useUserProfile,
+} from "@/lib/userProfile";
 
 const AVATAR_SIZE = 132;
 const RING_SIZE = AVATAR_SIZE + 18;
@@ -33,73 +46,6 @@ const RING_STROKE = 5;
 const XP_COLOR = "#4A90D9";
 const XP_TRACK = "rgba(45,45,45,0.12)";
 const WEB_NO_OUTLINE = { outlineStyle: "none" } as unknown as { outlineStyle: undefined };
-
-const DEMO_USER = {
-  level: 6,
-  xpCurrent: 720,
-  xpForNext: 1000,
-  streak: 7,
-  joined: "Mar 2026",
-};
-
-const DEMO_STATS = [
-  { key: "notes", label: "Notes placed", value: 12, Icon: MessageSquare, tint: colors.accent },
-  {
-    key: "stickers",
-    label: "Stickers saved",
-    value: 24,
-    Icon: Sticker,
-    tint: colors.stickerPurple,
-  },
-  { key: "pois", label: "POIs visited", value: 8, Icon: MapPin, tint: colors.primary },
-  {
-    key: "replies",
-    label: "Replies received",
-    value: 36,
-    Icon: Sparkles,
-    tint: colors.stickerOrange,
-  },
-];
-
-const PERKS = [
-  { level: 1, label: "3 concurrent billboards · 4/day", unlocked: true },
-  { level: 1, label: "10 sticker slots", unlocked: true },
-  { level: 2, label: "+1 concurrent billboard (4 total)", unlocked: true },
-  { level: 3, label: "+2 sticker slots (12 total)", unlocked: true },
-  { level: 4, label: "Cosmetic: signature on notes", unlocked: true },
-  { level: 5, label: "+1 concurrent billboard (5 total)", unlocked: true },
-  { level: 6, label: "Note border flair", unlocked: true },
-  { level: 7, label: "+2 sticker slots (14 total)", unlocked: false },
-  { level: 8, label: "+1 concurrent billboard (6 total)", unlocked: false },
-  { level: 9, label: "Sticker colour palette expansion", unlocked: false },
-  { level: 10, label: "Maxed: 10 billboards · 20 sticker slots", unlocked: false },
-];
-
-// 8x8 hand-authored mini stickers. Each entry is a row string of palette indices (0-7) or '.' for transparent.
-// Palette index maps to stickerPalette: 0=Red 1=Blue 2=Green 3=Yellow 4=Purple 5=Orange 6=Pink 7=Cyan
-const SAVED_STICKERS: string[][] = [
-  // tiny heart
-  ["........", ".00..00.", ".000000.", ".000000.", "..0000..", "...00...", "........", "........"],
-  // mushroom
-  ["..3333..", ".333333.", "33533533", "33333333", ".322223.", "..2222..", "..2222..", "..2222.."],
-  // star
-  ["...33...", "...33...", "33333333", ".333333.", "..3333..", ".33..33.", "33....33", "........"],
-  // smiley
-  ["..3333..", ".333333.", "33033033", "33333333", "33033033", "33300333", ".333333.", "..3333.."],
-  // leaf
-  [".....22.", "....222.", "...2222.", "..22222.", ".222222.", ".22222..", ".2222...", "22......"],
-  // pixel cat face
-  [
-    ".44..44.",
-    "444444.",
-    "44044044",
-    "44444444",
-    "44400444",
-    ".444444.",
-    "..4444..",
-    "........",
-  ].map((r) => r.padEnd(8, ".")),
-];
 
 function makeXpRingUri(progress: number): string {
   const r = (RING_SIZE - RING_STROKE) / 2;
@@ -113,19 +59,29 @@ function makeXpRingUri(progress: number): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-function MiniSticker({ pattern, locked }: { pattern: string[]; locked?: boolean }) {
-  const cell = 6;
+function MiniSticker({ uri, locked }: { uri?: string; locked?: boolean }) {
   return (
     <View style={[styles.miniSticker, locked && styles.miniStickerLocked]}>
-      {pattern.map((row, ri) => (
-        <View key={ri} style={styles.miniStickerRow}>
-          {row.split("").map((ch, ci) => {
-            const idx = Number.parseInt(ch, 10);
-            const bg = Number.isNaN(idx) ? "transparent" : stickerPalette[idx];
-            return <View key={ci} style={{ backgroundColor: bg, height: cell, width: cell }} />;
-          })}
+      {uri ? (
+        <Image source={{ uri }} style={styles.miniStickerImage} />
+      ) : (
+        <View style={styles.miniStickerFallback}>
+          {Array.from({ length: 8 }).map((_, row) => (
+            <View key={row} style={styles.miniStickerRow}>
+              {Array.from({ length: 8 }).map((__, col) => (
+                <View
+                  key={col}
+                  style={{
+                    backgroundColor: stickerPalette[(row + col) % stickerPalette.length],
+                    height: 6,
+                    width: 6,
+                  }}
+                />
+              ))}
+            </View>
+          ))}
         </View>
-      ))}
+      )}
       {locked ? (
         <View style={styles.miniStickerLockOverlay}>
           <Lock color={colors.white} size={14} />
@@ -161,25 +117,133 @@ function SectionLabel({ children }: { children: string }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
 
+function formatJoined(createdAt: string | undefined): string {
+  if (!createdAt) return "recently";
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return "recently";
+
+  return new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" }).format(date);
+}
+
 export default function ProfileScreen() {
   const { signOut } = useAuth();
-  const xpProgress = useMemo(() => DEMO_USER.xpCurrent / DEMO_USER.xpForNext, []);
   const profile = useUserProfile();
-  const unlockedCount = PERKS.filter((p) => p.unlocked).length;
-  const avatarSource = profile.avatarUri
-    ? { uri: profile.avatarUri }
-    : require("@/assets/images/avatar.png");
+  const currentUser = useCurrentUser();
+  const userProgress = useUserProgress();
+  const quests = useQuests();
+  const savedStickers = useSavedStickers();
+  const updateCurrentUser = useUpdateCurrentUser();
+
+  const liveUser = currentUser.data;
+  const progress = userProgress.data;
+  const username = liveUser?.username ?? profile.username;
+  const level = progress?.level ?? liveUser?.level ?? 1;
+  const streak = progress?.dailyStreak ?? liveUser?.dailyStreak ?? 0;
+  const joined = formatJoined(liveUser?.createdAt);
+  const avatarUri = avatarBase64ToUri(liveUser?.avatarBase64) ?? profile.avatarUri;
+  const avatarSource = avatarUri ? { uri: avatarUri } : require("@/assets/images/avatar.png");
+  const stickerCapacity = savedStickers.data?.capacity ?? progress?.capacities.stickerSlots ?? 0;
+  const liveStickers = savedStickers.data?.stickers ?? [];
+
+  const levelXp = useMemo(() => {
+    const levelQuests = quests.data?.levelQuests ?? [];
+    const total = levelQuests.reduce((sum, quest) => sum + quest.quest.xpReward, 0);
+    const current = levelQuests.reduce(
+      (sum, quest) => sum + (quest.claimedAt ? (quest.claimedXp ?? quest.quest.xpReward) : 0),
+      0,
+    );
+
+    if (total > 0) {
+      return { current, total };
+    }
+
+    const xp = progress?.xp ?? liveUser?.xp ?? 0;
+    return { current: xp, total: Math.max(xp, 1) };
+  }, [liveUser?.xp, progress?.xp, quests.data?.levelQuests]);
+  const xpProgress = Math.min(1, levelXp.current / Math.max(levelXp.total, 1));
+
+  const stats = useMemo(
+    () => [
+      {
+        key: "pois",
+        label: "POIs visited",
+        value: progress?.stats.poisVisited ?? 0,
+        Icon: MapPin,
+        tint: colors.primary,
+      },
+      {
+        key: "placements",
+        label: "Pins placed",
+        value: progress?.stats.placementsCreated ?? 0,
+        Icon: MessageSquare,
+        tint: colors.accent,
+      },
+      {
+        key: "stickers",
+        label: "Stickers saved",
+        value: progress?.stats.stickersSaved ?? liveStickers.length,
+        Icon: Sticker,
+        tint: colors.stickerPurple,
+      },
+      {
+        key: "replies",
+        label: "Replies received",
+        value: progress?.stats.repliesReceived ?? 0,
+        Icon: Sparkles,
+        tint: colors.stickerOrange,
+      },
+    ],
+    [liveStickers.length, progress?.stats],
+  );
+
+  const perks = useMemo(() => {
+    const unlocked =
+      progress?.unlockedPerks.map((perk) => ({
+        key: perk.levelPerkId,
+        label: `${perk.perk.name}: ${perk.perk.description}`,
+        level: perk.sourceLevel,
+        unlocked: true,
+      })) ?? [];
+    const next =
+      progress?.nextPerks.map((perk) => ({
+        key: perk.id,
+        label: `${perk.perk.name}: ${perk.perk.description}`,
+        level: perk.level,
+        unlocked: false,
+      })) ?? [];
+
+    return [...unlocked, ...next];
+  }, [progress?.nextPerks, progress?.unlockedPerks]);
+  const unlockedCount = progress?.unlockedPerks.length ?? 0;
 
   const [nameModalOpen, setNameModalOpen] = useState(false);
-  const [draftName, setDraftName] = useState(profile.username);
+  const [draftName, setDraftName] = useState(username);
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!nameModalOpen) {
+      setDraftName(username);
+    }
+  }, [nameModalOpen, username]);
+
   const openNameModal = useCallback(() => {
-    setDraftName(profile.username);
+    setDraftName(username);
+    setNameError(null);
     setNameModalOpen(true);
-  }, [profile.username]);
-  const submitName = useCallback(() => {
-    setUsername(draftName);
-    setNameModalOpen(false);
-  }, [draftName]);
+  }, [username]);
+  const submitName = useCallback(async () => {
+    const nextName = draftName.trim();
+    if (!nextName) return;
+
+    setNameError(null);
+    try {
+      await updateCurrentUser.mutateAsync({ username: nextName });
+      setUsername(nextName);
+      setNameModalOpen(false);
+    } catch (err) {
+      setNameError(err instanceof Error ? err.message : "Could not save username.");
+    }
+  }, [draftName, updateCurrentUser]);
 
   const [signingOut, setSigningOut] = useState(false);
   const handleSignOut = useCallback(async () => {
@@ -187,6 +251,7 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await signOut();
+      resetUserProfile();
       router.replace("/");
     } catch {
       setSigningOut(false);
@@ -195,6 +260,20 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
+      {currentUser.isLoading || userProgress.isLoading ? (
+        <View style={styles.liveStatus}>
+          <ActivityIndicator color={colors.primaryDark} />
+          <Text style={styles.liveStatusText}>syncing profile...</Text>
+        </View>
+      ) : null}
+      {currentUser.isError ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>
+            {(currentUser.error as Error | undefined)?.message ?? "Could not load profile."}
+          </Text>
+        </View>
+      ) : null}
+
       {/* ── Identity hero ─────────────────────────── */}
       <View style={styles.hero}>
         <View style={styles.heroBgBand} />
@@ -217,14 +296,14 @@ export default function ProfileScreen() {
             <Image source={avatarSource} style={styles.avatarImage} />
           </View>
           <View style={styles.levelChip}>
-            <Text style={styles.levelChipText}>lv{DEMO_USER.level}</Text>
+            <Text style={styles.levelChipText}>lv{level}</Text>
           </View>
         </View>
 
         <View style={styles.usernameRow}>
-          <Text style={styles.usernameText}>@{profile.username}</Text>
+          <Text style={styles.usernameText}>@{username}</Text>
         </View>
-        <Text style={styles.joinedText}>joined {DEMO_USER.joined}</Text>
+        <Text style={styles.joinedText}>joined {joined}</Text>
 
         <View style={styles.xpBarRow}>
           <Text style={styles.xpLabel}>XP</Text>
@@ -232,7 +311,7 @@ export default function ProfileScreen() {
             <View style={[styles.xpBarFill, { width: `${xpProgress * 100}%` }]} />
           </View>
           <Text style={styles.xpValue}>
-            {DEMO_USER.xpCurrent}/{DEMO_USER.xpForNext}
+            {levelXp.current}/{levelXp.total}
           </Text>
         </View>
 
@@ -260,7 +339,7 @@ export default function ProfileScreen() {
           <Flame color={colors.white} size={22} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.streakValue}>{DEMO_USER.streak}-day streak</Text>
+          <Text style={styles.streakValue}>{streak}-day streak</Text>
           <Text style={styles.streakHint}>keep it going — daily quest resets at midnight</Text>
         </View>
         <View style={styles.streakDays}>
@@ -269,7 +348,7 @@ export default function ProfileScreen() {
               key={i}
               style={[
                 styles.streakDot,
-                i < DEMO_USER.streak ? styles.streakDotOn : styles.streakDotOff,
+                i < Math.min(streak, 7) ? styles.streakDotOn : styles.streakDotOff,
               ]}
             />
           ))}
@@ -279,7 +358,7 @@ export default function ProfileScreen() {
       {/* ── Stats grid ────────────────────────────── */}
       <SectionLabel>stats</SectionLabel>
       <View style={styles.statsGrid}>
-        {DEMO_STATS.map((s) => (
+        {stats.map((s) => (
           <StatCard key={s.key} label={s.label} value={s.value} Icon={s.Icon} tint={s.tint} />
         ))}
       </View>
@@ -288,32 +367,38 @@ export default function ProfileScreen() {
       <View style={styles.perksHeader}>
         <SectionLabel>perks</SectionLabel>
         <Text style={styles.perksCount}>
-          {unlockedCount}/{PERKS.length} unlocked
+          {unlockedCount}/{Math.max(perks.length, unlockedCount)} unlocked
         </Text>
       </View>
       <View style={styles.perksCard}>
-        {PERKS.map((perk, i) => (
-          <View
-            key={i}
-            style={[styles.perkRow, i === PERKS.length - 1 && { borderBottomWidth: 0 }]}
-          >
-            <View style={[styles.perkLvl, perk.unlocked ? styles.perkLvlOn : styles.perkLvlOff]}>
-              <Text style={[styles.perkLvlText, perk.unlocked ? null : styles.perkLvlTextOff]}>
-                {perk.level}
-              </Text>
-            </View>
-            <Text style={[styles.perkLabel, !perk.unlocked && styles.perkLabelLocked]}>
-              {perk.label}
-            </Text>
-            {perk.unlocked ? (
-              <View style={styles.perkCheck}>
-                <Text style={styles.perkCheckText}>✓</Text>
+        {perks.length > 0 ? (
+          perks.map((perk, i) => (
+            <View
+              key={perk.key}
+              style={[styles.perkRow, i === perks.length - 1 && { borderBottomWidth: 0 }]}
+            >
+              <View style={[styles.perkLvl, perk.unlocked ? styles.perkLvlOn : styles.perkLvlOff]}>
+                <Text style={[styles.perkLvlText, perk.unlocked ? null : styles.perkLvlTextOff]}>
+                  {perk.level}
+                </Text>
               </View>
-            ) : (
-              <Lock color={colors.textLight} size={14} />
-            )}
+              <Text style={[styles.perkLabel, !perk.unlocked && styles.perkLabelLocked]}>
+                {perk.label}
+              </Text>
+              {perk.unlocked ? (
+                <View style={styles.perkCheck}>
+                  <Text style={styles.perkCheckText}>✓</Text>
+                </View>
+              ) : (
+                <Lock color={colors.textLight} size={14} />
+              )}
+            </View>
+          ))
+        ) : (
+          <View style={[styles.perkRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.perkLabelLocked}>Perks will appear after your profile syncs.</Text>
           </View>
-        ))}
+        )}
       </View>
 
       {/* ── Saved stickers ────────────────────────── */}
@@ -323,14 +408,16 @@ export default function ProfileScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.stickerRow}
       >
-        {SAVED_STICKERS.map((p, i) => (
-          <MiniSticker key={i} pattern={p} />
+        {liveStickers.map((sticker) => (
+          <MiniSticker
+            key={sticker.id}
+            uri={avatarBase64ToUri(sticker.stickerAsset?.pngBase64) ?? undefined}
+          />
         ))}
-        {/* one locked slot to telegraph progression */}
-        <MiniSticker pattern={SAVED_STICKERS[0]} locked />
+        {liveStickers.length < stickerCapacity ? <MiniSticker locked /> : null}
       </ScrollView>
       <Text style={styles.slotsHint}>
-        {SAVED_STICKERS.length}/12 slots used · unlock more at level 7
+        {liveStickers.length}/{stickerCapacity} slots used
       </Text>
 
       {/* ── Sign out ──────────────────────────────── */}
@@ -363,7 +450,7 @@ export default function ProfileScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoFocus
-                maxLength={20}
+                maxLength={32}
                 onChangeText={setDraftName}
                 onSubmitEditing={submitName}
                 placeholder="username"
@@ -374,6 +461,7 @@ export default function ProfileScreen() {
                 value={draftName}
               />
             </View>
+            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
             <View style={styles.modalActions}>
               <Pressable
                 onPress={() => setNameModalOpen(false)}
@@ -386,16 +474,18 @@ export default function ProfileScreen() {
                 <Text style={styles.modalBtnSubtleLabel}>cancel</Text>
               </Pressable>
               <Pressable
-                disabled={!draftName.trim()}
+                disabled={!draftName.trim() || updateCurrentUser.isPending}
                 onPress={submitName}
                 style={({ pressed }) => [
                   styles.modalBtn,
                   styles.modalBtnPrimary,
-                  !draftName.trim() && styles.saveBtnDisabled,
+                  (!draftName.trim() || updateCurrentUser.isPending) && styles.saveBtnDisabled,
                   pressed && styles.pressed,
                 ]}
               >
-                <Text style={styles.modalBtnPrimaryLabel}>save</Text>
+                <Text style={styles.modalBtnPrimaryLabel}>
+                  {updateCurrentUser.isPending ? "saving..." : "save"}
+                </Text>
               </Pressable>
             </View>
           </Pressable>
@@ -406,6 +496,31 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  liveStatus: {
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderColor: colors.borderDark,
+    borderWidth: 2,
+    flexDirection: "row",
+    gap: 8,
+    padding: 10,
+  },
+  liveStatusText: {
+    color: colors.primaryDark,
+    fontFamily: fonts.family,
+    fontSize: 16,
+  },
+  errorBanner: {
+    backgroundColor: "#F6D7CE",
+    borderColor: colors.danger,
+    borderWidth: 2,
+    padding: 10,
+  },
+  errorText: {
+    color: colors.danger,
+    fontFamily: fonts.family,
+    fontSize: 16,
+  },
   // ── HERO ──────────────────────────────
   hero: {
     alignItems: "center",
@@ -737,6 +852,14 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     padding: 4,
     position: "relative",
+  },
+  miniStickerFallback: {
+    height: 48,
+    width: 48,
+  },
+  miniStickerImage: {
+    height: 48,
+    width: 48,
   },
   miniStickerLocked: {
     opacity: 0.4,

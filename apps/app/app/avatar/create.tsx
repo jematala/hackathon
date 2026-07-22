@@ -6,11 +6,46 @@ import { ChevronLeft, ImageUp, Palette } from "lucide-react-native";
 import { CreateStickerPanel } from "@/components/CreateStickerPanel";
 import { Screen } from "@/components/Screen";
 import { colors, fonts, pixelBorder } from "@/app/theme";
+import { ApiError } from "@/lib/api/client";
+import { useUpdateAvatar } from "@/lib/api/hooks";
 import { setAvatarUri } from "@/lib/userProfile";
 
 type Mode = "draw" | "upload";
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // 2MB before resize
+const AVATAR_SIZE = 64;
+const PNG_DATA_URL_PREFIX = "data:image/png;base64,";
+
+function normalizeAvatarPng(dataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = document.createElement("img");
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = AVATAR_SIZE;
+      canvas.height = AVATAR_SIZE;
+      const context = canvas.getContext("2d");
+      if (!context || image.naturalWidth < 1 || image.naturalHeight < 1) {
+        reject(new Error("Could not process image."));
+        return;
+      }
+
+      const scale = Math.max(AVATAR_SIZE / image.naturalWidth, AVATAR_SIZE / image.naturalHeight);
+      const width = image.naturalWidth * scale;
+      const height = image.naturalHeight * scale;
+      context.imageSmoothingEnabled = false;
+      context.drawImage(
+        image,
+        (AVATAR_SIZE - width) / 2,
+        (AVATAR_SIZE - height) / 2,
+        width,
+        height,
+      );
+      resolve(canvas.toDataURL("image/png"));
+    };
+    image.onerror = () => reject(new Error("Could not decode PNG image."));
+    image.src = dataUrl;
+  });
+}
 
 export default function CreateAvatarScreen() {
   const [mode, setMode] = useState<Mode>("draw");
@@ -18,15 +53,32 @@ export default function CreateAvatarScreen() {
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [uploadTone, setUploadTone] = useState<"info" | "error" | "success">("info");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const updateAvatar = useUpdateAvatar();
 
-  const handleAvatarDrawn = useCallback(({ dataUrl }: { dataUrl: string; base64: string }) => {
-    setAvatarUri(dataUrl);
-    // small delay so the success message is briefly visible
-    setTimeout(() => {
-      if (router.canGoBack()) router.back();
-      else router.replace("/(app)/profile" as any);
-    }, 350);
-  }, []);
+  const saveAvatar = useCallback(
+    async (avatarBase64: string, dataUrl: string) => {
+      try {
+        await updateAvatar.mutateAsync({ avatarBase64 });
+        setAvatarUri(dataUrl);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          throw new Error(err.message);
+        }
+        throw err;
+      }
+
+      setTimeout(() => {
+        if (router.canGoBack()) router.back();
+        else router.replace("/(app)/profile" as any);
+      }, 350);
+    },
+    [updateAvatar],
+  );
+
+  const handleAvatarDrawn = useCallback(
+    ({ dataUrl, base64 }: { dataUrl: string; base64: string }) => saveAvatar(base64, dataUrl),
+    [saveAvatar],
+  );
 
   const openFilePicker = useCallback(() => {
     if (typeof document === "undefined") {
@@ -37,7 +89,7 @@ export default function CreateAvatarScreen() {
     if (!fileInputRef.current) {
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = "image/*";
+      input.accept = "image/png";
       input.style.display = "none";
       input.addEventListener("change", handleFileChange as unknown as EventListener);
       document.body.appendChild(input);
@@ -59,16 +111,27 @@ export default function CreateAvatarScreen() {
     setUploadTone("info");
     setUploadStatus("Reading image…");
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const result = typeof reader.result === "string" ? reader.result : null;
       if (!result) {
         setUploadTone("error");
         setUploadStatus("Could not read image.");
         return;
       }
-      setUploadDataUrl(result);
-      setUploadTone("success");
-      setUploadStatus(`Loaded ${file.name}`);
+      if (!result.startsWith(PNG_DATA_URL_PREFIX)) {
+        setUploadTone("error");
+        setUploadStatus("Pick a PNG image.");
+        return;
+      }
+      try {
+        const normalized = await normalizeAvatarPng(result);
+        setUploadDataUrl(normalized);
+        setUploadTone("success");
+        setUploadStatus(`Loaded and resized ${file.name}`);
+      } catch (error) {
+        setUploadTone("error");
+        setUploadStatus(error instanceof Error ? error.message : "Could not process image.");
+      }
     };
     reader.onerror = () => {
       setUploadTone("error");
@@ -77,12 +140,19 @@ export default function CreateAvatarScreen() {
     reader.readAsDataURL(file);
   }, []);
 
-  const handleUseUploaded = useCallback(() => {
+  const handleUseUploaded = useCallback(async () => {
     if (!uploadDataUrl) return;
-    setAvatarUri(uploadDataUrl);
-    if (router.canGoBack()) router.back();
-    else router.replace("/(app)/profile" as any);
-  }, [uploadDataUrl]);
+    setUploadTone("info");
+    setUploadStatus("Saving avatar...");
+    try {
+      await saveAvatar(uploadDataUrl.slice(PNG_DATA_URL_PREFIX.length), uploadDataUrl);
+      setUploadTone("success");
+      setUploadStatus("Avatar saved!");
+    } catch (err) {
+      setUploadTone("error");
+      setUploadStatus(err instanceof Error ? err.message : "Could not save avatar.");
+    }
+  }, [saveAvatar, uploadDataUrl]);
 
   return (
     <Screen>
@@ -159,15 +229,17 @@ export default function CreateAvatarScreen() {
           ) : null}
 
           <Pressable
-            disabled={!uploadDataUrl}
+            disabled={!uploadDataUrl || updateAvatar.isPending}
             onPress={handleUseUploaded}
             style={({ pressed }) => [
               styles.saveBtn,
-              !uploadDataUrl && styles.saveBtnDisabled,
+              (!uploadDataUrl || updateAvatar.isPending) && styles.saveBtnDisabled,
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.saveBtnLabel}>set as avatar</Text>
+            <Text style={styles.saveBtnLabel}>
+              {updateAvatar.isPending ? "saving..." : "set as avatar"}
+            </Text>
           </Pressable>
         </View>
       )}

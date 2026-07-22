@@ -3,8 +3,9 @@ import { useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { fonts } from "@/app/theme";
+import { useCurrentUser, useUserProgress } from "@/lib/api/hooks";
 import { colors } from "@/lib/theme";
-import { useUserProfile } from "@/lib/userProfile";
+import { avatarBase64ToUri, useUserProfile } from "@/lib/userProfile";
 
 const PROFILE_SIZE = 128;
 const AVATAR_SIZE = PROFILE_SIZE;
@@ -15,7 +16,11 @@ const COLOR_BG = colors.pageBgSoft;
 const COLOR_TEXT = colors.creamText;
 
 function ProfileButton({ onOpenProfile }: { onOpenProfile: () => void }) {
-  const { avatarUri } = useUserProfile();
+  const profile = useUserProfile();
+  const currentUser = useCurrentUser();
+  const userProgress = useUserProgress();
+  const avatarUri = avatarBase64ToUri(currentUser.data?.avatarBase64) ?? profile.avatarUri;
+  const level = userProgress.data?.level ?? currentUser.data?.level ?? 1;
   const useDrawn = Boolean(avatarUri);
   const source = avatarUri ? { uri: avatarUri } : require("@/assets/images/avatar.png");
 
@@ -34,7 +39,7 @@ function ProfileButton({ onOpenProfile }: { onOpenProfile: () => void }) {
         </View>
       </Pressable>
       <View style={styles.levelBadge}>
-        <Text style={styles.levelLabel}>lv22</Text>
+        <Text style={styles.levelLabel}>lv{level}</Text>
       </View>
     </View>
   );

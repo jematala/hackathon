@@ -68,7 +68,7 @@ export const updateCurrentUserInputSchema = z.object({
 });
 
 export const updateAvatarInputSchema = z.object({
-  avatarBase64: base64PngSchema,
+  avatarBase64: base64PngSchema.max(256 * 1024, "Avatar PNG payload is too large."),
 });
 
 export const updateCurrentUserResponseSchema = z.object({
