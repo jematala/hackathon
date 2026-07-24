@@ -53,10 +53,21 @@ export function useUserLocation() {
     subscriptionRef.current = sub;
   };
 
+  // Safari's Permissions API doesn't support querying `geolocation`, so
+  // requestForegroundPermissionsAsync rejects on web. Fall back to watching
+  // directly — navigator.geolocation.watchPosition triggers the native prompt.
+  const requestForeground = async () => {
+    try {
+      return await Location.requestForegroundPermissionsAsync();
+    } catch {
+      return null;
+    }
+  };
+
   const requestPermission = async () => {
-    const perm = await Location.requestForegroundPermissionsAsync();
+    const perm = await requestForeground();
     setPermission(perm);
-    if (perm.granted) {
+    if (!perm || perm.granted) {
       await startWatching();
     }
     return perm;
@@ -66,11 +77,11 @@ export function useUserLocation() {
     let cancelled = false;
 
     (async () => {
-      const perm = await Location.requestForegroundPermissionsAsync();
+      const perm = await requestForeground();
       if (cancelled) return;
       setPermission(perm);
 
-      if (perm.granted) {
+      if (!perm || perm.granted) {
         await startWatching();
       }
     })();
