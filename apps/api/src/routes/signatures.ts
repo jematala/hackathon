@@ -8,7 +8,6 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import { isoDateTime } from "../serialize";
 import type { AppBindings } from "../types";
@@ -32,7 +31,7 @@ const SIGNATURE_FEATURE_PERK_KEY = "note_signature";
 export const signaturesRoute = new Hono<AppBindings>();
 
 signaturesRoute.get("/signatures", async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const rows = await db.execute<CatalogRow>(sql`
     select
       id,
@@ -54,7 +53,7 @@ signaturesRoute.get("/signatures", async (c) => {
 });
 
 signaturesRoute.get("/users/me/signatures", requireAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const authUser = getAuthUser(c);
   const [rows, featureRows] = await Promise.all([
     db.execute<MineRow>(sql`
@@ -108,7 +107,7 @@ signaturesRoute.patch(
   requireAuth,
   zValidator("json", equipSignatureInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = c.var.db;
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
 

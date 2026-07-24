@@ -13,7 +13,7 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 
-import { getDb } from "../db";
+import type { getDb } from "../db";
 import { badRequest, notFound } from "../http";
 import { getAuthUser, optionalAuth, requireAuth } from "../middleware/auth";
 import { incrementQuestProgress, questProgressUpdate } from "../services/progression";
@@ -55,7 +55,7 @@ const upsertPoiInputSchema = z.union([createPoiInputSchema, updatePoiInputSchema
 export const poisRoute = new Hono<AppBindings>();
 
 poisRoute.get("/pois", optionalAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const campusId = c.req.query("campusId");
   const authUser = safeAuthUser(c);
 
@@ -102,7 +102,7 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
 });
 
 poisRoute.get("/pois/:id", optionalAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const id = idSchema.safeParse(c.req.param("id"));
 
   if (!id.success) {
@@ -115,7 +115,7 @@ poisRoute.get("/pois/:id", optionalAuth, async (c) => {
 });
 
 poisRoute.post("/pois", requireAuth, zValidator("json", upsertPoiInputSchema), async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const authUser = getAuthUser(c);
   const input = c.req.valid("json");
 
@@ -187,7 +187,7 @@ poisRoute.post(
   requireAuth,
   zValidator("json", visitPoiInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = c.var.db;
     const input = c.req.valid("json");
     const authUser = getAuthUser(c);
     const id = idSchema.safeParse(c.req.param("id"));

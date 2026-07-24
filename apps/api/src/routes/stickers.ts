@@ -11,7 +11,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import type { getDb } from "../db";
 import { conflict, forbidden, notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import { jsonObject, isoDateTime } from "../serialize";
@@ -60,7 +60,7 @@ stickersRoute.post(
   requireAuth,
   zValidator("json", createStickerInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = c.var.db;
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
     const moderation = await moderatePng(c.env, input.pngBase64);
@@ -99,7 +99,7 @@ stickersRoute.post(
 );
 
 stickersRoute.get("/users/me/saved-stickers", requireAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const authUser = getAuthUser(c);
   const [rows, capacity] = await Promise.all([
     loadSavedStickers(db, authUser.id),
@@ -119,7 +119,7 @@ stickersRoute.post(
   requireAuth,
   zValidator("json", createSavedStickerInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = c.var.db;
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
     const response = await db.transaction(async (tx) => {
@@ -168,7 +168,7 @@ stickersRoute.post(
 );
 
 stickersRoute.delete("/users/me/saved-stickers/:id", requireAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const authUser = getAuthUser(c);
   const id = idSchema.safeParse(c.req.param("id"));
 

@@ -8,7 +8,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import type { getDb } from "../db";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import { applyStreakMilestoneUnlocks } from "../services/progression";
 import { ensureDailyRotations } from "../services/rotations";
@@ -25,12 +25,12 @@ type ClaimRow = {
 export const questsRoute = new Hono<AppBindings>();
 
 questsRoute.get("/quests", requireAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const authUser = getAuthUser(c);
 
   await ensureDailyRotations(db);
 
-  const user = await loadUser(c.env, authUser.id);
+  const user = await loadUser(c.var.db, authUser.id);
   const quests = await loadQuestRows(db, authUser.id);
 
   return c.json(
@@ -48,7 +48,7 @@ questsRoute.post(
   requireAuth,
   zValidator("json", claimQuestInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = c.var.db;
     const authUser = getAuthUser(c);
     const id = c.req.param("id");
     const rows = await db.execute<ClaimRow>(sql`
@@ -98,7 +98,7 @@ questsRoute.post(
       );
     }
 
-    const userBefore = await loadUser(c.env, authUser.id);
+    const userBefore = await loadUser(c.var.db, authUser.id);
 
     await db.execute(sql`
       update app.user_quest_progress
@@ -142,7 +142,7 @@ questsRoute.post(
       await maybeLevelUp(db, authUser.id);
     }
 
-    const userAfter = await loadUser(c.env, authUser.id);
+    const userAfter = await loadUser(c.var.db, authUser.id);
     const unlockedRows = await db.execute<{ levelPerkId: string }>(sql`
       select level_perk_id as "levelPerkId"
       from app.user_perk_unlocks

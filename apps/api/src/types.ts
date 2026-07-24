@@ -1,5 +1,7 @@
 import type { Context } from "hono";
 
+import type { getDb } from "./db";
+
 export type Env = {
   CAMPUS_REALTIME_ROOM: DurableObjectNamespace;
   CLERK_PUBLISHABLE_KEY?: string;
@@ -21,6 +23,7 @@ export type AuthUser = {
 
 export type Variables = {
   authUser: AuthUser;
+  db: ReturnType<typeof getDb>;
 };
 
 export type AppBindings = {

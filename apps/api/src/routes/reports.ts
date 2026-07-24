@@ -9,7 +9,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import type { getDb } from "../db";
 import { notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import { isoDateTime } from "../serialize";
@@ -52,7 +52,7 @@ reportsRoute.post(
   requireAuth,
   zValidator("json", createReportInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = c.var.db;
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
     const rows = await db.execute<{ id: string }>(sql`
@@ -73,7 +73,7 @@ reportsRoute.get("/admin/reports", requireAuth, async (c) => {
 
   requireAdmin(authUser);
 
-  const db = getDb(c.env);
+  const db = c.var.db;
   const status = c.req.query("status");
   const rows = await db.execute<ReportRow>(sql`
     ${reportSelectSql()}
@@ -94,7 +94,7 @@ reportsRoute.post(
   requireAuth,
   zValidator("json", adminReportActionInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = c.var.db;
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
 

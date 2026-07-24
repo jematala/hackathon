@@ -11,7 +11,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import type { getDb } from "../db";
 import { badRequest, conflict, forbidden, notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import {
@@ -55,7 +55,7 @@ type PerkRow = {
 export const usersRoute = new Hono<AppBindings>();
 
 usersRoute.get("/users/me", requireAuth, async (c) => {
-  const user = await loadUser(c.env, getAuthUser(c).id);
+  const user = await loadUser(c.var.db, getAuthUser(c).id);
 
   return c.json(getCurrentUserResponseSchema.parse({ user: currentUser(user) }));
 });
@@ -67,7 +67,7 @@ usersRoute.patch(
   async (c) => {
     const input = c.req.valid("json");
     const authUser = getAuthUser(c);
-    const db = getDb(c.env);
+    const db = c.var.db;
     let rows: UserRow[];
     try {
       rows = await db.execute<UserRow>(sql`
@@ -111,7 +111,7 @@ usersRoute.patch(
   async (c) => {
     const input = c.req.valid("json");
     const authUser = getAuthUser(c);
-    const db = getDb(c.env);
+    const db = c.var.db;
     validateAvatarPng(input.avatarBase64);
     const rows = await db.execute<UserRow>(sql`
       update app.users
@@ -140,11 +140,11 @@ usersRoute.patch(
 
 usersRoute.get("/users/me/progress", requireAuth, async (c) => {
   const authUser = getAuthUser(c);
-  const db = getDb(c.env);
+  const db = c.var.db;
 
   await ensureQuestProgress(db, authUser.id);
 
-  const user = await loadUser(c.env, authUser.id);
+  const user = await loadUser(c.var.db, authUser.id);
   const capacities = await getUserCapacities(db, authUser.id);
   const [statsRows, unlocked, next] = await Promise.all([
     db.execute<{
@@ -216,8 +216,8 @@ usersRoute.get("/users/me/progress", requireAuth, async (c) => {
 
 usersRoute.get("/users/me/perks", requireAuth, async (c) => {
   const authUser = getAuthUser(c);
-  const db = getDb(c.env);
-  const user = await loadUser(c.env, authUser.id);
+  const db = c.var.db;
+  const user = await loadUser(c.var.db, authUser.id);
   const [unlocked, next] = await Promise.all([
     loadUnlockedPerks(db, authUser.id),
     loadNextPerks(db, user.level),
@@ -236,13 +236,12 @@ usersRoute.get("/users/:id", async (c) => {
     notFound();
   }
 
-  const user = await loadUser(c.env, id.data);
+  const user = await loadUser(c.var.db, id.data);
 
   return c.json(getUserResponseSchema.parse({ user: publicUser(user) }));
 });
 
-export async function loadUser(env: AppBindings["Bindings"], id: string) {
-  const db = getDb(env);
+export async function loadUser(db: ReturnType<typeof getDb>, id: string) {
   const rows = await db.execute<UserRow>(sql`
     select
       id,

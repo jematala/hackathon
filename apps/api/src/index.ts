@@ -24,6 +24,25 @@ const app = new Hono<AppBindings>();
 
 app.use("/api/*", cors());
 
+// One postgres client per request, shared by middleware + handlers, closed after
+// the response. Creating a client per getDb() call was opening (and leaking) a
+// fresh TCP+TLS connection to the pooler on every query path.
+app.use("/api/*", async (c, next) => {
+  if (!c.env.SUPABASE_POOLER_DATABASE_URL) {
+    await next();
+    return;
+  }
+
+  const db = getDb(c.env);
+  c.set("db", db);
+
+  try {
+    await next();
+  } finally {
+    c.executionCtx.waitUntil(db.$client.end({ timeout: 5 }));
+  }
+});
+
 app.get("/api/health", (c) => {
   return c.json({
     database: Boolean(c.env.SUPABASE_POOLER_DATABASE_URL),
@@ -78,8 +97,12 @@ export default {
   async scheduled(_event: ScheduledEvent, env: Env) {
     const db = getDb(env);
 
-    await ensureDailyRotations(db);
-    await expireBillboards(db);
-    await resetBrokenStreaks(db);
+    try {
+      await ensureDailyRotations(db);
+      await expireBillboards(db);
+      await resetBrokenStreaks(db);
+    } finally {
+      await db.$client.end({ timeout: 5 });
+    }
   },
 };

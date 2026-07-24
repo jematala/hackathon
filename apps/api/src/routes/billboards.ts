@@ -12,7 +12,7 @@ import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { getDb } from "../db";
+import type { getDb } from "../db";
 import { conflict, forbidden, notFound, tooManyRequests } from "../http";
 import { getAuthUser, optionalAuth, requireAuth } from "../middleware/auth";
 import { jsonObject, isoDateTime } from "../serialize";
@@ -23,7 +23,6 @@ import {
 } from "../services/progression";
 import { queueRealtimeBroadcast } from "../services/realtime";
 import { moderateText, recordModerationLog } from "../services/moderation";
-import { expireBillboards } from "../services/rotations";
 import type { AppBindings } from "../types";
 
 type BillboardRow = {
@@ -66,10 +65,7 @@ type PlacementRow = {
 export const billboardsRoute = new Hono<AppBindings>();
 
 billboardsRoute.get("/billboards", optionalAuth, async (c) => {
-  const db = getDb(c.env);
-
-  await expireBillboards(db);
-
+  const db = c.var.db;
   const campusId = c.req.query("campusId");
   const rows = await db.execute<BillboardRow>(sql`
     select
@@ -100,6 +96,17 @@ billboardsRoute.get("/billboards", optionalAuth, async (c) => {
       and billboards.hidden_at is null
       and billboards.status = 'active'
       and billboards.expires_at > now()
+      and (
+        billboards.empty_expires_at > now()
+        or exists (
+          select 1
+          from app.billboard_placements
+          where
+            billboard_placements.billboard_id = billboards.id
+            and billboard_placements.deleted_at is null
+            and billboard_placements.hidden_at is null
+        )
+      )
       and (${campusId ?? null}::uuid is null or billboards.campus_id = ${campusId ?? null})
       and (${c.req.query("north") ?? null}::double precision is null or billboards.lat <= ${c.req.query("north") ?? null})
       and (${c.req.query("south") ?? null}::double precision is null or billboards.lat >= ${c.req.query("south") ?? null})
@@ -117,15 +124,17 @@ billboardsRoute.get("/billboards", optionalAuth, async (c) => {
 });
 
 billboardsRoute.get("/billboards/:id", optionalAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const id = idSchema.safeParse(c.req.param("id"));
 
   if (!id.success) {
     notFound("Billboard not found.");
   }
 
-  const billboard = await loadBillboard(db, id.data);
-  const placements = await loadPlacements(db, id.data);
+  const [billboard, placements] = await Promise.all([
+    loadBillboard(db, id.data),
+    loadPlacements(db, id.data),
+  ]);
 
   return c.json(
     getBillboardResponseSchema.parse({
@@ -142,7 +151,7 @@ billboardsRoute.post(
   requireAuth,
   zValidator("json", createBillboardInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = c.var.db;
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
     const moderation = await moderateText(c.env, input.body);
@@ -252,7 +261,7 @@ billboardsRoute.post(
 );
 
 billboardsRoute.delete("/billboards/:id", requireAuth, async (c) => {
-  const db = getDb(c.env);
+  const db = c.var.db;
   const authUser = getAuthUser(c);
   const id = idSchema.safeParse(c.req.param("id"));
 
@@ -285,7 +294,7 @@ billboardsRoute.post(
   requireAuth,
   zValidator("json", createPlacementInputSchema),
   async (c) => {
-    const db = getDb(c.env);
+    const db = c.var.db;
     const authUser = getAuthUser(c);
     const id = idSchema.safeParse(c.req.param("id"));
     const input = c.req.valid("json");
@@ -308,8 +317,8 @@ billboardsRoute.post(
       where billboard_id = ${id.data} and author_id = ${authUser.id} and deleted_at is null
     `);
 
-    if ((existingRows[0]?.count ?? 0) > 0) {
-      conflict("Only one placement is allowed per user per billboard.");
+    if ((existingRows[0]?.count ?? 0) >= 10) {
+      conflict("You can place up to 10 stickers on a billboard.");
     }
 
     const stickerAssetId = input.kind === "sticker" ? input.stickerAssetId : null;
