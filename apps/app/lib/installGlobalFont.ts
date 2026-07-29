@@ -1,45 +1,30 @@
-import { cloneElement, type ReactElement } from "react";
-import { Platform, Text, TextInput } from "react-native";
+import { Text, TextInput } from "react-native";
 
 const FONT_FAMILY = "Jersey10_400Regular";
 
 type ForwardRefLike = {
-  render?: (...args: unknown[]) => ReactElement;
+  render?: (...args: unknown[]) => unknown;
 };
 
+// react-native-web gives every <Text>/<TextInput> a base `font: 14px System`
+// style, so any node without an explicit fontFamily renders in the OS font
+// instead of Jersey 10. Inject our font as the *lowest-priority* entry of the
+// style prop before the component compiles it: RN flattens style arrays
+// last-wins, so anything that sets its own fontFamily — component styles, and
+// crucially icon fonts (@expo/vector-icons) — still overrides it. Plain text
+// falls back to Jersey. Works on web and native; icon-safe.
 function patchForwardRef(component: ForwardRefLike): void {
   const original = component.render;
   if (typeof original !== "function") return;
   component.render = function (...args: unknown[]) {
-    const origin = original.apply(this, args);
-    return cloneElement(origin as ReactElement<{ style?: unknown }>, {
-      style: [
-        (origin as ReactElement<{ style?: unknown }>).props.style,
-        { fontFamily: FONT_FAMILY },
-      ],
-    });
+    const props = args[0] as { style?: unknown } | undefined;
+    args[0] = { ...props, style: [{ fontFamily: FONT_FAMILY }, props?.style] };
+    return original.apply(this, args);
   };
 }
 
-// On web, react-native-web doesn't always invoke Text.render the same way
-// React Native does, so the forwardRef patch can miss elements. A global CSS
-// rule guarantees every rendered node inherits Jersey 10 unless explicitly
-// overridden by a more specific inline style.
-function injectWebCss(): void {
-  if (Platform.OS !== "web" || typeof document === "undefined") return;
-  if (document.querySelector("style[data-jersey10-global]")) return;
-  const styleEl = document.createElement("style");
-  styleEl.setAttribute("data-jersey10-global", "true");
-  styleEl.textContent = `
-    html, body, button, input, textarea, select, [class*="css-text"] {
-      font-family: "${FONT_FAMILY}", monospace !important;
-    }
-  `;
-  document.head.appendChild(styleEl);
-}
-
 // Idempotent — Fast Refresh re-runs this module; guard so we don't stack
-// patches and create N levels of cloneElement wrapping.
+// patches and prepend the font N times.
 type PatchFlag = { applied?: boolean };
 const flag: PatchFlag = ((
   globalThis as unknown as { __jersey10Patched?: PatchFlag }
@@ -48,7 +33,6 @@ const flag: PatchFlag = ((
 if (!flag.applied) {
   patchForwardRef(Text as unknown as ForwardRefLike);
   patchForwardRef(TextInput as unknown as ForwardRefLike);
-  injectWebCss();
   flag.applied = true;
 }
 
