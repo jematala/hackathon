@@ -97,7 +97,10 @@ function displayNameFromClaims(payload: ClerkClaims) {
   return usernameFromClaims(payload);
 }
 
-function primaryEmail(user: { emailAddresses: { id: string; emailAddress: string }[]; primaryEmailAddressId: string | null }) {
+function primaryEmail(user: {
+  emailAddresses: { id: string; emailAddress: string }[];
+  primaryEmailAddressId: string | null;
+}) {
   return (
     user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ??
     user.emailAddresses[0]?.emailAddress
@@ -114,10 +117,7 @@ async function enrichUserFromClerk(db: Database, env: Env, userId: string, clerk
       .replace(/[^a-zA-Z0-9_]/g, "_")
       .replace(/_+/g, "_")
       .slice(0, 32);
-    const displayName = [clerkUser.firstName, clerkUser.lastName]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
+    const displayName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ").trim();
 
     if (!username) return null;
 
