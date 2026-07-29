@@ -1,7 +1,7 @@
 import type { ClaimQuestResponse, QuestProgress } from "@repo/shared";
 import { useAuth } from "@clerk/expo";
 import { router } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -21,14 +21,15 @@ import { BillboardPanel } from "@/components/billboard/BillboardPanel";
 import { Card } from "@/components/Card";
 import { CanvasModal } from "@/components/CanvasModal";
 import { CreateStickerPanel } from "@/components/CreateStickerPanel";
+import { DebugOverlay } from "@/components/DebugOverlay";
 import { LevelUpOverlay, type LevelUpPerk } from "@/components/LevelUpOverlay";
 import Map from "@/components/map/Map";
 import { MapHUD } from "@/components/map/MapHUD";
+import { VirtualPad } from "@/components/map/VirtualPad";
 import { NextLevelPreview } from "@/components/NextLevelPreview";
-import { NextMilestonePreview } from "@/components/NextMilestonePreview";
 import { QuestCard } from "@/components/QuestCard";
 import { UNSW_CAMPUS_ID, UNSW_CENTER } from "@/constants/coordinates";
-import { useUserLocation } from "@/hooks/useUserLocation";
+import { useVirtualLocation } from "@/hooks/useVirtualLocation";
 import { ApiError } from "@/lib/api/client";
 import {
   useBillboards,
@@ -54,10 +55,17 @@ export default function MapScreen() {
   const [body, setBody] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
   const [poiError, setPoiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!poiError) return;
+    const timer = setTimeout(() => setPoiError(null), 3000);
+    return () => clearTimeout(timer);
+  }, [poiError]);
   const billboards = useBillboards({ campusId: UNSW_CAMPUS_ID });
   const pois = usePois({ campusId: UNSW_CAMPUS_ID });
   const createBillboard = useCreateBillboard();
-  const { location, isDenied, canAskAgain, requestPermission } = useUserLocation();
+  const { location, isDenied, canAskAgain, requestPermission, isVirtual, moveBy, setVirtual } =
+    useVirtualLocation();
   const billboardLocation = location
     ? { lat: location.latitude, lng: location.longitude }
     : UNSW_CENTER;
@@ -188,6 +196,7 @@ export default function MapScreen() {
           <Text style={styles.poiErrorText}>{poiError}</Text>
         </View>
       ) : null}
+      <VirtualPad isVirtual={isVirtual} moveBy={moveBy} setVirtual={setVirtual} />
       <MapHUD
         onCreateBillboard={() => setCreateOpen(true)}
         onOpenProfile={() => setActiveHudModal("profile")}
@@ -272,6 +281,8 @@ export default function MapScreen() {
         }}
       />
       <CanvasModal visible={isCanvasOpen} onClose={() => setIsCanvasOpen(false)} />
+      {/* Flip to `__DEV__ &&` to bring the auth/fetch diagnostic back. */}
+      {false ? <DebugOverlay /> : null}
     </View>
   );
 }
@@ -468,18 +479,11 @@ function QuestsModalContent() {
       }));
   }, [levelUp, userProgress.data?.unlockedPerks]);
 
-  const dailyQuest = quests.data?.dailyQuest ?? null;
   const levelQuests = quests.data?.levelQuests ?? [];
   const level = quests.data?.level ?? userProgress.data?.level ?? 1;
-  const streak = quests.data?.streak ?? userProgress.data?.dailyStreak ?? 0;
 
   return (
     <View style={styles.questsContent}>
-      <View style={styles.streakPill}>
-        <Text style={styles.streakValue}>{streak}</Text>
-        <Text style={styles.streakLabel}>day streak</Text>
-      </View>
-
       {quests.isLoading ? (
         <Card>
           <View style={styles.loadingRow}>
@@ -505,23 +509,6 @@ function QuestsModalContent() {
 
       {!quests.isLoading && !quests.isError ? (
         <>
-          <QuestSection title="Daily Quest">
-            {dailyQuest ? (
-              <>
-                <QuestCard
-                  isClaiming={claimingId === dailyQuest.id}
-                  onClaim={handleClaim}
-                  progress={dailyQuest as QuestProgress}
-                />
-                <NextMilestonePreview currentStreak={streak} />
-              </>
-            ) : (
-              <Card>
-                <Text style={styles.emptyText}>No daily quest today. Check back tomorrow!</Text>
-              </Card>
-            )}
-          </QuestSection>
-
           <QuestSection title={`Level ${level} Quests`}>
             {levelQuests.length > 0 ? (
               levelQuests.map((quest) => (
@@ -835,28 +822,6 @@ const styles = StyleSheet.create({
   },
   questsContent: {
     gap: 16,
-  },
-  streakPill: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: colors.pageBgSoft,
-    borderColor: colors.sageDark,
-    borderRadius: 8,
-    borderWidth: 2,
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  streakValue: {
-    color: colors.pinRed,
-    fontFamily: fonts.family,
-    fontSize: 28,
-  },
-  streakLabel: {
-    color: colors.inkSoft,
-    fontFamily: fonts.family,
-    fontSize: 18,
   },
   loadingRow: {
     alignItems: "center",

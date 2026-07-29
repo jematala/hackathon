@@ -10,7 +10,6 @@ import { Hono } from "hono";
 
 import type { getDb } from "../db";
 import { getAuthUser, requireAuth } from "../middleware/auth";
-import { applyStreakMilestoneUnlocks } from "../services/progression";
 import { ensureDailyRotations } from "../services/rotations";
 import type { AppBindings } from "../types";
 import { loadQuestRows, loadUser } from "./users";
@@ -18,7 +17,6 @@ import { loadQuestRows, loadUser } from "./users";
 type ClaimRow = {
   claimedAt: Date | string | null;
   completedAt: Date | string | null;
-  source: "daily_quest" | "level_quest";
   xpReward: number;
 };
 
@@ -35,10 +33,8 @@ questsRoute.get("/quests", requireAuth, async (c) => {
 
   return c.json(
     listQuestsResponseSchema.parse({
-      dailyQuest: quests.find((quest) => quest.quest.source === "daily_quest") ?? null,
       level: user.level,
-      levelQuests: quests.filter((quest) => quest.quest.source === "level_quest"),
-      streak: user.dailyStreak,
+      levelQuests: quests,
     }),
   );
 });
@@ -53,17 +49,11 @@ questsRoute.post(
     const id = c.req.param("id");
     const rows = await db.execute<ClaimRow>(sql`
       select
-        user_quest_progress.source,
         user_quest_progress.completed_at as "completedAt",
         user_quest_progress.claimed_at as "claimedAt",
-        case
-          when user_quest_progress.source = 'level_quest' then level_quest_sets.xp_reward
-          else 0
-        end as "xpReward"
+        level_quest_sets.xp_reward as "xpReward"
       from app.user_quest_progress
-      left join app.level_quest_sets
-        on user_quest_progress.source = 'level_quest'
-        and user_quest_progress.source_id = level_quest_sets.id
+      join app.level_quest_sets on level_quest_sets.id = user_quest_progress.source_id
       where user_quest_progress.id = ${id} and user_quest_progress.user_id = ${authUser.id}
     `);
     const quest = rows[0];
@@ -107,40 +97,11 @@ questsRoute.post(
     `);
     await db.execute(sql`
       update app.users
-      set
-        xp = case when ${quest.source} = 'level_quest' then xp + ${quest.xpReward} else xp end,
-        last_daily_claimed_on = case
-          when ${quest.source} = 'daily_quest' then (timezone('Australia/Sydney', now()))::date
-          else last_daily_claimed_on
-        end,
-        daily_streak = case
-          when ${quest.source} = 'daily_quest'
-            and (
-              last_daily_claimed_on is null
-              or last_daily_claimed_on < (timezone('Australia/Sydney', now()))::date
-            )
-          then daily_streak + 1
-          else daily_streak
-        end,
-        streak_updated_on = case
-          when ${quest.source} = 'daily_quest' then (timezone('Australia/Sydney', now()))::date
-          else streak_updated_on
-        end,
-        updated_at = now()
+      set xp = xp + ${quest.xpReward}, updated_at = now()
       where id = ${authUser.id}
     `);
 
-    if (quest.source === "daily_quest") {
-      const streakRows = await db.execute<{ dailyStreak: number }>(sql`
-        select daily_streak as "dailyStreak" from app.users where id = ${authUser.id}
-      `);
-      const streak = streakRows[0]?.dailyStreak ?? 0;
-      await applyStreakMilestoneUnlocks(db, authUser.id, streak);
-    }
-
-    if (quest.source === "level_quest") {
-      await maybeLevelUp(db, authUser.id);
-    }
+    await maybeLevelUp(db, authUser.id);
 
     const userAfter = await loadUser(c.var.db, authUser.id);
     const unlockedRows = await db.execute<{ levelPerkId: string }>(sql`

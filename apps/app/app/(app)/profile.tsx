@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import {
   ChevronLeft,
-  Flame,
   LogOut,
   Lock,
   MapPin,
@@ -138,7 +137,6 @@ export default function ProfileScreen() {
   const progress = userProgress.data;
   const username = liveUser?.username ?? profile.username;
   const level = progress?.level ?? liveUser?.level ?? 1;
-  const streak = progress?.dailyStreak ?? liveUser?.dailyStreak ?? 0;
   const joined = formatJoined(liveUser?.createdAt);
   const avatarUri = avatarBase64ToUri(liveUser?.avatarBase64) ?? profile.avatarUri;
   const avatarSource = avatarUri ? { uri: avatarUri } : require("@/assets/images/avatar.png");
@@ -330,28 +328,6 @@ export default function ProfileScreen() {
             <Pencil color={colors.primaryDark} size={14} />
             <Text style={styles.heroBtnLabel}>edit name</Text>
           </Pressable>
-        </View>
-      </View>
-
-      {/* ── Streak banner ─────────────────────────── */}
-      <View style={styles.streakBanner}>
-        <View style={styles.streakIconBox}>
-          <Flame color={colors.white} size={22} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.streakValue}>{streak}-day streak</Text>
-          <Text style={styles.streakHint}>keep it going — daily quest resets at midnight</Text>
-        </View>
-        <View style={styles.streakDays}>
-          {Array.from({ length: 7 }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.streakDot,
-                i < Math.min(streak, 7) ? styles.streakDotOn : styles.streakDotOff,
-              ]}
-            />
-          ))}
         </View>
       </View>
 
@@ -676,53 +652,6 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     fontFamily: fonts.family,
     fontSize: 16,
-  },
-
-  // ── STREAK ────────────────────────────
-  streakBanner: {
-    alignItems: "center",
-    backgroundColor: colors.card,
-    borderColor: colors.borderDark,
-    borderWidth: 2,
-    flexDirection: "row",
-    gap: 12,
-    padding: 14,
-  },
-  streakIconBox: {
-    alignItems: "center",
-    backgroundColor: colors.danger,
-    borderColor: "#7E1D11",
-    borderWidth: 2,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  streakValue: {
-    color: colors.text,
-    fontFamily: fonts.family,
-    fontSize: 22,
-  },
-  streakHint: {
-    color: colors.textSecondary,
-    fontFamily: fonts.family,
-    fontSize: 14,
-  },
-  streakDays: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  streakDot: {
-    borderWidth: 2,
-    height: 10,
-    width: 10,
-  },
-  streakDotOn: {
-    backgroundColor: colors.danger,
-    borderColor: "#7E1D11",
-  },
-  streakDotOff: {
-    backgroundColor: colors.parchmentDark,
-    borderColor: colors.borderDark,
   },
 
   // ── SECTION LABEL ─────────────────────

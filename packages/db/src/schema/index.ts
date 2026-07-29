@@ -39,38 +39,11 @@ export const questTriggerTypeEnum = appSchema.enum("quest_trigger_type", [
   "receive_replies",
   "save_stickers",
 ]);
-export const questSourceEnum = appSchema.enum("quest_source", ["level_quest", "daily_quest"]);
-export const reportTargetTypeEnum = appSchema.enum("report_target_type", [
-  "billboard",
-  "placement",
-  "user",
-]);
+export const questSourceEnum = appSchema.enum("quest_source", ["level_quest"]);
 export const contentModerationTargetTypeEnum = appSchema.enum("content_moderation_target_type", [
   "billboard",
   "placement",
   "sticker_asset",
-]);
-export const reportReasonEnum = appSchema.enum("report_reason", [
-  "spam",
-  "harassment",
-  "hate",
-  "sexual",
-  "violence",
-  "self_harm",
-  "other",
-]);
-export const reportStatusEnum = appSchema.enum("report_status", [
-  "open",
-  "reviewing",
-  "resolved",
-  "dismissed",
-]);
-export const moderationActionTypeEnum = appSchema.enum("moderation_action_type", [
-  "hide",
-  "remove",
-  "warn",
-  "ban",
-  "dismiss",
 ]);
 export const pushPlatformEnum = appSchema.enum("push_platform", ["expo", "ios", "android", "web"]);
 
@@ -97,12 +70,8 @@ export const users = appSchema.table(
     username: text("username").notNull().unique(),
     displayName: text("display_name").notNull(),
     avatarBase64: text("avatar_base64"),
-    isAdmin: boolean("is_admin").notNull().default(false),
     level: integer("level").notNull().default(1),
     xp: integer("xp").notNull().default(0),
-    dailyStreak: integer("daily_streak").notNull().default(0),
-    streakUpdatedOn: date("streak_updated_on"),
-    lastDailyClaimedOn: date("last_daily_claimed_on"),
     bannedAt: timestamp("banned_at", { withTimezone: true }),
     deletedAt,
     createdAt,
@@ -111,7 +80,6 @@ export const users = appSchema.table(
   (table) => [
     check("users_level_check", sql`${table.level} >= 1`),
     check("users_xp_check", sql`${table.xp} >= 0`),
-    check("users_daily_streak_check", sql`${table.dailyStreak} >= 0`),
   ],
 );
 
@@ -303,9 +271,6 @@ export const billboardPlacements = appSchema.table(
     updatedAt,
   },
   (table) => [
-    uniqueIndex("billboard_placements_one_per_user_idx")
-      .on(table.billboardId, table.authorId)
-      .where(sql`${table.deletedAt} is null`),
     index("billboard_placements_billboard_idx").on(table.billboardId, table.zIndex),
     check("billboard_placements_x_check", sql`${table.x} >= 0 and ${table.x} <= 1`),
     check("billboard_placements_y_check", sql`${table.y} >= 0 and ${table.y} <= 1`),
@@ -386,27 +351,6 @@ export const questTemplates = appSchema.table(
   ],
 );
 
-export const dailyQuestTemplates = appSchema.table(
-  "daily_quest_templates",
-  {
-    id: uuidPrimaryKey(),
-    key: text("key").notNull().unique(),
-    triggerType: questTriggerTypeEnum("trigger_type").notNull(),
-    titleTemplate: text("title_template").notNull(),
-    descriptionTemplate: text("description_template").notNull(),
-    minTarget: integer("min_target").notNull(),
-    maxTarget: integer("max_target").notNull(),
-    xpReward: integer("xp_reward").notNull(),
-    active: boolean("active").notNull().default(true),
-    createdAt,
-  },
-  (table) => [
-    check("daily_quest_templates_min_target_check", sql`${table.minTarget} > 0`),
-    check("daily_quest_templates_max_target_check", sql`${table.maxTarget} >= ${table.minTarget}`),
-    check("daily_quest_templates_xp_reward_check", sql`${table.xpReward} >= 0`),
-  ],
-);
-
 export const levelQuestSets = appSchema.table(
   "level_quest_sets",
   {
@@ -428,24 +372,6 @@ export const levelQuestSets = appSchema.table(
   ],
 );
 
-export const dailyQuestPool = appSchema.table(
-  "daily_quest_pool",
-  {
-    id: uuidPrimaryKey(),
-    templateId: uuid("template_id")
-      .notNull()
-      .references(() => dailyQuestTemplates.id, { onDelete: "restrict" }),
-    targetCount: integer("target_count").notNull(),
-    xpReward: integer("xp_reward").notNull(),
-    active: boolean("active").notNull().default(true),
-    createdAt,
-  },
-  (table) => [
-    check("daily_quest_pool_target_count_check", sql`${table.targetCount} > 0`),
-    check("daily_quest_pool_xp_reward_check", sql`${table.xpReward} >= 0`),
-  ],
-);
-
 export const userQuestProgress = appSchema.table(
   "user_quest_progress",
   {
@@ -455,7 +381,6 @@ export const userQuestProgress = appSchema.table(
       .references(() => users.id, { onDelete: "cascade" }),
     source: questSourceEnum("source").notNull(),
     sourceId: uuid("source_id").notNull(),
-    activeOn: date("active_on"),
     progressCount: integer("progress_count").notNull().default(0),
     targetCount: integer("target_count").notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -466,26 +391,8 @@ export const userQuestProgress = appSchema.table(
     updatedAt,
   },
   (table) => [
-    uniqueIndex("user_quest_progress_level_unique_idx")
-      .on(table.userId, table.source, table.sourceId)
-      .where(sql`${table.activeOn} is null`),
-    uniqueIndex("user_quest_progress_daily_unique_idx")
-      .on(table.userId, table.source, table.sourceId, table.activeOn)
-      .where(sql`${table.activeOn} is not null`),
+    uniqueIndex("user_quest_progress_unique_idx").on(table.userId, table.source, table.sourceId),
     index("user_quest_progress_user_idx").on(table.userId),
-    check(
-      "user_quest_progress_active_on_check",
-      sql`
-        (
-          ${table.source} = 'daily_quest'
-          and ${table.activeOn} is not null
-        )
-        or (
-          ${table.source} = 'level_quest'
-          and ${table.activeOn} is null
-        )
-      `,
-    ),
     check("user_quest_progress_progress_count_check", sql`${table.progressCount} >= 0`),
     check("user_quest_progress_target_count_check", sql`${table.targetCount} > 0`),
     check(
@@ -539,25 +446,6 @@ export const userPerkUnlocks = appSchema.table(
   ],
 );
 
-export const streakRewardDefinitions = appSchema.table(
-  "streak_reward_definitions",
-  {
-    id: uuidPrimaryKey(),
-    streakDays: integer("streak_days").notNull().unique(),
-    name: text("name").notNull(),
-    reward: jsonb("reward").$type<JsonObject>().notNull(),
-    active: boolean("active").notNull().default(true),
-    createdAt,
-  },
-  (table) => [
-    check("streak_reward_definitions_streak_days_check", sql`${table.streakDays} > 0`),
-    check(
-      "streak_reward_definitions_reward_object_check",
-      sql`jsonb_typeof(${table.reward}) = 'object'`,
-    ),
-  ],
-);
-
 export const signatures = appSchema.table(
   "signatures",
   {
@@ -591,45 +479,6 @@ export const userSignatures = appSchema.table(
       .where(sql`${table.isEquipped}`),
   ],
 );
-
-export const reports = appSchema.table(
-  "reports",
-  {
-    id: uuidPrimaryKey(),
-    reporterId: uuid("reporter_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    targetType: reportTargetTypeEnum("target_type").notNull(),
-    targetId: uuid("target_id").notNull(),
-    reason: reportReasonEnum("reason").notNull(),
-    details: text("details"),
-    status: reportStatusEnum("status").notNull().default("open"),
-    adminNotes: text("admin_notes"),
-    createdAt,
-    updatedAt,
-  },
-  (table) => [
-    uniqueIndex("reports_reporter_target_idx").on(
-      table.reporterId,
-      table.targetType,
-      table.targetId,
-    ),
-    index("reports_status_idx").on(table.status, table.createdAt),
-  ],
-);
-
-export const moderationActions = appSchema.table("moderation_actions", {
-  id: uuidPrimaryKey(),
-  reportId: uuid("report_id").references(() => reports.id, { onDelete: "set null" }),
-  adminId: uuid("admin_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "restrict" }),
-  action: moderationActionTypeEnum("action").notNull(),
-  targetType: reportTargetTypeEnum("target_type").notNull(),
-  targetId: uuid("target_id").notNull(),
-  notes: text("notes"),
-  createdAt,
-});
 
 export const contentModerationLogs = appSchema.table("content_moderation_logs", {
   id: uuidPrimaryKey(),

@@ -30,7 +30,7 @@ export const base64PngSchema = z
 
 export const questProgressUpdateSchema = z.object({
   questId: idSchema,
-  source: z.enum(["level_quest", "daily_quest"]),
+  source: z.enum(["level_quest"]),
   progressCount: z.number().int().min(0),
   targetCount: z.number().int().positive(),
   completed: z.boolean(),

@@ -16,8 +16,6 @@ export function QuestCard({ progress, onClaim, isClaiming }: QuestCardProps) {
   const { quest, claimedAt, claimableAt, progressCount, targetCount } = progress;
   const claimed = Boolean(claimedAt);
   const claimable = Boolean(claimableAt) && !claimed;
-  const isDaily = quest.source === "daily_quest";
-  const claimedLabel = isDaily ? "Claimed · streak +1" : "Claimed";
 
   return (
     <Card>
@@ -25,14 +23,13 @@ export function QuestCard({ progress, onClaim, isClaiming }: QuestCardProps) {
         <Text style={styles.title} numberOfLines={2}>
           {quest.title}
         </Text>
-        {isDaily && <Text style={styles.streakReward}>+1 streak</Text>}
       </View>
       <Text style={styles.description}>{quest.description}</Text>
       <ProgressBar value={progressCount} max={targetCount} />
       <View style={styles.actionRow}>
         {claimed ? (
           <View style={styles.claimedPill}>
-            <Text style={styles.claimedLabel}>{claimedLabel}</Text>
+            <Text style={styles.claimedLabel}>Claimed</Text>
           </View>
         ) : claimable ? (
           <Pressable
@@ -65,11 +62,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family,
     fontSize: 20,
     marginRight: 12,
-  },
-  streakReward: {
-    color: "#D94A29",
-    fontFamily: fonts.family,
-    fontSize: 16,
   },
   description: {
     color: "#71730E",

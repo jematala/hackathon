@@ -12,28 +12,24 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
 import type { getDb } from "../db";
-import { badRequest, conflict, forbidden, notFound } from "../http";
+import { badRequest, conflict, notFound } from "../http";
 import { getAuthUser, requireAuth } from "../middleware/auth";
 import {
   ensureQuestProgress,
   getUserCapacities,
   questRowToProgress,
 } from "../services/progression";
-import { isoDateTime, nullableIsoDate, nullableIsoDateTime } from "../serialize";
+import { isoDateTime, nullableIsoDateTime } from "../serialize";
 import type { AppBindings } from "../types";
 
 type UserRow = {
   avatarBase64: string | null;
   bannedAt: Date | string | null;
   createdAt: Date | string;
-  dailyStreak: number;
   deletedAt: Date | string | null;
   displayName: string;
   id: string;
-  isAdmin: boolean;
-  lastDailyClaimedOn: Date | string | null;
   level: number;
-  streakUpdatedOn: Date | string | null;
   updatedAt: Date | string;
   username: string;
   xp: number;
@@ -82,12 +78,8 @@ usersRoute.patch(
           username,
           display_name as "displayName",
           avatar_base64 as "avatarBase64",
-          is_admin as "isAdmin",
           level,
           xp,
-          daily_streak as "dailyStreak",
-          streak_updated_on as "streakUpdatedOn",
-          last_daily_claimed_on as "lastDailyClaimedOn",
           banned_at as "bannedAt",
           deleted_at as "deletedAt",
           created_at as "createdAt",
@@ -122,12 +114,8 @@ usersRoute.patch(
         username,
         display_name as "displayName",
         avatar_base64 as "avatarBase64",
-        is_admin as "isAdmin",
         level,
         xp,
-        daily_streak as "dailyStreak",
-        streak_updated_on as "streakUpdatedOn",
-        last_daily_claimed_on as "lastDailyClaimedOn",
         banned_at as "bannedAt",
         deleted_at as "deletedAt",
         created_at as "createdAt",
@@ -202,7 +190,6 @@ usersRoute.get("/users/me/progress", requireAuth, async (c) => {
   const stats = statsRows[0]!;
   const progress = {
     capacities,
-    dailyStreak: user.dailyStreak,
     level: user.level,
     nextPerks: next.map(levelPerk),
     stats,
@@ -248,12 +235,8 @@ export async function loadUser(db: ReturnType<typeof getDb>, id: string) {
       username,
       display_name as "displayName",
       avatar_base64 as "avatarBase64",
-      is_admin as "isAdmin",
       level,
       xp,
-      daily_streak as "dailyStreak",
-      streak_updated_on as "streakUpdatedOn",
-      last_daily_claimed_on as "lastDailyClaimedOn",
       banned_at as "bannedAt",
       deleted_at as "deletedAt",
       created_at as "createdAt",
@@ -268,12 +251,6 @@ export async function loadUser(db: ReturnType<typeof getDb>, id: string) {
   }
 
   return user;
-}
-
-export function requireAdmin(user: { isAdmin: boolean }) {
-  if (!user.isAdmin) {
-    forbidden("Admin access required.");
-  }
 }
 
 export function isUniqueViolation(error: unknown, depth = 0): boolean {
@@ -331,11 +308,7 @@ function currentUser(user: UserRow) {
   return {
     ...publicUser(user),
     bannedAt: nullableIsoDateTime(user.bannedAt),
-    dailyStreak: user.dailyStreak,
     deletedAt: nullableIsoDateTime(user.deletedAt),
-    isAdmin: user.isAdmin,
-    lastDailyClaimedOn: nullableIsoDate(user.lastDailyClaimedOn),
-    streakUpdatedOn: nullableIsoDate(user.streakUpdatedOn),
     updatedAt: isoDateTime(user.updatedAt),
     xp: user.xp,
   };
@@ -424,47 +397,33 @@ export async function loadQuestRows(db: ReturnType<typeof getDb>, userId: string
       user_quest_progress.claimable_at as "claimableAt",
       user_quest_progress.claimed_at as "claimedAt",
       user_quest_progress.claimed_xp as "claimedXp",
-      coalesce(level_quest_sets.xp_reward, daily_quest_pool.xp_reward) as "xpReward",
-      coalesce(quest_templates.id, daily_quest_templates.id) as "templateId",
-      coalesce(quest_templates.key, daily_quest_templates.key) as "templateKey",
-      coalesce(quest_templates.trigger_type, daily_quest_templates.trigger_type) as "templateTriggerType",
-      coalesce(quest_templates.title_template, daily_quest_templates.title_template) as "templateTitleTemplate",
-      coalesce(
-        quest_templates.description_template,
-        daily_quest_templates.description_template
-      ) as "templateDescriptionTemplate",
-      coalesce(quest_templates.min_target, daily_quest_templates.min_target) as "templateMinTarget",
-      coalesce(quest_templates.max_target, daily_quest_templates.max_target) as "templateMaxTarget",
-      coalesce(quest_templates.xp_reward, daily_quest_templates.xp_reward) as "templateXpReward",
-      coalesce(quest_templates.active, daily_quest_templates.active) as "templateActive",
+      level_quest_sets.xp_reward as "xpReward",
+      quest_templates.id as "templateId",
+      quest_templates.key as "templateKey",
+      quest_templates.trigger_type as "templateTriggerType",
+      quest_templates.title_template as "templateTitleTemplate",
+      quest_templates.description_template as "templateDescriptionTemplate",
+      quest_templates.min_target as "templateMinTarget",
+      quest_templates.max_target as "templateMaxTarget",
+      quest_templates.xp_reward as "templateXpReward",
+      quest_templates.active as "templateActive",
       replace(
-        coalesce(quest_templates.title_template, daily_quest_templates.title_template),
+        quest_templates.title_template,
         '{target}',
         user_quest_progress.target_count::text
       ) as title,
       replace(
-        coalesce(
-          quest_templates.description_template,
-          daily_quest_templates.description_template
-        ),
+        quest_templates.description_template,
         '{target}',
         user_quest_progress.target_count::text
       ) as description,
       level_quest_sets.level,
-      level_quest_sets.sort_order as "sortOrder",
-      user_quest_progress.active_on as "activeOn"
+      level_quest_sets.sort_order as "sortOrder"
     from app.user_quest_progress
-    left join app.level_quest_sets
-      on user_quest_progress.source = 'level_quest'
-      and user_quest_progress.source_id = level_quest_sets.id
-    left join app.quest_templates on quest_templates.id = level_quest_sets.template_id
-    left join app.daily_quest_pool
-      on user_quest_progress.source = 'daily_quest'
-      and user_quest_progress.source_id = daily_quest_pool.id
-    left join app.daily_quest_templates
-      on daily_quest_templates.id = daily_quest_pool.template_id
+    join app.level_quest_sets on level_quest_sets.id = user_quest_progress.source_id
+    join app.quest_templates on quest_templates.id = level_quest_sets.template_id
     where user_quest_progress.user_id = ${userId}
-    order by user_quest_progress.source, level_quest_sets.sort_order nulls last
+    order by level_quest_sets.sort_order
   `);
 
   return rows.map(questRowToProgress);

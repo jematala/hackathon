@@ -25,6 +25,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
 ) {
   const containerRef = useRef<View | null>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const markerLayerRef = useRef<L.LayerGroup | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const currentUser = useCurrentUser();
   const localProfile = useUserProfile();
@@ -67,21 +68,7 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
       maxNativeZoom: 21,
     }).addTo(map);
 
-    for (const poi of pois) {
-      L.marker([poi.lat, poi.lng], {
-        icon: createPOIIcon(poi.title),
-      })
-        .addTo(map)
-        .bindPopup(createPoiPopupContent(poi, (id) => onPoiCheckInRef.current?.(id)));
-    }
-
-    for (const billboard of billboards) {
-      L.marker([billboard.lat, billboard.lng], {
-        icon: createBillboardIcon(billboard.title),
-      })
-        .addTo(map)
-        .on("click", () => onBillboardPressRef.current?.(billboard.id));
-    }
+    markerLayerRef.current = L.layerGroup().addTo(map);
 
     const fallbackUrl = Asset.fromModule(require("@/assets/images/avatar.png")).uri;
     const useDrawn = Boolean(avatarUri);
@@ -94,8 +81,34 @@ export const Map = forwardRef<MapHandle, MapProps>(function MapWeb(
     return () => {
       map.remove();
       mapRef.current = null;
+      markerLayerRef.current = null;
       userMarkerRef.current = null;
     };
+    // Built once: tearing the map down on every data arrival re-requests tiles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const layer = markerLayerRef.current;
+    if (!layer) return;
+
+    layer.clearLayers();
+
+    for (const poi of pois) {
+      L.marker([poi.lat, poi.lng], {
+        icon: createPOIIcon(poi.title),
+      })
+        .addTo(layer)
+        .bindPopup(createPoiPopupContent(poi, (id) => onPoiCheckInRef.current?.(id)));
+    }
+
+    for (const billboard of billboards) {
+      L.marker([billboard.lat, billboard.lng], {
+        icon: createBillboardIcon(billboard.title),
+      })
+        .addTo(layer)
+        .on("click", () => onBillboardPressRef.current?.(billboard.id));
+    }
   }, [billboards, pois]);
 
   useEffect(() => {

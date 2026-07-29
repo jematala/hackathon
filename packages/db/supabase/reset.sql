@@ -13,12 +13,8 @@ create type app.quest_trigger_type as enum (
   'receive_replies',
   'save_stickers'
 );
-create type app.quest_source as enum ('level_quest', 'daily_quest');
-create type app.report_target_type as enum ('billboard', 'placement', 'user');
+create type app.quest_source as enum ('level_quest');
 create type app.content_moderation_target_type as enum ('billboard', 'placement', 'sticker_asset');
-create type app.report_reason as enum ('spam', 'harassment', 'hate', 'sexual', 'violence', 'self_harm', 'other');
-create type app.report_status as enum ('open', 'reviewing', 'resolved', 'dismissed');
-create type app.moderation_action_type as enum ('hide', 'remove', 'warn', 'ban', 'dismiss');
 create type app.push_platform as enum ('expo', 'ios', 'android', 'web');
 
 create table app.users (
@@ -27,12 +23,8 @@ create table app.users (
   username text not null unique,
   display_name text not null,
   avatar_base64 text,
-  is_admin boolean not null default false,
   level integer not null default 1 check (level >= 1),
   xp integer not null default 0 check (xp >= 0),
-  daily_streak integer not null default 0 check (daily_streak >= 0),
-  streak_updated_on date,
-  last_daily_claimed_on date,
   banned_at timestamptz,
   deleted_at timestamptz,
   created_at timestamptz not null default now(),
@@ -191,19 +183,6 @@ create table app.quest_templates (
   created_at timestamptz not null default now()
 );
 
-create table app.daily_quest_templates (
-  id uuid primary key default gen_random_uuid(),
-  key text not null unique,
-  trigger_type app.quest_trigger_type not null,
-  title_template text not null,
-  description_template text not null,
-  min_target integer not null check (min_target > 0),
-  max_target integer not null check (max_target >= min_target),
-  xp_reward integer not null check (xp_reward >= 0),
-  active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-
 create table app.level_quest_sets (
   id uuid primary key default gen_random_uuid(),
   level integer not null check (level >= 1),
@@ -215,21 +194,11 @@ create table app.level_quest_sets (
   unique (level, sort_order)
 );
 
-create table app.daily_quest_pool (
-  id uuid primary key default gen_random_uuid(),
-  template_id uuid not null references app.daily_quest_templates(id) on delete restrict,
-  target_count integer not null check (target_count > 0),
-  xp_reward integer not null check (xp_reward >= 0),
-  active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-
 create table app.user_quest_progress (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references app.users(id) on delete cascade,
   source app.quest_source not null,
   source_id uuid not null,
-  active_on date,
   progress_count integer not null default 0 check (progress_count >= 0),
   target_count integer not null check (target_count > 0),
   completed_at timestamptz,
@@ -237,17 +206,7 @@ create table app.user_quest_progress (
   claimed_at timestamptz,
   claimed_xp integer check (claimed_xp is null or claimed_xp >= 0),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  check (
-    (
-      source = 'daily_quest'
-      and active_on is not null
-    )
-    or (
-      source = 'level_quest'
-      and active_on is null
-    )
-  )
+  updated_at timestamptz not null default now()
 );
 
 create table app.perk_definitions (
@@ -274,40 +233,6 @@ create table app.user_perk_unlocks (
   source_level integer not null check (source_level >= 1),
   unlocked_at timestamptz not null default now(),
   primary key (user_id, level_perk_id)
-);
-
-create table app.streak_reward_definitions (
-  id uuid primary key default gen_random_uuid(),
-  streak_days integer not null unique check (streak_days > 0),
-  name text not null,
-  reward jsonb not null check (jsonb_typeof(reward) = 'object'),
-  active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-
-create table app.reports (
-  id uuid primary key default gen_random_uuid(),
-  reporter_id uuid not null references app.users(id) on delete cascade,
-  target_type app.report_target_type not null,
-  target_id uuid not null,
-  reason app.report_reason not null,
-  details text,
-  status app.report_status not null default 'open',
-  admin_notes text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (reporter_id, target_type, target_id)
-);
-
-create table app.moderation_actions (
-  id uuid primary key default gen_random_uuid(),
-  report_id uuid references app.reports(id) on delete set null,
-  admin_id uuid not null references app.users(id) on delete restrict,
-  action app.moderation_action_type not null,
-  target_type app.report_target_type not null,
-  target_id uuid not null,
-  notes text,
-  created_at timestamptz not null default now()
 );
 
 create table app.content_moderation_logs (
@@ -352,29 +277,15 @@ create index billboards_author_day_idx on app.billboards (
   author_id,
   ((timezone('Australia/Sydney', created_at))::date)
 );
-create unique index billboard_placements_one_per_user_idx on app.billboard_placements (
-  billboard_id,
-  author_id
-)
-where deleted_at is null;
 create index billboard_placements_billboard_idx on app.billboard_placements (billboard_id, z_index);
 create index sticker_assets_owner_idx on app.sticker_assets (owner_id);
 create index saved_stickers_user_idx on app.saved_stickers (user_id) where deleted_at is null;
-create unique index user_quest_progress_level_unique_idx on app.user_quest_progress (
+create unique index user_quest_progress_unique_idx on app.user_quest_progress (
   user_id,
   source,
   source_id
-)
-where active_on is null;
-create unique index user_quest_progress_daily_unique_idx on app.user_quest_progress (
-  user_id,
-  source,
-  source_id,
-  active_on
-)
-where active_on is not null;
+);
 create index user_quest_progress_user_idx on app.user_quest_progress (user_id);
-create index reports_status_idx on app.reports (status, created_at);
 
 insert into app.campuses (id, name, timezone, center_lat, center_lng, radius_meters, bounds)
 values (
@@ -394,7 +305,8 @@ values
   ('00000000-0000-4000-8000-000000000203', '00000000-0000-4000-8000-000000000100', 'Quadrangle Lawn', 'Open green space for quick quest stops.', st_setsrid(st_makepoint(151.2334, -33.9170), 4326)::geography, -33.9170, 151.2334),
   ('00000000-0000-4000-8000-000000000204', '00000000-0000-4000-8000-000000000100', 'Red Centre', 'A bright landmark for art, design, and engineering students.', st_setsrid(st_makepoint(151.2306, -33.9161), 4326)::geography, -33.9161, 151.2306),
   ('00000000-0000-4000-8000-000000000205', '00000000-0000-4000-8000-000000000100', 'Village Green', 'A broad outdoor hub for lunch breaks and quick meetups.', st_setsrid(st_makepoint(151.2345, -33.9152), 4326)::geography, -33.9152, 151.2345),
-  ('00000000-0000-4000-8000-000000000206', '00000000-0000-4000-8000-000000000100', 'Science Theatre', 'A lower-campus lecture landmark with steady student traffic.', st_setsrid(st_makepoint(151.2291, -33.9192), 4326)::geography, -33.9192, 151.2291);
+  ('00000000-0000-4000-8000-000000000206', '00000000-0000-4000-8000-000000000100', 'Science Theatre', 'A lower-campus lecture landmark with steady student traffic.', st_setsrid(st_makepoint(151.2291, -33.9192), 4326)::geography, -33.9192, 151.2291),
+  ('00000000-0000-4000-8000-000000000207', '00000000-0000-4000-8000-000000000100', 'The Roundhouse', 'UNSW live music and events venue (Building E6).', st_setsrid(st_makepoint(151.2315, -33.9183), 4326)::geography, -33.9183, 151.2315);
 
 insert into app.quest_templates (id, key, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
 values
@@ -402,36 +314,29 @@ values
   ('00000000-0000-4000-8000-000000000302', 'leave_billboards', 'leave_billboards', 'Leave {target} billboards', 'Post {target} notes around campus.', 1, 12, 50),
   ('00000000-0000-4000-8000-000000000303', 'place_stickers', 'place_stickers', 'Place {target} stickers', 'Reply to billboards with {target} sticker placements.', 1, 12, 50),
   ('00000000-0000-4000-8000-000000000304', 'receive_replies', 'receive_replies', 'Receive {target} replies', 'Have other students reply to your billboards {target} times.', 1, 10, 75),
-  ('00000000-0000-4000-8000-000000000305', 'save_stickers', 'save_stickers', 'Save {target} stickers', 'Save {target} stickers or sticky notes to your collection.', 1, 12, 40);
-
-insert into app.daily_quest_templates (id, key, trigger_type, title_template, description_template, min_target, max_target, xp_reward)
-values
-  ('00000000-0000-4000-8000-000000000401', 'daily_explorer', 'visit_pois', 'Daily wander', 'Visit {target} active POIs today.', 1, 3, 0),
-  ('00000000-0000-4000-8000-000000000402', 'daily_note', 'leave_billboards', 'Campus bulletin', 'Leave {target} billboard today.', 1, 2, 0),
-  ('00000000-0000-4000-8000-000000000403', 'daily_sticker', 'place_stickers', 'Sticker hello', 'Place {target} stickers on billboards today.', 1, 3, 0),
-  ('00000000-0000-4000-8000-000000000404', 'daily_save', 'save_stickers', 'Pocket a favourite', 'Save {target} sticker or sticky note today.', 1, 2, 0),
-  ('00000000-0000-4000-8000-000000000405', 'daily_replies', 'receive_replies', 'Start a conversation', 'Receive {target} replies on your billboards today.', 1, 2, 0);
+  ('00000000-0000-4000-8000-000000000305', 'save_stickers', 'save_stickers', 'Save {target} stickers', 'Save {target} stickers or sticky notes to your collection.', 1, 12, 40),
+  -- Demo-day one-tap templates (singular copy, target 1).
+  ('00000000-0000-4000-8000-000000000306', 'first_billboard', 'leave_billboards', 'Post your first note', 'Tap a billboard on the map and leave a note for the campus.', 1, 1, 50),
+  ('00000000-0000-4000-8000-000000000307', 'first_sticker', 'place_stickers', 'Drop a sticker', 'React to any billboard with a sticker.', 1, 1, 40),
+  ('00000000-0000-4000-8000-000000000308', 'first_visit', 'visit_pois', 'Find a hotspot', 'Walk up to any active spot glowing on the map.', 1, 1, 40);
 
 insert into app.level_quest_sets (id, level, template_id, target_count, xp_reward, sort_order)
 values
-  -- L1 (1 quest)
-  ('00000000-0000-4000-8000-000000000501', 1, '00000000-0000-4000-8000-000000000301', 3,  60, 1),
+  -- L1 (1 quest) -- demo: one tap -> level up
+  ('00000000-0000-4000-8000-000000000501', 1, '00000000-0000-4000-8000-000000000306', 1,  50, 1),
 
-  -- L2 (2 quests)
-  ('00000000-0000-4000-8000-000000000502', 2, '00000000-0000-4000-8000-000000000302', 2,  40, 1),
-  ('00000000-0000-4000-8000-000000000503', 2, '00000000-0000-4000-8000-000000000303', 2,  40, 2),
+  -- L2 (1 quest) -- demo: one-tap sticker
+  ('00000000-0000-4000-8000-000000000502', 2, '00000000-0000-4000-8000-000000000307', 1,  40, 1),
 
   -- L3 (2 quests)
-  ('00000000-0000-4000-8000-000000000504', 3, '00000000-0000-4000-8000-000000000301', 4,  80, 1),
-  ('00000000-0000-4000-8000-000000000505', 3, '00000000-0000-4000-8000-000000000305', 3,  60, 2),
+  ('00000000-0000-4000-8000-000000000504', 3, '00000000-0000-4000-8000-000000000302', 2,  60, 1),
+  ('00000000-0000-4000-8000-000000000505', 3, '00000000-0000-4000-8000-000000000305', 1,  40, 2),
 
-  -- L4 (3 quests)
-  ('00000000-0000-4000-8000-000000000506', 4, '00000000-0000-4000-8000-000000000302', 3,  60, 1),
-  ('00000000-0000-4000-8000-000000000507', 4, '00000000-0000-4000-8000-000000000303', 3,  60, 2),
-  ('00000000-0000-4000-8000-000000000508', 4, '00000000-0000-4000-8000-000000000304', 2,  90, 3),
+  -- L4 (2 quests) -- no receive_replies / visit_pois gates
+  ('00000000-0000-4000-8000-000000000506', 4, '00000000-0000-4000-8000-000000000303', 3,  60, 1),
+  ('00000000-0000-4000-8000-000000000508', 4, '00000000-0000-4000-8000-000000000305', 2,  90, 3),
 
-  -- L5 (3 quests)
-  ('00000000-0000-4000-8000-000000000509', 5, '00000000-0000-4000-8000-000000000301', 6, 120, 1),
+  -- L5 (2 quests)
   ('00000000-0000-4000-8000-00000000050a', 5, '00000000-0000-4000-8000-000000000302', 4,  80, 2),
   ('00000000-0000-4000-8000-00000000050b', 5, '00000000-0000-4000-8000-000000000305', 4,  80, 3),
 
@@ -465,14 +370,6 @@ values
   ('00000000-0000-4000-8000-00000000051e', 10, '00000000-0000-4000-8000-000000000303', 10, 200, 3),
   ('00000000-0000-4000-8000-00000000051f', 10, '00000000-0000-4000-8000-000000000304', 7,  280, 4),
   ('00000000-0000-4000-8000-000000000520', 10, '00000000-0000-4000-8000-000000000305', 9,  180, 5);
-
-insert into app.daily_quest_pool (id, template_id, target_count, xp_reward)
-values
-  ('00000000-0000-4000-8000-000000000601', '00000000-0000-4000-8000-000000000401', 1, 0),
-  ('00000000-0000-4000-8000-000000000602', '00000000-0000-4000-8000-000000000402', 1, 0),
-  ('00000000-0000-4000-8000-000000000603', '00000000-0000-4000-8000-000000000403', 2, 0),
-  ('00000000-0000-4000-8000-000000000604', '00000000-0000-4000-8000-000000000404', 1, 0),
-  ('00000000-0000-4000-8000-000000000605', '00000000-0000-4000-8000-000000000405', 1, 0);
 
 insert into app.perk_definitions (id, key, name, description)
 values
@@ -510,17 +407,6 @@ values
   -- L10: +1 per day, +2 sticker slots (no concurrent bump — capped at 5 from L8)
   ('00000000-0000-4000-8000-00000000090f', 10, '00000000-0000-4000-8000-000000000801', 8, null),
   ('00000000-0000-4000-8000-000000000910', 10, '00000000-0000-4000-8000-000000000802', 16, null);
-
-insert into app.streak_reward_definitions (id, streak_days, name, reward)
-values
-  ('00000000-0000-4000-8000-000000000a01', 3,  'Three day spark',
-   '{"rewards":[{"type":"signature","signatureKey":"signature_a"}]}'::jsonb),
-  ('00000000-0000-4000-8000-000000000a02', 7,  'Week one trail',
-   '{"rewards":[{"type":"signature","signatureKey":"signature_b"}]}'::jsonb),
-  ('00000000-0000-4000-8000-000000000a03', 14, 'Fortnight forager',
-   '{"rewards":[{"type":"capacity_billboard","amount":1}]}'::jsonb),
-  ('00000000-0000-4000-8000-000000000a04', 30, 'Month-long marker',
-   '{"rewards":[{"type":"signature","signatureKey":"signature_c"}]}'::jsonb);
 
 insert into app.signatures (id, key, name, asset_base64, streak_day_required) values ('00000000-0000-4000-8000-000000000b01', 'signature_a', 'Sunrise Mark',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 3);
 insert into app.signatures (id, key, name, asset_base64, streak_day_required) values ('00000000-0000-4000-8000-000000000b02', 'signature_b', 'Pixel Bloom',     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 7);

@@ -5,6 +5,9 @@
   "compatibility_date": "2026-05-18",
   "compatibility_flags": ["nodejs_compat"],
   "upload_source_maps": true,
+  // Worker runs near the Supabase pooler (ap-northeast-2) instead of the user,
+  // because each request costs several DB round trips but only one client round trip.
+  "placement": { "mode": "smart" },
   "logpush": true,
   "observability": {
     "enabled": true,

@@ -12,41 +12,9 @@ export type MockPerksResponse = {
 };
 
 const NOW = "2026-05-20T12:00:00.000Z";
-const TODAY = "2026-05-20";
 
 export const mockQuestsResponse: ListQuestsResponse = {
   level: 4,
-  streak: 7,
-  dailyQuest: {
-    id: "11111111-1111-4111-8111-111111111111",
-    progressCount: 2,
-    targetCount: 3,
-    completedAt: null,
-    claimableAt: null,
-    claimedAt: null,
-    claimedXp: null,
-    quest: {
-      id: "22222222-2222-4222-8222-222222222222",
-      source: "daily_quest",
-      sourceId: "22222222-2222-4222-8222-222222222222",
-      title: "Visit 3 new spots today",
-      description: "Drop by 3 points of interest you haven't seen yet.",
-      targetCount: 3,
-      xpReward: 0,
-      activeOn: TODAY,
-      template: {
-        id: "33333333-3333-4333-8333-333333333333",
-        key: "daily_visit_pois",
-        triggerType: "visit_pois",
-        titleTemplate: "Visit 3 new spots today",
-        descriptionTemplate: "Drop by 3 points of interest you haven't seen yet.",
-        minTarget: 1,
-        maxTarget: 5,
-        xpReward: 0,
-        active: true,
-      },
-    },
-  },
   levelQuests: [
     {
       id: "44444444-4444-4444-8444-444444444444",
@@ -179,11 +147,7 @@ export function buildMockClaimResponse(
   questId: string,
   alreadyClaimedIds: Set<string>,
 ): ClaimQuestResponse {
-  const quest =
-    mockQuestsResponse.levelQuests.find((q) => q.id === questId) ??
-    (mockQuestsResponse.dailyQuest && mockQuestsResponse.dailyQuest.id === questId
-      ? mockQuestsResponse.dailyQuest
-      : null);
+  const quest = mockQuestsResponse.levelQuests.find((q) => q.id === questId);
 
   const xpAwarded = quest?.quest.xpReward ?? 0;
   const levelBefore = mockQuestsResponse.level;

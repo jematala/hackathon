@@ -6,7 +6,6 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { Card } from "@/components/Card";
 import { LevelUpOverlay, type LevelUpPerk } from "@/components/LevelUpOverlay";
 import { NextLevelPreview } from "@/components/NextLevelPreview";
-import { NextMilestonePreview } from "@/components/NextMilestonePreview";
 import { QuestCard } from "@/components/QuestCard";
 import { Screen } from "@/components/Screen";
 import { fonts } from "@/app/theme";
@@ -52,10 +51,8 @@ export default function QuestsScreen() {
       }));
   }, [levelUp, userProgress.data?.unlockedPerks]);
 
-  const dailyQuest = quests.data?.dailyQuest ?? null;
   const levelQuests = quests.data?.levelQuests ?? [];
   const level = quests.data?.level ?? userProgress.data?.level ?? 1;
-  const streak = quests.data?.streak ?? userProgress.data?.dailyStreak ?? 0;
 
   const goHome = () => {
     if (router.canGoBack()) router.back();
@@ -69,10 +66,6 @@ export default function QuestsScreen() {
           <Text style={styles.backArrow}>{"<"}</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Quests</Text>
-        <View style={styles.streakPill}>
-          <Text style={styles.streakValue}>{streak}</Text>
-          <Text style={styles.streakLabel}>day streak</Text>
-        </View>
       </View>
 
       {quests.isLoading ? (
@@ -100,23 +93,6 @@ export default function QuestsScreen() {
 
       {!quests.isLoading && !quests.isError ? (
         <>
-          <Section title="Daily Quest">
-            {dailyQuest ? (
-              <>
-                <QuestCard
-                  isClaiming={claimingId === dailyQuest.id}
-                  onClaim={handleClaim}
-                  progress={dailyQuest as QuestProgress}
-                />
-                <NextMilestonePreview currentStreak={streak} />
-              </>
-            ) : (
-              <Card>
-                <Text style={styles.emptyText}>No daily quest today. Check back tomorrow!</Text>
-              </Card>
-            )}
-          </Section>
-
           <Section title={`Level ${level} Quests`}>
             {levelQuests.length > 0 ? (
               levelQuests.map((quest) => (
@@ -178,27 +154,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family,
     fontSize: 40,
     flex: 1,
-  },
-  streakPill: {
-    alignItems: "center",
-    backgroundColor: "#FFF5E6",
-    borderColor: "#B17833",
-    borderRadius: 8,
-    borderWidth: 2,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  streakValue: {
-    color: "#D94A29",
-    fontFamily: fonts.family,
-    fontSize: 28,
-  },
-  streakLabel: {
-    color: "#6A401A",
-    fontFamily: fonts.family,
-    fontSize: 18,
   },
   section: {
     gap: 8,

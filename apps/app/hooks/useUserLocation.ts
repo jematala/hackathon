@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Platform } from "react-native";
 import * as Location from "expo-location";
 
 export interface UserLocation {
@@ -8,10 +9,28 @@ export interface UserLocation {
   accuracy: number | null;
 }
 
+const isWeb = Platform.OS === "web";
+
+// Browser defaults are `timeout: Infinity, maximumAge: 0` — a cold load can
+// hang forever and can never be satisfied by a cached fix. Be explicit.
+const WEB_POSITION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 15000,
+  maximumAge: 30000,
+};
+
+const DENIED_PERMISSION: Location.LocationPermissionResponse = {
+  status: Location.PermissionStatus.DENIED,
+  granted: false,
+  canAskAgain: false,
+  expires: "never",
+};
+
 export function useUserLocation() {
   const [location, setLocation] = useState<UserLocation | null>(null);
   const [permission, setPermission] = useState<Location.LocationPermissionResponse | null>(null);
   const [isTracking, setIsTracking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
 
   const stopWatching = () => {
@@ -22,6 +41,35 @@ export function useUserLocation() {
 
   const startWatching = async () => {
     stopWatching();
+    setError(null);
+
+    const onPosition = (coords: UserLocation) => {
+      setLocation(coords);
+      setIsTracking(true);
+      setError(null);
+    };
+
+    if (isWeb) {
+      // watchPosition itself triggers the browser prompt, so there's no
+      // permission probe here to burn a first fix that we'd throw away.
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) =>
+          onPosition({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            heading: pos.coords.heading,
+            accuracy: pos.coords.accuracy,
+          }),
+        (err) => {
+          setIsTracking(false);
+          setError(err.message || `geolocation error ${err.code}`);
+          if (err.code === err.PERMISSION_DENIED) setPermission(DENIED_PERMISSION);
+        },
+        WEB_POSITION_OPTIONS,
+      );
+      subscriptionRef.current = { remove: () => navigator.geolocation.clearWatch(watchId) };
+      return;
+    }
 
     const lastPos = await Location.getLastKnownPositionAsync({ maxAge: 60000 });
     if (lastPos) {
@@ -33,29 +81,28 @@ export function useUserLocation() {
       });
     }
 
-    const sub = await Location.watchPositionAsync(
+    subscriptionRef.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.Balanced,
         timeInterval: 5000,
         distanceInterval: 5,
       },
-      (loc) => {
-        setLocation({
+      (loc) =>
+        onPosition({
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
           heading: loc.coords.heading,
           accuracy: loc.coords.accuracy,
-        });
-        setIsTracking(true);
+        }),
+      (reason) => {
+        setIsTracking(false);
+        setError(String(reason));
       },
     );
-
-    subscriptionRef.current = sub;
   };
 
-  // Safari's Permissions API doesn't support querying `geolocation`, so
-  // requestForegroundPermissionsAsync rejects on web. Fall back to watching
-  // directly — navigator.geolocation.watchPosition triggers the native prompt.
+  // Native only: on web this probe acquires (and discards) a whole fix with
+  // no PositionOptions, and Safari rejects it outright.
   const requestForeground = async () => {
     try {
       return await Location.requestForegroundPermissionsAsync();
@@ -65,6 +112,11 @@ export function useUserLocation() {
   };
 
   const requestPermission = async () => {
+    if (isWeb) {
+      setPermission(null);
+      await startWatching();
+      return null;
+    }
     const perm = await requestForeground();
     setPermission(perm);
     if (!perm || perm.granted) {
@@ -77,6 +129,11 @@ export function useUserLocation() {
     let cancelled = false;
 
     (async () => {
+      if (isWeb) {
+        await startWatching();
+        return;
+      }
+
       const perm = await requestForeground();
       if (cancelled) return;
       setPermission(perm);
@@ -97,6 +154,7 @@ export function useUserLocation() {
 
   return {
     location,
+    error,
     isDenied,
     canAskAgain,
     permission,

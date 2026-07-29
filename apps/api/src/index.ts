@@ -8,14 +8,12 @@ import { billboardsRoute } from "./routes/billboards";
 import { moderation } from "./routes/moderation";
 import { poisRoute } from "./routes/pois";
 import { questsRoute } from "./routes/quests";
-import { reportsRoute } from "./routes/reports";
 import { signaturesRoute } from "./routes/signatures";
 import { stickersRoute } from "./routes/stickers";
 import { usersRoute } from "./routes/users";
 import { CampusRealtimeRoomDO } from "./realtime/campus-room";
 import { realtimeStub } from "./services/realtime";
 import { ensureDailyRotations, expireBillboards } from "./services/rotations";
-import { resetBrokenStreaks } from "./services/streaks";
 import type { AppBindings, Env } from "./types";
 
 export { CampusRealtimeRoomDO };
@@ -77,7 +75,6 @@ app.route("/api", poisRoute);
 app.route("/api", billboardsRoute);
 app.route("/api", stickersRoute);
 app.route("/api", questsRoute);
-app.route("/api", reportsRoute);
 app.route("/api", signaturesRoute);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
@@ -97,10 +94,16 @@ export default {
   async scheduled(_event: ScheduledEvent, env: Env) {
     const db = getDb(env);
 
+    // Isolated so a failing task can't stop the ones after it — a throw in
+    // rotations used to mean billboards never expired that day.
     try {
-      await ensureDailyRotations(db);
-      await expireBillboards(db);
-      await resetBrokenStreaks(db);
+      for (const task of [ensureDailyRotations, expireBillboards]) {
+        try {
+          await task(db);
+        } catch (error) {
+          console.error(`[cron] ${task.name} failed`, error);
+        }
+      }
     } finally {
       await db.$client.end({ timeout: 5 });
     }

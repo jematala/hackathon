@@ -41,7 +41,14 @@ const MAP_STYLES = `
 `;
 
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { staleTime: 30_000, refetchOnWindowFocus: false },
+        },
+      }),
+  );
   const [loaded, error] = useFonts({ Jersey10_400Regular });
 
   useEffect(() => {

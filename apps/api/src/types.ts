@@ -6,6 +6,8 @@ export type Env = {
   CAMPUS_REALTIME_ROOM: DurableObjectNamespace;
   CLERK_PUBLISHABLE_KEY?: string;
   CLERK_SECRET_KEY?: string;
+  /** PEM public key. When set, session tokens verify locally with no JWKS fetch. */
+  CLERK_JWT_KEY?: string;
   OPENAI_API_KEY?: string;
   MODERATION_ENABLED?: string;
   SUPABASE_POOLER_DATABASE_URL?: string;
@@ -18,7 +20,6 @@ export type AuthUser = {
   clerkUserId: string;
   username: string;
   displayName: string;
-  isAdmin: boolean;
 };
 
 export type Variables = {

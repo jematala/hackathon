@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { base64PngSchema, idSchema, isoDateSchema, isoDateTimeSchema } from "./common";
+import { base64PngSchema, idSchema, isoDateTimeSchema } from "./common";
 import { levelPerkSchema, unlockedPerkSchema } from "./perk";
 
 export const userProfileSchema = z.object({
@@ -13,11 +13,7 @@ export const userProfileSchema = z.object({
 });
 
 export const currentUserSchema = userProfileSchema.extend({
-  isAdmin: z.boolean(),
   xp: z.number().int().min(0),
-  dailyStreak: z.number().int().min(0),
-  streakUpdatedOn: isoDateSchema.nullable(),
-  lastDailyClaimedOn: isoDateSchema.nullable(),
   bannedAt: isoDateTimeSchema.nullable(),
   deletedAt: isoDateTimeSchema.nullable(),
   updatedAt: isoDateTimeSchema,
@@ -27,7 +23,6 @@ export const userProgressSchema = z.object({
   userId: idSchema,
   level: z.number().int().positive(),
   xp: z.number().int().min(0),
-  dailyStreak: z.number().int().min(0),
   capacities: z.object({
     maxConcurrentBillboards: z.number().int().positive(),
     dailyBillboardLimit: z.number().int().positive(),

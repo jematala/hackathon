@@ -13,7 +13,7 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 
 import type { getDb } from "../db";
-import { conflict, forbidden, notFound, tooManyRequests } from "../http";
+import { badRequest, conflict, forbidden, notFound, tooManyRequests } from "../http";
 import { getAuthUser, optionalAuth, requireAuth } from "../middleware/auth";
 import { jsonObject, isoDateTime } from "../serialize";
 import {
@@ -67,6 +67,15 @@ export const billboardsRoute = new Hono<AppBindings>();
 billboardsRoute.get("/billboards", optionalAuth, async (c) => {
   const db = c.var.db;
   const campusId = c.req.query("campusId");
+
+  if (campusId && !idSchema.safeParse(campusId).success) {
+    badRequest("Invalid campusId.");
+  }
+
+  const north = boundsParam(c.req.query("north"), "north");
+  const south = boundsParam(c.req.query("south"), "south");
+  const east = boundsParam(c.req.query("east"), "east");
+  const west = boundsParam(c.req.query("west"), "west");
   const rows = await db.execute<BillboardRow>(sql`
     select
       billboards.id,
@@ -108,10 +117,10 @@ billboardsRoute.get("/billboards", optionalAuth, async (c) => {
         )
       )
       and (${campusId ?? null}::uuid is null or billboards.campus_id = ${campusId ?? null})
-      and (${c.req.query("north") ?? null}::double precision is null or billboards.lat <= ${c.req.query("north") ?? null})
-      and (${c.req.query("south") ?? null}::double precision is null or billboards.lat >= ${c.req.query("south") ?? null})
-      and (${c.req.query("east") ?? null}::double precision is null or billboards.lng <= ${c.req.query("east") ?? null})
-      and (${c.req.query("west") ?? null}::double precision is null or billboards.lng >= ${c.req.query("west") ?? null})
+      and (${north}::double precision is null or billboards.lat <= ${north})
+      and (${south}::double precision is null or billboards.lat >= ${south})
+      and (${east}::double precision is null or billboards.lng <= ${east})
+      and (${west}::double precision is null or billboards.lng >= ${west})
     order by billboards.created_at desc
     limit 100
   `);
@@ -271,8 +280,8 @@ billboardsRoute.delete("/billboards/:id", requireAuth, async (c) => {
 
   const billboard = await loadBillboard(db, id.data);
 
-  if (billboard.authorId !== authUser.id && !authUser.isAdmin) {
-    forbidden("Only the owner or an admin can delete this billboard.");
+  if (billboard.authorId !== authUser.id) {
+    forbidden("Only the owner can delete this billboard.");
   }
 
   await db.execute(sql`
@@ -317,11 +326,27 @@ billboardsRoute.post(
       where billboard_id = ${id.data} and author_id = ${authUser.id} and deleted_at is null
     `);
 
-    if ((existingRows[0]?.count ?? 0) >= 10) {
-      conflict("You can place up to 10 stickers on a billboard.");
+    if ((existingRows[0]?.count ?? 0) >= 1000) {
+      conflict("You can place up to 1000 stickers on a billboard.");
     }
 
     const stickerAssetId = input.kind === "sticker" ? input.stickerAssetId : null;
+
+    if (stickerAssetId) {
+      const assetRows = await db.execute<{ ownerId: string }>(sql`
+        select owner_id as "ownerId"
+        from app.sticker_assets
+        where id = ${stickerAssetId} and deleted_at is null
+      `);
+
+      if (!assetRows[0]) {
+        notFound("Sticker asset not found.");
+      }
+
+      if (assetRows[0].ownerId !== authUser.id) {
+        forbidden("You can only place your own sticker assets.");
+      }
+    }
 
     const insertRows = await db.execute<{ id: string }>(sql`
       insert into app.billboard_placements (
@@ -393,6 +418,20 @@ billboardsRoute.post(
   },
 );
 
+function boundsParam(value: string | undefined, name: string) {
+  if (value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    badRequest(`Invalid ${name}.`);
+  }
+
+  return parsed;
+}
+
 async function loadBillboard(db: ReturnType<typeof getDb>, id: string) {
   const rows = await db.execute<BillboardRow>(sql`
     select
@@ -435,7 +474,9 @@ async function loadBillboard(db: ReturnType<typeof getDb>, id: string) {
 }
 
 async function loadPlacements(db: ReturnType<typeof getDb>, billboardId: string) {
+  // ponytail: newest 100 layers only; paginate if billboards ever need deeper history.
   return db.execute<PlacementRow>(sql`
+    select * from (
     select
       billboard_placements.id,
       billboard_placements.billboard_id as "billboardId",
@@ -458,13 +499,19 @@ async function loadPlacements(db: ReturnType<typeof getDb>, billboardId: string)
       sticker_assets.created_at as "stickerAssetCreatedAt"
     from app.billboard_placements
     join app.users on users.id = billboard_placements.author_id
-    left join app.sticker_assets on sticker_assets.id = billboard_placements.sticker_asset_id
+    left join app.sticker_assets
+      on sticker_assets.id = billboard_placements.sticker_asset_id
+      and sticker_assets.deleted_at is null
+      and sticker_assets.status = 'active'
     where
       billboard_placements.billboard_id = ${billboardId}
       and billboard_placements.deleted_at is null
       and billboard_placements.hidden_at is null
       and billboard_placements.status = 'active'
-    order by billboard_placements.z_index asc, billboard_placements.created_at asc
+    order by billboard_placements.z_index desc, billboard_placements.created_at desc, billboard_placements.id desc
+    limit 100
+    ) as placements
+    order by "zIndex" asc, "createdAt" asc, id asc
   `);
 }
 

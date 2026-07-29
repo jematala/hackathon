@@ -122,6 +122,15 @@ stickersRoute.post(
     const db = c.var.db;
     const authUser = getAuthUser(c);
     const input = c.req.valid("json");
+
+    if (input.kind === "sticker") {
+      const asset = await loadStickerAsset(db, input.stickerAssetId);
+
+      if (asset.ownerId !== authUser.id) {
+        forbidden("You can only save your own sticker assets.");
+      }
+    }
+
     const response = await db.transaction(async (tx) => {
       await tx.execute(sql`select id from app.users where id = ${authUser.id} for update`);
 

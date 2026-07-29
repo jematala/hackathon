@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 
 import type { getDb } from "../db";
-import { unauthorized } from "../http";
+import { forbidden, unauthorized } from "../http";
 import type { AppBindings, AuthUser, Env } from "../types";
 
 type Database = ReturnType<typeof getDb>;
@@ -145,6 +145,9 @@ async function resolveAuthClaims(
     requestWithQueryToken(request, token),
     {
       acceptsToken: "session_token",
+      // Local verification. Without it @clerk/backend refetches JWKS every 5min
+      // and doesn't coalesce, so concurrent cold requests each pay ~250ms.
+      ...(env.CLERK_JWT_KEY ? { jwtKey: env.CLERK_JWT_KEY } : {}),
     },
   );
 
@@ -164,6 +167,21 @@ async function resolveAuthClaims(
   };
 }
 
+type AuthFlags = { bannedAt: string | null; deletedAt: string | null };
+
+// Every authenticated route funnels through upsertAuthUser, so banned/soft-deleted
+// users are rejected here rather than per route. Nothing in the app sets banned_at
+// any more — bans are applied manually via SQL — this stays as the enforcement point.
+function assertActive<T extends AuthFlags>(user: T): T {
+  if (user.deletedAt) {
+    forbidden("This account has been deleted.");
+  }
+  if (user.bannedAt) {
+    forbidden("This account has been banned.");
+  }
+  return user;
+}
+
 async function upsertAuthUser(db: Database, env: Env, payload: ClerkClaims): Promise<AuthUser> {
   if (!payload.sub) {
     unauthorized("Authentication token is missing a subject.");
@@ -171,31 +189,31 @@ async function upsertAuthUser(db: Database, env: Env, payload: ClerkClaims): Pro
 
   // Fast path: known user. Skips the advisory-locked transaction + writes that
   // previously ran on EVERY authenticated request and serialized all traffic.
-  const existing = await db.execute<AuthUser>(sql`
+  const existing = await db.execute<AuthUser & AuthFlags>(sql`
     select
       id,
       clerk_user_id as "clerkUserId",
       username,
       display_name as "displayName",
-      is_admin as "isAdmin"
+      banned_at as "bannedAt",
+      deleted_at as "deletedAt"
     from app.users
     where clerk_user_id = ${payload.sub}
   `);
 
   if (existing[0]) {
-    return existing[0];
+    return assertActive(existing[0]);
   }
 
   const rows = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(74291013)`);
 
-    return tx.execute<AuthUser>(sql`
-      insert into app.users (clerk_user_id, username, display_name, is_admin)
+    return tx.execute<AuthUser & AuthFlags>(sql`
+      insert into app.users (clerk_user_id, username, display_name)
       values (
         ${payload.sub},
         ${usernameFromClaims(payload)},
-        ${displayNameFromClaims(payload)},
-        not exists (select 1 from app.users where deleted_at is null)
+        ${displayNameFromClaims(payload)}
       )
       on conflict (clerk_user_id) do update
         set updated_at = now()
@@ -204,7 +222,8 @@ async function upsertAuthUser(db: Database, env: Env, payload: ClerkClaims): Pro
         clerk_user_id as "clerkUserId",
         username,
         display_name as "displayName",
-        is_admin as "isAdmin",
+        banned_at as "bannedAt",
+        deleted_at as "deletedAt",
         (xmax = 0) as "inserted"
     `);
   });
@@ -213,6 +232,8 @@ async function upsertAuthUser(db: Database, env: Env, payload: ClerkClaims): Pro
   if (!user) {
     throw new Error("Failed to resolve authenticated user.");
   }
+
+  assertActive(user);
 
   if ((user as AuthUser & { inserted?: boolean }).inserted) {
     const enriched = await enrichUserFromClerk(db, env, user.id, user.clerkUserId);

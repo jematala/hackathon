@@ -83,9 +83,13 @@ export function pinForAuthor(authorId: string): PinTone {
   return pinPalette[hashString(authorId, 7919) % pinPalette.length];
 }
 
+// Pinned demo boards sit ~decades out; showing "87600h left" reads as a bug.
+const PERMANENT_AFTER_MS = 30 * 24 * 3_600_000;
+
 export function expiresInLabel(expiresAtIso: string): string {
   const diff = new Date(expiresAtIso).getTime() - Date.now();
   if (diff <= 0) return "expired";
+  if (diff > PERMANENT_AFTER_MS) return "always here";
   const hours = Math.floor(diff / 3_600_000);
   const minutes = Math.floor((diff % 3_600_000) / 60_000);
   if (hours >= 1) return `${hours}h ${minutes}m left`;

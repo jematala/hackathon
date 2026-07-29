@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { idSchema, isoDateSchema, isoDateTimeSchema } from "./common";
+import { idSchema, isoDateTimeSchema } from "./common";
 
 export const questTriggerTypeSchema = z.enum([
   "visit_pois",
@@ -9,21 +9,9 @@ export const questTriggerTypeSchema = z.enum([
   "receive_replies",
   "save_stickers",
 ]);
-export const questSourceSchema = z.enum(["level_quest", "daily_quest"]);
+export const questSourceSchema = z.enum(["level_quest"]);
 
 export const questTemplateSchema = z.object({
-  id: idSchema,
-  key: z.string().min(1),
-  triggerType: questTriggerTypeSchema,
-  titleTemplate: z.string().min(1),
-  descriptionTemplate: z.string().min(1),
-  minTarget: z.number().int().positive(),
-  maxTarget: z.number().int().positive(),
-  xpReward: z.number().int().min(0),
-  active: z.boolean(),
-});
-
-export const dailyQuestTemplateSchema = z.object({
   id: idSchema,
   key: z.string().min(1),
   triggerType: questTriggerTypeSchema,
@@ -51,37 +39,7 @@ export const levelQuestSchema = questBaseSchema.extend({
   sortOrder: z.number().int().min(0),
 });
 
-export const dailyQuestSchema = questBaseSchema.extend({
-  source: z.literal("daily_quest"),
-  template: dailyQuestTemplateSchema,
-  activeOn: isoDateSchema,
-});
-
-export const questSchema = z.discriminatedUnion("source", [levelQuestSchema, dailyQuestSchema]);
-
-export const streakRewardSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("signature"),
-    signatureKey: z.string().min(1),
-  }),
-  z.object({
-    type: z.literal("capacity_billboard"),
-    amount: z.number().int().positive(),
-  }),
-]);
-
-export const streakRewardPayloadSchema = z.object({
-  rewards: z.array(streakRewardSchema).min(1),
-});
-
-export const streakRewardDefinitionSchema = z.object({
-  id: idSchema,
-  streakDays: z.number().int().positive(),
-  name: z.string().min(1),
-  reward: streakRewardPayloadSchema,
-  active: z.boolean(),
-  createdAt: isoDateTimeSchema,
-});
+export const questSchema = levelQuestSchema;
 
 const questProgressBaseSchema = z.object({
   id: idSchema,
@@ -97,17 +55,11 @@ export const levelQuestProgressSchema = questProgressBaseSchema.extend({
   quest: levelQuestSchema,
 });
 
-export const dailyQuestProgressSchema = questProgressBaseSchema.extend({
-  quest: dailyQuestSchema,
-});
-
-export const questProgressSchema = z.union([levelQuestProgressSchema, dailyQuestProgressSchema]);
+export const questProgressSchema = levelQuestProgressSchema;
 
 export const listQuestsResponseSchema = z.object({
   level: z.number().int().positive(),
   levelQuests: z.array(levelQuestProgressSchema),
-  dailyQuest: dailyQuestProgressSchema.nullable(),
-  streak: z.number().int().min(0),
 });
 
 export const claimQuestParamsSchema = z.object({
@@ -138,15 +90,9 @@ export const claimQuestResponseSchema = z.object({
 export type QuestTriggerType = z.infer<typeof questTriggerTypeSchema>;
 export type QuestSource = z.infer<typeof questSourceSchema>;
 export type QuestTemplate = z.infer<typeof questTemplateSchema>;
-export type DailyQuestTemplate = z.infer<typeof dailyQuestTemplateSchema>;
 export type LevelQuest = z.infer<typeof levelQuestSchema>;
-export type DailyQuest = z.infer<typeof dailyQuestSchema>;
 export type Quest = z.infer<typeof questSchema>;
-export type StreakReward = z.infer<typeof streakRewardSchema>;
-export type StreakRewardPayload = z.infer<typeof streakRewardPayloadSchema>;
-export type StreakRewardDefinition = z.infer<typeof streakRewardDefinitionSchema>;
 export type LevelQuestProgress = z.infer<typeof levelQuestProgressSchema>;
-export type DailyQuestProgress = z.infer<typeof dailyQuestProgressSchema>;
 export type QuestProgress = z.infer<typeof questProgressSchema>;
 export type ListQuestsResponse = z.infer<typeof listQuestsResponseSchema>;
 export type ClaimQuestParams = z.infer<typeof claimQuestParamsSchema>;

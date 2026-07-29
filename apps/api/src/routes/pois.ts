@@ -1,26 +1,20 @@
 import {
-  createPoiInputSchema,
   getPoiResponseSchema,
   idSchema,
   listPoisResponseSchema,
-  updatePoiInputSchema,
-  upsertPoiResponseSchema,
   visitPoiInputSchema,
   visitPoiResponseSchema,
 } from "@repo/shared";
 import { zValidator } from "@hono/zod-validator";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { z } from "zod";
 
 import type { getDb } from "../db";
 import { badRequest, notFound } from "../http";
 import { getAuthUser, optionalAuth, requireAuth } from "../middleware/auth";
 import { incrementQuestProgress, questProgressUpdate } from "../services/progression";
-import { ensureDailyRotations } from "../services/rotations";
 import { isoDate, isoDateTime } from "../serialize";
 import type { AppBindings, AuthUser } from "../types";
-import { requireAdmin } from "./users";
 
 type CampusRow = {
   bounds: { east: number; north: number; south: number; west: number };
@@ -50,8 +44,6 @@ type PoiRow = {
   visitCount: number;
 };
 
-const upsertPoiInputSchema = z.union([createPoiInputSchema, updatePoiInputSchema]);
-
 export const poisRoute = new Hono<AppBindings>();
 
 poisRoute.get("/pois", optionalAuth, async (c) => {
@@ -59,10 +51,21 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
   const campusId = c.req.query("campusId");
   const authUser = safeAuthUser(c);
 
-  await ensureDailyRotations(db);
-
-  const campus = await loadCampus(db, campusId);
-  const rows = await db.execute<PoiRow>(sql`
+  // Rotations are maintained by the 30-minute cron (see index.ts scheduled), not
+  // on the read path — it turned every GET into a read-write transaction.
+  //
+  // Both statements are independent (the list query resolves the campus itself),
+  // so they share one round trip instead of two.
+  const [campus, rows] = await Promise.all([
+    loadCampus(db, campusId),
+    db.execute<PoiRow>(sql`
+    with campus as (
+      select id, timezone
+      from app.campuses
+      where ${campusId ? sql`id = ${campusId}` : sql`true`}
+      order by created_at
+      limit 1
+    )
     select
       pois.id,
       pois.campus_id as "campusId",
@@ -81,17 +84,16 @@ poisRoute.get("/pois", optionalAuth, async (c) => {
       pois.created_at as "createdAt",
       pois.updated_at as "updatedAt",
       0::int as "visitCount"
-    from app.pois
+    from campus
+    join app.pois on pois.campus_id = campus.id
     join app.poi_daily_activations
       on poi_daily_activations.poi_id = pois.id
       and poi_daily_activations.campus_id = pois.campus_id
-      and poi_daily_activations.active_on = (timezone(${campus.timezone}, now()))::date
-    where
-      pois.campus_id = ${campus.id}
-      and pois.deleted_at is null
-      and pois.is_active
+      and poi_daily_activations.active_on = (timezone(campus.timezone, now()))::date
+    where pois.deleted_at is null and pois.is_active
     order by pois.title
-  `);
+  `),
+  ]);
 
   return c.json(
     listPoisResponseSchema.parse({
@@ -112,74 +114,6 @@ poisRoute.get("/pois/:id", optionalAuth, async (c) => {
   const poi = await loadPoi(db, id.data, safeAuthUser(c)?.id);
 
   return c.json(getPoiResponseSchema.parse({ poi: poiDetail(poi) }));
-});
-
-poisRoute.post("/pois", requireAuth, zValidator("json", upsertPoiInputSchema), async (c) => {
-  const db = c.var.db;
-  const authUser = getAuthUser(c);
-  const input = c.req.valid("json");
-
-  requireAdmin(authUser);
-
-  const rows =
-    "id" in input
-      ? await db.execute<{ id: string }>(sql`
-            update app.pois
-            set
-              campus_id = coalesce(${input.campusId ?? null}, campus_id),
-              title = coalesce(${input.title ?? null}, title),
-              description = coalesce(${input.description ?? null}, description),
-              picture_base64 = coalesce(${input.pictureBase64 ?? null}, picture_base64),
-              lat = coalesce(${input.lat ?? null}, lat),
-              lng = coalesce(${input.lng ?? null}, lng),
-              location_point = case
-                when ${input.lat ?? null}::double precision is not null
-                  and ${input.lng ?? null}::double precision is not null
-                then st_setsrid(st_makepoint(${input.lng}, ${input.lat}), 4326)::geography
-                else location_point
-              end,
-              radius_meters = coalesce(${input.radiusMeters ?? null}, radius_meters),
-              is_active = coalesce(${input.isActive ?? null}, is_active),
-              updated_at = now()
-            where id = ${input.id}
-            returning id
-          `)
-      : await db.execute<{ id: string }>(sql`
-            insert into app.pois (
-              campus_id,
-              title,
-              description,
-              picture_base64,
-              lat,
-              lng,
-              location_point,
-              radius_meters,
-              is_active,
-              created_by
-            )
-            values (
-              ${input.campusId},
-              ${input.title},
-              ${input.description ?? null},
-              ${input.pictureBase64 ?? null},
-              ${input.lat},
-              ${input.lng},
-              st_setsrid(st_makepoint(${input.lng}, ${input.lat}), 4326)::geography,
-              ${input.radiusMeters},
-              ${input.isActive},
-              ${authUser.id}
-            )
-            returning id
-          `);
-  const row = rows[0];
-
-  if (!row) {
-    notFound("POI not found.");
-  }
-
-  const poi = await loadPoi(db, row.id, authUser.id);
-
-  return c.json(upsertPoiResponseSchema.parse({ poi: poiDetail(poi) }));
 });
 
 poisRoute.post(
