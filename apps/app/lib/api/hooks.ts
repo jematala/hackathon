@@ -16,6 +16,7 @@ import {
   updateCurrentUserResponseSchema,
   visitPoiResponseSchema,
   type CreateBillboardInput,
+  type GetBillboardResponse,
   type CreatePlacementInput,
   type CreateSavedStickerInput,
   type CreateStickerInput,
@@ -169,7 +170,20 @@ export function useCreatePlacement(billboardId: string) {
       }),
     onSuccess: (data) => {
       pushQuestProgress(data.questProgress);
-      queryClient.invalidateQueries({ queryKey: qk.billboard(billboardId) });
+      // Write the returned placement straight into the cached board so it
+      // renders instantly, instead of waiting on a refetch round trip.
+      queryClient.setQueryData<GetBillboardResponse>(qk.billboard(billboardId), (prev) => {
+        if (!prev || prev.billboard.placements.some((p) => p.id === data.placement.id)) {
+          return prev;
+        }
+        return {
+          billboard: {
+            ...prev.billboard,
+            placements: [...prev.billboard.placements, data.placement],
+            placementCount: prev.billboard.placementCount + 1,
+          },
+        };
+      });
       queryClient.invalidateQueries({ queryKey: ["billboards"] });
       queryClient.invalidateQueries({ queryKey: qk.quests(auth.userId) });
       queryClient.invalidateQueries({ queryKey: qk.userProgress(auth.userId) });
